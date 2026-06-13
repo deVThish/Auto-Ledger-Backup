@@ -2,415 +2,209 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { JwtService } from '@nestjs/jwt';
-import { LicenseStatus, FineStatus } from '@prisma/client';
 
-interface QrPayload {
-  userId: string;
-  nic: string;
-  licenseNumber: string;
+export interface CreateOffenseData {
+  code: string;
+  name: string;
+  points: number;
+  amount: number;
+  isCourtCase: boolean;
+}
+
+export interface UpdateOffenseData {
+  name?: string;
+  points?: number;
+  amount?: number;
+  isCourtCase?: boolean;
 }
 
 @Injectable()
 export class FinesService {
-  constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async issueFine(data: {
-    qrToken: string;
-    offenseCodes: string[];
+    licenseId: string;
     officerId: string;
+    offenseIds: string[];
+    comment?: string;
   }) {
-    let licenseNumber = '';
-
-    try {
-      const decoded: QrPayload = this.jwtService.verify(data.qrToken);
-      licenseNumber = decoded.licenseNumber;
-    } catch {
-      throw new UnauthorizedException(
-        'QR Token Expired or Invalid! Please scan the driver app again.',
-      );
-    }
-
-    const officer = await this.prisma.officer.findUnique({
-      where: { id: data.officerId },
-      include: { shifts: { where: { isActive: true } } },
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { traffic_Officer_Id: data.officerId },
     });
+    if (!officer) throw new NotFoundException('Officer not found');
 
-    if (!officer) {
-      throw new NotFoundException('Officer not found in the system.');
-    }
-
-    const activeShift = officer.shifts[0];
-
-    if (activeShift) {
-      const now = new Date();
-      const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-      const shiftStartMinutes =
-        activeShift.startTime.getHours() * 60 +
-        activeShift.startTime.getMinutes();
-      const shiftEndMinutes =
-        activeShift.endTime.getHours() * 60 + activeShift.endTime.getMinutes();
-
-      let isWithinShift = false;
-      if (shiftStartMinutes <= shiftEndMinutes) {
-        isWithinShift =
-          currentTotalMinutes >= shiftStartMinutes &&
-          currentTotalMinutes <= shiftEndMinutes;
-      } else {
-        isWithinShift =
-          currentTotalMinutes >= shiftStartMinutes ||
-          currentTotalMinutes <= shiftEndMinutes;
-      }
-
-      if (!isWithinShift) {
-        throw new UnauthorizedException(
-          'Access Denied: Officer is outside of active shift hours.',
-        );
-      }
-    } else {
-      throw new UnauthorizedException(
-        'Access Denied: No active shift assigned to this officer.',
-      );
-    }
-
-    const license = await this.prisma.license.findUnique({
-      where: { licenseNumber },
+    const license = await this.prisma.driving_License.findUnique({
+      where: { license_Id: data.licenseId },
     });
+    if (!license) throw new NotFoundException('License not found');
 
-    if (!license) {
-      throw new NotFoundException('License not found in the system.');
-    }
-
-    if (license.status === LicenseStatus.REVOKED) {
-      throw new BadRequestException(
-        'This license is already permanently revoked.',
-      );
-    }
-
-    const offenses = await this.prisma.offenseCategory.findMany({
-      where: { code: { in: data.offenseCodes } },
+    const offenses = await this.prisma.offence_Category.findMany({
+      where: { offense_Id: { in: data.offenseIds } },
     });
+    if (offenses.length === 0)
+      throw new BadRequestException('Invalid offenses');
 
-    if (offenses.length === 0 || offenses.length !== data.offenseCodes.length) {
-      throw new NotFoundException('One or more offense codes are invalid.');
-    }
+    const isCourtCase = offenses.some((o) => o.is_Court_Case);
+    const fineDueDate = new Date();
+    fineDueDate.setDate(fineDueDate.getDate() + 14);
 
-    const totalOffensePoints = offenses.reduce(
-      (sum, off) => sum + off.points,
-      0,
-    );
-    const newPoints = license.points + totalOffensePoints;
-
-    const isCourtCase = offenses.some((off) => off.isCourtCase);
-
-    let newLicenseStatus: LicenseStatus;
-    let tempExpiryDate: Date | null = null;
-    let fineDueDate: Date | null = null;
-
-    if (newPoints > 50) {
-      newLicenseStatus = LicenseStatus.REVOKED;
-      tempExpiryDate = null;
-    } else if (newPoints === 50) {
-      newLicenseStatus = LicenseStatus.SUSPENDED;
-      tempExpiryDate = new Date();
-      tempExpiryDate.setFullYear(tempExpiryDate.getFullYear() + 5);
-    } else if (newPoints >= 24) {
-      newLicenseStatus = LicenseStatus.SUSPENDED;
-      tempExpiryDate = new Date();
-      tempExpiryDate.setFullYear(tempExpiryDate.getFullYear() + 1);
-    } else {
-      newLicenseStatus = isCourtCase
-        ? LicenseStatus.COURT_PENDING
-        : LicenseStatus.SUSPENDED;
-      if (!isCourtCase) {
-        tempExpiryDate = new Date();
-        tempExpiryDate.setDate(tempExpiryDate.getDate() + 14);
-      }
-    }
-
-    if (!isCourtCase) {
-      fineDueDate = new Date();
-      fineDueDate.setDate(fineDueDate.getDate() + 14);
-    }
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const fineStatus = isCourtCase
-        ? FineStatus.COURT_CASE
-        : FineStatus.PENDING;
-
-      const createdFine = await tx.fine.create({
+    return this.prisma.$transaction(async (tx) => {
+      const fine = await tx.fine.create({
         data: {
-          dueDate: fineDueDate,
-          status: fineStatus,
-          licenseId: license.id,
-          officerId: data.officerId,
-          offenses: {
-            connect: offenses.map((off) => ({ id: off.id })),
-          },
-        },
-        include: {
-          offenses: { select: { name: true, amount: true } },
+          license_Id: data.licenseId,
+          traffic_Officer_Id: data.officerId,
+          due_Date: fineDueDate,
+          status: 'PENDING',
+          comment: data.comment || null,
         },
       });
 
-      const updatedLicense = await tx.license.update({
-        where: { id: license.id },
+      for (const offense of offenses) {
+        await tx.fine_Offence.create({
+          data: { fine_Id: fine.fine_Id, offense_Id: offense.offense_Id },
+        });
+      }
+
+      if (!isCourtCase) {
+        await tx.temporary_License.create({
+          data: {
+            license_Id: data.licenseId,
+            expiry_Date: fineDueDate,
+          },
+        });
+      }
+
+      const totalPoints = offenses.reduce(
+        (sum, off) => sum + off.points_Value,
+        0,
+      );
+      await tx.driving_License.update({
+        where: { license_Id: data.licenseId },
+        data: { points: { decrement: totalPoints } },
+      });
+
+      return fine;
+    });
+  }
+
+  async getMyFines(userId: string) {
+    const license = await this.prisma.driving_License.findUnique({
+      where: { user_Id: userId },
+    });
+    if (!license) throw new NotFoundException('License not found');
+
+    return this.prisma.fine.findMany({
+      where: { license_Id: license.license_Id },
+      include: {
+        offenses: { include: { offenceCategory: true } },
+        trafficOfficer: { select: { name: true, badge_No: true } },
+        payment: true,
+      },
+      orderBy: { issue_At: 'desc' },
+    });
+  }
+
+  async payFine(fineId: string, amount: number, paymentMethod: string) {
+    const fine = await this.prisma.fine.findUnique({
+      where: { fine_Id: fineId },
+    });
+
+    if (!fine) throw new NotFoundException('Fine not found');
+    if (fine.status === 'PAID')
+      throw new BadRequestException('Fine is already paid');
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
         data: {
-          points: newPoints,
-          status: newLicenseStatus,
-          temporaryLicenseExpiry: tempExpiryDate,
+          fine_Id: fineId,
+          amount: amount,
+          status: 'COMPLETED',
         },
+      });
+
+      const updatedFine = await tx.fine.update({
+        where: { fine_Id: fineId },
+        data: { status: 'PAID' },
       });
 
       return {
-        fineDetails: [createdFine],
-        licenseStatus: updatedLicense.status,
-        accumulatedPoints: updatedLicense.points,
-        temporaryLicenseExpiry: updatedLicense.temporaryLicenseExpiry,
+        message: `Payment of Rs.${amount} processed successfully via ${paymentMethod}`,
+        paymentId: payment.payment_Id,
+        fineStatus: updatedFine.status,
       };
     });
-
-    return result;
   }
 
-  async resolveCourtCase(fineId: string, finalVerdict: 'ACTIVE' | 'REVOKED') {
+  async updateCourtCase(fineId: string, verdict: 'ACTIVE' | 'REVOKED') {
     const fine = await this.prisma.fine.findUnique({
-      where: { id: fineId },
-      include: { license: true },
+      where: { fine_Id: fineId },
     });
-
-    if (!fine || fine.status !== FineStatus.COURT_CASE) {
-      throw new NotFoundException('Valid pending court case not found.');
-    }
+    if (!fine) throw new NotFoundException('Fine not found');
 
     return this.prisma.$transaction(async (tx) => {
       await tx.fine.update({
-        where: { id: fineId },
-        data: { status: FineStatus.RESOLVED },
+        where: { fine_Id: fineId },
+        data: { status: 'PAID' },
       });
 
-      return tx.license.update({
-        where: { id: fine.licenseId },
+      return tx.driving_License.update({
+        where: { license_Id: fine.license_Id },
         data: {
-          status:
-            finalVerdict === 'ACTIVE'
-              ? LicenseStatus.ACTIVE
-              : LicenseStatus.REVOKED,
-          points: finalVerdict === 'ACTIVE' ? 0 : fine.license.points,
-          temporaryLicenseExpiry: null,
+          status: verdict,
+          points: verdict === 'ACTIVE' ? 24 : 0,
         },
       });
     });
   }
 
-  async getCourtCasesByDistrict(districtId: string) {
-    return this.prisma.fine.findMany({
-      where: {
-        status: FineStatus.COURT_CASE,
-        officer: { districtId: districtId },
-      },
-      include: {
-        officer: { select: { badgeNumber: true, name: true } },
-        offenses: true,
-        license: { select: { licenseNumber: true } },
-      },
-      orderBy: { issuedAt: 'desc' },
+  async getAllOffenses() {
+    return this.prisma.offence_Category.findMany({
+      orderBy: { code: 'asc' },
     });
   }
 
-  async getOffenses() {
-    return this.prisma.offenseCategory.findMany();
-  }
-
-  async verifyLicense(licenseNumber: string) {
-    const license = await this.prisma.license.findUnique({
-      where: { licenseNumber },
-      include: {
-        fines: {
-          orderBy: { issuedAt: 'desc' },
-          take: 3,
-          include: { offenses: true },
-        },
+  async createOffenseCategory(data: CreateOffenseData, policeAdminId: string) {
+    return this.prisma.offence_Category.create({
+      data: {
+        code: data.code,
+        name: data.name,
+        points_Value: data.points,
+        amount: data.amount,
+        is_Court_Case: data.isCourtCase,
+        police_Admin_Id: policeAdminId,
       },
-    });
-
-    if (!license) {
-      throw new NotFoundException('License not found in the system.');
-    }
-
-    return license;
-  }
-
-  async getOfficerFineHistory(officerId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return this.prisma.fine.findMany({
-      where: {
-        officerId: officerId,
-        issuedAt: { gte: today },
-      },
-      include: {
-        license: { select: { licenseNumber: true } },
-        offenses: { select: { name: true, points: true } },
-      },
-      orderBy: { issuedAt: 'desc' },
     });
   }
 
-  async getDriverFineHistory(userId: string) {
-    const license = await this.prisma.license.findUnique({
-      where: { userId },
+  async updateOffenseCategory(offenseId: string, data: UpdateOffenseData) {
+    const existing = await this.prisma.offence_Category.findUnique({
+      where: { offense_Id: offenseId },
     });
+    if (!existing) throw new NotFoundException('Offense Category not found');
 
-    if (!license) {
-      throw new NotFoundException('No driving license found for this user.');
-    }
-
-    return this.prisma.fine.findMany({
-      where: { licenseId: license.id },
-      include: {
-        offenses: {
-          select: { name: true, points: true, amount: true },
-        },
-        officer: { select: { badgeNumber: true } },
+    return this.prisma.offence_Category.update({
+      where: { offense_Id: offenseId },
+      data: {
+        name: data.name ?? existing.name,
+        points_Value: data.points ?? existing.points_Value,
+        amount: data.amount ?? existing.amount,
+        is_Court_Case: data.isCourtCase ?? existing.is_Court_Case,
       },
-      orderBy: { issuedAt: 'desc' },
     });
   }
 
-  async calculateTotalAmount(fineIds: string[], userId: string) {
-    if (!fineIds || fineIds.length === 0) {
-      throw new BadRequestException('No fines selected.');
-    }
-
-    const fines = await this.prisma.fine.findMany({
-      where: { id: { in: fineIds } },
-      include: { license: true, offenses: true },
+  async deleteOffenseCategory(offenseId: string) {
+    const existing = await this.prisma.offence_Category.findUnique({
+      where: { offense_Id: offenseId },
     });
+    if (!existing) throw new NotFoundException('Offense Category not found');
 
-    if (fines.length === 0 || fines.some((f) => f.license.userId !== userId)) {
-      throw new UnauthorizedException(
-        'You do not have permission to view one or more of these fines.',
-      );
-    }
-
-    if (fines.some((f) => f.status !== FineStatus.PENDING)) {
-      throw new BadRequestException(
-        'One or more selected fines cannot be paid.',
-      );
-    }
-
-    const totalAmount = fines.reduce(
-      (sum, fine) =>
-        sum + fine.offenses.reduce((offSum, off) => offSum + off.amount, 0),
-      0,
-    );
-
-    return { totalAmount };
-  }
-
-  async payFines(fineIds: string[], userId: string) {
-    if (!fineIds || fineIds.length === 0) {
-      throw new BadRequestException('No fines selected for payment.');
-    }
-
-    const fines = await this.prisma.fine.findMany({
-      where: { id: { in: fineIds } },
-      include: { license: true },
+    return this.prisma.offence_Category.delete({
+      where: { offense_Id: offenseId },
     });
-
-    if (fines.length === 0 || fines.some((f) => f.license.userId !== userId)) {
-      throw new UnauthorizedException(
-        'You do not have permission to pay one or more of these fines.',
-      );
-    }
-
-    if (fines.some((f) => f.status !== FineStatus.PENDING)) {
-      throw new BadRequestException(
-        'One or more fines cannot be paid. They may already be paid or are court cases.',
-      );
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.fine.updateMany({
-        where: { id: { in: fineIds } },
-        data: { status: FineStatus.PAID },
-      });
-
-      const firstFine = fines[0];
-
-      const otherPendingFinesCount = await tx.fine.count({
-        where: {
-          licenseId: firstFine.licenseId,
-          status: FineStatus.PENDING,
-        },
-      });
-
-      let updatedLicenseStatus: LicenseStatus = LicenseStatus.SUSPENDED;
-
-      if (otherPendingFinesCount === 0) {
-        await tx.license.update({
-          where: { id: firstFine.licenseId },
-          data: {
-            status: LicenseStatus.ACTIVE,
-            temporaryLicenseExpiry: null,
-          },
-        });
-        updatedLicenseStatus = LicenseStatus.ACTIVE;
-      }
-
-      return {
-        success: true,
-        message: `Successfully paid ${fineIds.length} fine(s).`,
-        licenseStatus: updatedLicenseStatus,
-      };
-    });
-  }
-
-  async getDistrictStatistics(districtId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const totalFinesToday = await this.prisma.fine.count({
-      where: {
-        officer: { districtId },
-        issuedAt: { gte: today },
-      },
-    });
-
-    const paidFines = await this.prisma.fine.findMany({
-      where: {
-        officer: { districtId },
-        status: 'PAID',
-        issuedAt: { gte: today },
-      },
-      include: { offenses: true },
-    });
-
-    const revenueToday = paidFines.reduce(
-      (sum, fine) =>
-        sum + fine.offenses.reduce((offSum, off) => offSum + off.amount, 0),
-      0,
-    );
-
-    const pendingCourtCases = await this.prisma.fine.count({
-      where: {
-        officer: { districtId },
-        status: 'COURT_CASE',
-      },
-    });
-
-    return {
-      totalFinesToday,
-      revenueToday,
-      pendingCourtCases,
-    };
   }
 }

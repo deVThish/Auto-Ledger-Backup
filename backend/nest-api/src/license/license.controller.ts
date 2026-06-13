@@ -1,88 +1,172 @@
 import {
   Controller,
   Post,
-  Body,
   Get,
-  Param,
   Patch,
-  Delete,
+  Body,
+  Request,
   UseGuards,
-  Req,
+  Param,
 } from '@nestjs/common';
 import { LicenseService } from './license.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiProperty,
+  ApiPropertyOptional,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
-export class IssueLicenseDto {
+export interface AuthRequest {
+  user: { id: string };
+}
+
+export class VehicleCategoryDto {
+  @ApiProperty({ example: 'B' })
+  @IsString()
+  @IsNotEmpty()
+  vehicleClass: string;
+
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
+  @IsDateString()
+  issueDate: Date;
+
+  @ApiProperty({ example: '2032-01-01T00:00:00Z' })
+  @IsDateString()
+  expiryDate: Date;
+
+  @ApiPropertyOptional({ example: 'Auto only' })
+  @IsString()
+  @IsOptional()
+  restriction?: string;
+}
+
+export class CreateLicenseDto {
+  @ApiProperty({ example: 'B1234567' })
+  @IsString()
+  @IsNotEmpty()
+  licenseNo: string;
+
+  @ApiProperty({ example: 'No 10, Galle Road, Galle' })
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @ApiProperty({ example: 'O+' })
+  @IsString()
+  @IsNotEmpty()
+  bloodGroup: string;
+
+  @ApiProperty({ example: '2000-01-01T00:00:00Z' })
+  @IsDateString()
+  dateOfBirth: Date;
+
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
+  @IsDateString()
+  issueDate: Date;
+
   @ApiProperty({ example: '200204802139' })
-  nic: string;
-
-  @ApiProperty({ example: 'user-uuid-here' })
+  @IsString()
+  @IsNotEmpty()
   userId: string;
+
+  @ApiPropertyOptional({ example: 'base64_image_string' })
+  @IsString()
+  @IsOptional()
+  image?: string;
+
+  @ApiProperty({ type: [VehicleCategoryDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VehicleCategoryDto)
+  categories: VehicleCategoryDto[];
 }
 
-export class UpdateLicenseDto {
-  @ApiProperty({ example: '2027-01-01T00:00:00Z', required: false })
-  expiryDate?: string;
+export class ScanQRDto {
+  @ApiProperty({ example: 'License_ID:RandomHash:Timestamp' })
+  @IsString()
+  @IsNotEmpty()
+  qrToken: string;
 
-  @ApiProperty({ example: 12, required: false })
-  points?: number;
+  @ApiPropertyOptional({ example: 'Galle Fort' })
+  @IsString()
+  @IsOptional()
+  location?: string;
 }
 
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-  };
+export class UpdateStatusDto {
+  @ApiProperty({
+    example: 'SUSPENDED',
+    enum: ['ACTIVE', 'SUSPENDED', 'EXPIRED', 'REVOKED'],
+  })
+  @IsEnum(['ACTIVE', 'SUSPENDED', 'EXPIRED', 'REVOKED'])
+  status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED';
 }
 
-@ApiTags('License')
+@ApiTags('Driving License')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('license')
 export class LicenseController {
   constructor(private readonly licenseService: LicenseService) {}
 
-  @ApiOperation({ summary: 'Get virtual license card details' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @Get('my-card')
-  async getMyCard(@Req() req: AuthenticatedRequest) {
-    return this.licenseService.getVirtualCardDetails(req.user.id);
+  @ApiOperation({ summary: 'Create a new driving license (DMT Admin Only)' })
+  @Post()
+  async createLicense(
+    @Request() req: AuthRequest,
+    @Body() data: CreateLicenseDto,
+  ) {
+    return this.licenseService.createLicense({
+      licenseNo: data.licenseNo,
+      address: data.address,
+      bloodGroup: data.bloodGroup,
+      dateOfBirth: data.dateOfBirth,
+      issueDate: data.issueDate,
+      userId: data.userId,
+      image: data.image,
+      categories: data.categories,
+      dmtAdminId: req.user.id,
+    });
   }
 
-  @ApiOperation({ summary: 'Scan license QR token' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @Get('scan/:token')
-  async scanLicense(@Param('token') token: string) {
-    return this.licenseService.getLicenseByQrToken(token);
+  @ApiOperation({ summary: 'Get current user active license' })
+  @Get('my-license')
+  async getMyLicense(@Request() req: AuthRequest) {
+    return this.licenseService.getMyLicense(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Issue a new license' })
-  @Post('issue')
-  async issueLicense(@Body() licenseData: IssueLicenseDto) {
-    return this.licenseService.issueLicense(licenseData);
+  @ApiOperation({ summary: 'Generate 3-Minute QR Code for License' })
+  @Get('generate-qr')
+  async generateQR(@Request() req: AuthRequest) {
+    return this.licenseService.generateLicenseQR(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Get license by ID' })
-  @Get(':id')
-  async getLicense(@Param('id') id: string) {
-    return this.licenseService.getLicenseById(id);
+  @ApiOperation({ summary: 'Scan License QR Code (Traffic Officer Only)' })
+  @Post('scan-qr')
+  async scanQR(@Request() req: AuthRequest, @Body() data: ScanQRDto) {
+    return this.licenseService.scanLicenseQR(
+      data.qrToken,
+      req.user.id,
+      data.location,
+    );
   }
 
-  @ApiOperation({ summary: 'Update license details' })
-  @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateData: UpdateLicenseDto) {
-    return this.licenseService.updateLicense(id, updateData);
-  }
-
-  @ApiOperation({ summary: 'Revoke a license' })
-  @Delete(':id')
-  async revoke(@Param('id') id: string) {
-    return this.licenseService.deleteLicense(id);
+  @ApiOperation({
+    summary: 'Update License Status (DMT Admin / Divisional Head)',
+  })
+  @Patch(':id/status')
+  async updateStatus(@Param('id') id: string, @Body() data: UpdateStatusDto) {
+    return this.licenseService.updateStatus(id, data.status);
   }
 }

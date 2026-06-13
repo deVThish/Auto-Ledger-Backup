@@ -1,103 +1,196 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
-import { Request } from 'express';
+import {
+  Controller,
+  Post,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { OfficersService } from './officers.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
+  ApiPropertyOptional,
   ApiProperty,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsOptional,
+  IsEmail,
+} from 'class-validator';
 
-export class RegisterHeadDto {
-  @ApiProperty({ example: 'HEAD-GALLE-01' })
-  badgeNumber: string;
-
-  @ApiProperty({ example: 'Kamal Perera' })
-  name: string;
-
-  @ApiProperty({ example: 'headpassword123' })
-  password: string;
-
-  @ApiProperty({ example: 'Galle' })
-  districtName: string;
+export class CreateDivisionDto {
+  @ApiProperty({ example: 'Galle Division' })
+  @IsString()
+  @IsNotEmpty()
+  divisionName: string;
 }
 
-export class RegisterOfficerDto {
-  @ApiProperty({ example: 'TRF-GALLE-100' })
-  badgeNumber: string;
+export class CreateHeadDto {
+  @ApiProperty({ example: 'Galle Division' })
+  @IsString()
+  @IsNotEmpty()
+  divisionName: string;
 
-  @ApiProperty({ example: 'Nimal Silva' })
+  @ApiProperty({ example: 'kamal_do' })
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({ example: 'kamal@police.lk' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: 'Kamal Perera' })
+  @IsString()
+  @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: 'officerpassword123' })
-  password: string;
+  @ApiProperty({ example: 'Head@Pass123!' })
+  @IsString()
+  @IsNotEmpty()
+  passwordStr: string;
+}
 
-  @ApiProperty({ example: 'TRAFFIC_OFFICER', required: false })
-  role?: string;
+export class CreateOfficerDto {
+  @ApiProperty({ example: 'TRF-GALLE-001' })
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty({ example: 'nimal@police.lk' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: 'Nimal Siripala' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: 'Officer@Pass123!' })
+  @IsString()
+  @IsNotEmpty()
+  passwordStr: string;
 }
 
 export class AssignShiftDto {
-  @ApiProperty({ example: 'officer-uuid-here' })
+  @ApiProperty({ example: 'Officer_UUID_Here' })
+  @IsString()
+  @IsNotEmpty()
   officerId: string;
 
-  @ApiProperty({ example: '2026-05-28T08:00:00Z' })
-  startTime: string;
+  @ApiProperty({ example: '2026-06-13' })
+  @IsDateString()
+  date: Date;
 
-  @ApiProperty({ example: '2026-05-28T16:00:00Z' })
-  endTime: string;
+  @ApiProperty({ example: '2026-06-13T06:00:00Z' })
+  @IsDateString()
+  startTime: Date;
+
+  @ApiProperty({ example: '2026-06-13T14:00:00Z' })
+  @IsDateString()
+  endTime: Date;
+
+  @ApiProperty({ example: 'Galle Town' })
+  @IsString()
+  location: string;
 }
 
-interface AuthenticatedRequest extends Request {
+export class UpdateShiftDto {
+  @ApiPropertyOptional({ example: '2026-06-14' })
+  @IsDateString()
+  @IsOptional()
+  date?: Date;
+
+  @ApiPropertyOptional({ example: '2026-06-14T06:00:00Z' })
+  @IsDateString()
+  @IsOptional()
+  startTime?: Date;
+
+  @ApiPropertyOptional({ example: '2026-06-14T14:00:00Z' })
+  @IsDateString()
+  @IsOptional()
+  endTime?: Date;
+
+  @ApiPropertyOptional({ example: 'Colombo' })
+  @IsString()
+  @IsOptional()
+  location?: string;
+}
+
+export interface OfficerAuthRequest {
   user: {
     id: string;
     role: string;
-    districtId: string;
   };
 }
 
-@ApiTags('Officers')
+@ApiTags('Police Management')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('officers')
 export class OfficersController {
   constructor(private readonly officersService: OfficersService) {}
 
-  @ApiOperation({ summary: 'Register a Divisional Head' })
-  @Post('register/head')
-  async registerDivisionalHead(@Body() data: RegisterHeadDto) {
-    return this.officersService.registerDivisionalHead(data);
-  }
-
-  @ApiOperation({ summary: 'Register a new Traffic Officer' })
-  @ApiBearerAuth()
-  @Post('register')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DIVISIONAL_HEAD')
-  async registerOfficer(
-    @Req() req: AuthenticatedRequest,
-    @Body() officerData: RegisterOfficerDto,
+  @ApiOperation({ summary: 'Create Division (Police Admin)' })
+  @Post('division')
+  async createDivision(
+    @Request() req: OfficerAuthRequest,
+    @Body() data: CreateDivisionDto,
   ) {
-    const districtId = req.user.districtId;
-    return this.officersService.registerOfficer({ ...officerData, districtId });
+    // req.user.sub වෙනුවට req.user.id දැම්මා
+    return this.officersService.createDivision(data.divisionName, req.user.id);
   }
 
-  @ApiOperation({ summary: 'Assign a shift to an officer' })
-  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Assign Divisional Head to Division (Police Admin)',
+  })
+  @Post('head')
+  async createDivisionalHead(@Body() data: CreateHeadDto) {
+    return this.officersService.createDivisionalHead({
+      divisionName: data.divisionName,
+      username: data.username,
+      email: data.email,
+      name: data.name,
+      passwordStr: data.passwordStr,
+    });
+  }
+
+  @ApiOperation({ summary: 'Create Traffic Officer (Divisional Head Only)' })
+  @Post('officer')
+  async createOfficer(
+    @Request() req: OfficerAuthRequest,
+    @Body() data: CreateOfficerDto,
+  ) {
+    return this.officersService.createTrafficOfficer({
+      badgeNo: data.badgeNo,
+      email: data.email,
+      name: data.name,
+      passwordStr: data.passwordStr,
+      // req.user.sub වෙනුවට req.user.id දැම්මා
+      headId: req.user.id,
+    });
+  }
+
+  @ApiOperation({ summary: 'Assign Shift to Officer' })
   @Post('shift')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DIVISIONAL_HEAD')
   async assignShift(@Body() data: AssignShiftDto) {
     return this.officersService.assignShift(data);
   }
 
-  @ApiOperation({ summary: 'Get all officers in the district' })
-  @ApiBearerAuth()
-  @Get('my-district')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DIVISIONAL_HEAD')
-  async getMyDistrictOfficers(@Req() req: AuthenticatedRequest) {
-    const districtId = req.user.districtId;
-    return this.officersService.getOfficersByDistrict(districtId);
+  @ApiOperation({ summary: 'Update an existing shift' })
+  @Patch('shift/:id')
+  async updateShift(
+    @Param('id') id: string,
+    @Body() updateShiftDto: UpdateShiftDto,
+  ) {
+    return this.officersService.updateShift(id, updateShiftDto);
   }
 }

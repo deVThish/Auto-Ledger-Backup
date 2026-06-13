@@ -1,13 +1,26 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
+import {
+  User,
+  DMT_Admin,
+  Police_Admin,
+  Divisional_Head,
+  Traffic_Officer,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { ChangePasswordDto } from './auth.controller';
 
-export interface RegisterUserDto {
-  nic: string;
+export interface RegisterData {
+  nicNo: string;
   name: string;
-  phoneNumber: string;
+  mobilePhoneNo: string;
   password: string;
   deviceId: string;
 }
@@ -19,129 +32,393 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  // Login for Police Officers and Divisional Heads
-  async login(badgeNumber: string, pass: string) {
-    const officer = await this.prisma.officer.findUnique({
-      where: { badgeNumber },
-    });
+  async loginAdmin(username: string, pass: string, type: 'DMT' | 'POLICE') {
+    let adminObj: DMT_Admin | Police_Admin | null = null;
+    let roleName = '';
 
-    if (!officer) {
-      throw new UnauthorizedException('Invalid badge number or password.');
+    if (type === 'DMT') {
+      adminObj = await this.prisma.dMT_Admin.findUnique({
+        where: { username: username },
+      });
+      roleName = 'DMT_ADMIN';
+    } else {
+      adminObj = await this.prisma.police_Admin.findUnique({
+        where: { username: username },
+      });
+      roleName = 'POLICE_ADMIN';
     }
 
-    // Normal check for newly registered officers (Hashed Passwords)
-    const isPasswordValid = await bcrypt.compare(pass, officer.password);
+    if (!adminObj)
+      throw new UnauthorizedException('Invalid Admin Username or password.');
 
-    // Fallback for seeded users with plain-text passwords
-    const isSeededPassword = pass === officer.password;
+    const isPasswordValid = await bcrypt.compare(pass, adminObj.password);
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid Admin Username or password.');
 
-    if (!isPasswordValid && !isSeededPassword) {
-      throw new UnauthorizedException('Invalid badge number or password.');
-    }
+    const adminIdValue =
+      type === 'DMT'
+        ? (adminObj as DMT_Admin).dmt_Admin_Id
+        : (adminObj as Police_Admin).police_Admin_Id;
 
-    const payload = {
-      sub: officer.id,
-      badgeNumber: officer.badgeNumber,
-      role: officer.role,
-      districtId: officer.districtId,
-    };
-
+    const payload = { sub: adminIdValue, role: roleName };
     return {
       accessToken: this.jwtService.sign(payload),
-      officer: {
-        id: officer.id,
-        name: officer.name,
-        role: officer.role,
-        districtId: officer.districtId,
-      },
+      user: { id: payload.sub, name: adminObj.name, role: roleName },
     };
   }
 
-  // Generate JWT for Driver/User
-  private generateUserToken(user: User) {
+  async loginHead(username: string, pass: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head)
+      throw new UnauthorizedException('Invalid Head Username or password.');
+
+    const isPasswordValid = await bcrypt.compare(pass, head.password);
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid Head Username or password.');
+
     const payload = {
-      sub: user.id,
-      nic: user.nic,
-      role: 'USER',
+      sub: head.divisional_Head_Id,
+      role: head.role,
+      divisionId: head.division_Id,
     };
     return {
       accessToken: this.jwtService.sign(payload),
       user: {
-        id: user.id,
+        id: head.divisional_Head_Id,
+        name: head.name,
+        email: head.email,
+        role: head.role,
+        divisionId: head.division_Id,
+      },
+    };
+  }
+
+  async loginOfficer(badgeNo: string, pass: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+      include: { shifts: true },
+    });
+
+    if (!officer)
+      throw new UnauthorizedException('Invalid Badge Number or password.');
+
+    const isPasswordValid = await bcrypt.compare(pass, officer.password);
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid Badge Number or password.');
+
+    const now = new Date();
+    const activeShift = officer.shifts.find(
+      (shift) =>
+        shift.is_Active &&
+        new Date(shift.start_Time) <= now &&
+        new Date(shift.end_Time) >= now,
+    );
+
+    if (!activeShift) {
+      throw new ForbiddenException(
+        'Access Denied: You are not within an active shift schedule.',
+      );
+    }
+
+    const payload = {
+      sub: officer.traffic_Officer_Id,
+      role: officer.role,
+      badgeNo: officer.badge_No,
+      headId: officer.divisional_Head_Id,
+    };
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: {
+        id: officer.traffic_Officer_Id,
+        name: officer.name,
+        email: officer.email,
+        role: officer.role,
+        badgeNo: officer.badge_No,
+      },
+    };
+  }
+
+  async changePassword(userId: string, role: string, dto: ChangePasswordDto) {
+    let user: Divisional_Head | Traffic_Officer | null = null;
+
+    if (role === 'DIVISIONAL_HEAD') {
+      user = await this.prisma.divisional_Head.findUnique({
+        where: { divisional_Head_Id: userId },
+      });
+    } else if (role === 'TRAFFIC_OFFICER') {
+      user = await this.prisma.traffic_Officer.findUnique({
+        where: { traffic_Officer_Id: userId },
+      });
+    } else {
+      throw new BadRequestException('Invalid role for password change');
+    }
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      dto.oldPassword,
+      user.password,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid old password');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    if (role === 'DIVISIONAL_HEAD') {
+      await this.prisma.divisional_Head.update({
+        where: { divisional_Head_Id: userId },
+        data: { password: hashedNewPassword },
+      });
+    } else {
+      await this.prisma.traffic_Officer.update({
+        where: { traffic_Officer_Id: userId },
+        data: { password: hashedNewPassword },
+      });
+    }
+
+    return { message: 'Password changed successfully' };
+  }
+
+  async resetHeadPasswordSelf(
+    username: string,
+    email: string,
+    newPasswordStr: string,
+  ) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || head.email !== email) {
+      throw new BadRequestException('Invalid Username or Email provided.');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPasswordStr, 10);
+
+    await this.prisma.divisional_Head.update({
+      where: { username: username },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Divisional Head password reset successfully.' };
+  }
+
+  async resetOfficerPasswordSelf(
+    badgeNo: string,
+    email: string,
+    newPasswordStr: string,
+  ) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email provided.');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPasswordStr, 10);
+
+    await this.prisma.traffic_Officer.update({
+      where: { badge_No: badgeNo },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Traffic Officer password reset successfully.' };
+  }
+
+  private generateUserToken(user: User) {
+    const payload = { sub: user.user_Id, nic: user.nic_No, role: 'USER' };
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: {
+        id: user.user_Id,
         name: user.name,
-        nic: user.nic,
-        phoneNumber: user.phoneNumber,
+        nic: user.nic_No,
+        phoneNumber: user.mobile_Phone_No,
         isPhoneVerified: user.isPhoneVerified,
       },
     };
   }
 
-  // Register Driver/User
-  async registerUser(data: RegisterUserDto) {
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ nic: data.nic }, { phoneNumber: data.phoneNumber }],
-      },
+  async registerUser(data: RegisterData) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: data.nicNo },
     });
 
-    if (existingUser) {
-      throw new UnauthorizedException('NIC or Phone Number already exists.');
+    if (!user) {
+      throw new BadRequestException(
+        'Registration Failed: No driving license found for this NIC.',
+      );
+    }
+
+    const license = await this.prisma.driving_License.findUnique({
+      where: { user_Id: user.user_Id },
+    });
+
+    if (!license) {
+      throw new BadRequestException(
+        'Registration Failed: No driving license found for this NIC.',
+      );
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    const user = await this.prisma.user.create({
+    await this.prisma.user.update({
+      where: { nic_No: data.nicNo },
       data: {
-        nic: data.nic,
         name: data.name,
-        phoneNumber: data.phoneNumber,
+        mobile_Phone_No: data.mobilePhoneNo,
         password: hashedPassword,
-        deviceId: data.deviceId,
-        isPhoneVerified: true,
+        device_Id: data.deviceId,
+        isPhoneVerified: false,
       },
+    });
+
+    return {
+      message: 'User details saved. Please verify phone number.',
+      success: true,
+    };
+  }
+
+  async verifyRegistration(nicNo: string) {
+    const user = await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: { isPhoneVerified: true },
     });
 
     return this.generateUserToken(user);
   }
 
-  // Login for Driver/User
-  async loginUser(nic: string, pass: string, deviceId: string) {
+  async loginUser(nicNo: string, pass: string, deviceId: string) {
     const user = await this.prisma.user.findUnique({
-      where: { nic },
+      where: { nic_No: nicNo },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid NIC or password.');
+    if (!user) throw new UnauthorizedException('Invalid NIC or password.');
+
+    if (!user.isPhoneVerified) {
+      throw new ForbiddenException(
+        'Please verify your phone number using OTP first.',
+      );
     }
 
     const isPasswordValid = await bcrypt.compare(pass, user.password);
-
-    if (!isPasswordValid) {
+    if (!isPasswordValid)
       throw new UnauthorizedException('Invalid NIC or password.');
-    }
 
-    // Verify if logging in from a new device
-    if (user.deviceId !== deviceId) {
-      return {
-        status: 'OTP_REQUIRED',
-        message: 'New device detected. Please verify with OTP.',
-        nic: user.nic,
-      };
+    if (user.device_Id !== deviceId) {
+      throw new UnauthorizedException(
+        'Access Denied: You can only log in from your registered device.',
+      );
     }
 
     return this.generateUserToken(user);
   }
 
-  // Device verification for Driver/User
-  async verifyNewDevice(nic: string, newDeviceId: string) {
+  async verifyNewDevice(nicNo: string, newDeviceId: string) {
     const user = await this.prisma.user.update({
-      where: { nic },
+      where: { nic_No: nicNo },
       data: {
-        deviceId: newDeviceId,
+        device_Id: newDeviceId,
         isPhoneVerified: true,
       },
     });
 
     return this.generateUserToken(user);
+  }
+
+  async biometricLogin(nicNo: string, deviceId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) throw new UnauthorizedException('Invalid user.');
+
+    if (!user.isPhoneVerified) {
+      throw new ForbiddenException(
+        'Please verify your phone number using OTP first.',
+      );
+    }
+
+    if (user.device_Id !== deviceId) {
+      throw new UnauthorizedException(
+        'Biometric Access Denied: Unrecognized device.',
+      );
+    }
+
+    return this.generateUserToken(user);
+  }
+
+  async changeUserPassword(
+    userId: string,
+    dto: { oldPassword: string; newPassword: string },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { user_Id: userId },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const isPasswordValid = await bcrypt.compare(
+      dto.oldPassword,
+      user.password,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid old password');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { user_Id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    return { message: 'User password changed successfully' };
+  }
+
+  async requestPasswordReset(nicNo: string, mobilePhoneNo: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.mobile_Phone_No !== mobilePhoneNo) {
+      throw new BadRequestException('Invalid NIC or Mobile Number provided.');
+    }
+
+    return {
+      message: 'NIC and Phone Match.',
+      success: true,
+    };
+  }
+
+  async resetPassword(
+    nicNo: string,
+    mobilePhoneNo: string,
+    newPasswordStr: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.mobile_Phone_No !== mobilePhoneNo) {
+      throw new BadRequestException('Invalid NIC or Mobile Number provided.');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPasswordStr, 10);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: { password: hashedNewPassword },
+    });
+
+    return {
+      message: 'Password has been reset successfully. You can now login.',
+    };
   }
 }
