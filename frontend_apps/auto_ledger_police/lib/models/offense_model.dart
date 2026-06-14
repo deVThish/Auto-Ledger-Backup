@@ -18,8 +18,8 @@ class OffenseModel {
   final bool isCourtCase;
 
   factory OffenseModel.fromJson(Map<String, dynamic> json) {
-    final description = json['description']?.toString() ?? '';
-    final name = json['name']?.toString() ?? description;
+    final name = json['name']?.toString() ?? '';
+    final description = json['description']?.toString() ?? name;
 
     return OffenseModel(
       id: json['id']?.toString() ?? '',

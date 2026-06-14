@@ -4,6 +4,7 @@ import 'core/constants/app_routes.dart';
 import 'core/storage/token_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/forgot_password_screen.dart';
 import 'features/divisional_officer/screens/do_dashboard_screen.dart';
 import 'features/traffic_officer/screens/to_dashboard_screen.dart';
 
@@ -25,6 +26,7 @@ class AutoLedgerPoliceApp extends StatelessWidget {
       home: const SessionGate(),
       routes: {
         AppRoutes.login: (_) => const LoginScreen(),
+        AppRoutes.forgotPassword: (_) => const ForgotPasswordScreen(),
         AppRoutes.divisionalDashboard: (_) => const DoDashboardScreen(),
         AppRoutes.trafficOfficerDashboard: (_) => const ToDashboardScreen(),
       },

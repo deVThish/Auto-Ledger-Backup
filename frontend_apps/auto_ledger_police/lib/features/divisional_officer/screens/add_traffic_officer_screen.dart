@@ -22,6 +22,7 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _officerService = OfficerService();
+  final _emailController = TextEditingController();
 
   bool _isPasswordHidden = true;
   bool _isConfirmPasswordHidden = true;
@@ -33,6 +34,7 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
     _badgeController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -51,10 +53,11 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
 
     try {
       await _officerService.registerTrafficOfficer(
-        name: _nameController.text,
-        badgeNumber: _badgeController.text,
-        password: _passwordController.text,
-      );
+      name: _nameController.text,
+      email: _emailController.text,
+      badgeNumber: _badgeController.text,
+      password: _passwordController.text,
+    );
 
       if (!mounted) return;
 
@@ -62,6 +65,7 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
       _badgeController.clear();
       _passwordController.clear();
       _confirmPasswordController.clear();
+      _emailController.clear();
 
       AppErrorHandler.showPopup(
         context,
@@ -183,6 +187,26 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
                                 if (value.trim().length < 3) {
                                   return 'Officer name is too short';
                                 }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            AppTextField(
+                              controller: _emailController,
+                              label: 'Email Address',
+                              hint: 'Example: officer@police.lk',
+                              icon: Icons.email_outlined,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Email is required';
+                                }
+
+                                if (!value.contains('@')) {
+                                  return 'Enter a valid email';
+                                }
+
                                 return null;
                               },
                             ),

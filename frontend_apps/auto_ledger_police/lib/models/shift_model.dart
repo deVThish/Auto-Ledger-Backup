@@ -15,11 +15,24 @@ class ShiftModel {
 
   factory ShiftModel.fromJson(Map<String, dynamic> json) {
     return ShiftModel(
-      id: json['id']?.toString() ?? '',
-      officerId: json['officerId']?.toString() ?? '',
-      startTime: DateTime.tryParse(json['startTime']?.toString() ?? ''),
-      endTime: DateTime.tryParse(json['endTime']?.toString() ?? ''),
-      isActive: json['isActive'] == true,
+      id: json['shift_Id']?.toString() ??
+          json['id']?.toString() ??
+          '',
+      officerId: json['traffic_Officer_Id']?.toString() ??
+          json['officerId']?.toString() ??
+          '',
+      startTime: DateTime.tryParse(
+        json['start_Time']?.toString() ??
+            json['startTime']?.toString() ??
+            '',
+      ),
+      endTime: DateTime.tryParse(
+        json['end_Time']?.toString() ??
+            json['endTime']?.toString() ??
+            '',
+      ),
+      isActive: json['is_Active'] == true ||
+          json['isActive'] == true,
     );
   }
 }

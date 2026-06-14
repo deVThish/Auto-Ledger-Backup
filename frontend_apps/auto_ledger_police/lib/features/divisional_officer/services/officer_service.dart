@@ -12,15 +12,17 @@ class OfficerService {
 
   Future<OfficerModel> registerTrafficOfficer({
     required String name,
+    required String email,
     required String badgeNumber,
     required String password,
   }) async {
     final response = await _apiClient.post(
       ApiConstants.registerOfficer,
       body: {
+        'badgeNo': badgeNumber.trim(),
+        'email': email.trim(),
         'name': name.trim(),
-        'badgeNumber': badgeNumber.trim(),
-        'password': password.trim(),
+        'passwordStr': password.trim(),
       },
     );
 
@@ -28,7 +30,9 @@ class OfficerService {
   }
 
   Future<List<OfficerModel>> getDistrictTrafficOfficers() async {
-    final response = await _apiClient.get(ApiConstants.districtOfficers);
+    final response = await _apiClient.get(
+      ApiConstants.districtOfficers,
+    );
 
     if (response is! List) {
       return <OfficerModel>[];
@@ -44,16 +48,22 @@ class OfficerService {
     required String officerId,
     required DateTime startTime,
     required DateTime endTime,
+    String location = 'Duty Location',
   }) async {
     final response = await _apiClient.post(
       ApiConstants.assignShift,
       body: {
         'officerId': officerId,
+        'date':
+            '${startTime.year}-${startTime.month.toString().padLeft(2, '0')}-${startTime.day.toString().padLeft(2, '0')}',
         'startTime': startTime.toIso8601String(),
         'endTime': endTime.toIso8601String(),
+        'location': location,
       },
     );
 
-    return ShiftModel.fromJson(response as Map<String, dynamic>);
+    return ShiftModel.fromJson(
+      response as Map<String, dynamic>,
+    );
   }
 }

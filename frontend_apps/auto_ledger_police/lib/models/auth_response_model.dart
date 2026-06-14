@@ -13,7 +13,7 @@ class AuthResponseModel {
     return AuthResponseModel(
       accessToken: json['accessToken']?.toString() ?? '',
       officer: OfficerModel.fromJson(
-        (json['officer'] as Map<String, dynamic>?) ?? <String, dynamic>{},
+        (json['user'] as Map<String, dynamic>?) ?? <String, dynamic>{},
       ),
     );
   }

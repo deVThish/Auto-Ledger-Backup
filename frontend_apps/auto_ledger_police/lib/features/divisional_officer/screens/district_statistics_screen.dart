@@ -105,32 +105,53 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
                       }
 
                       final statistics = snapshot.data ??
-                          const DistrictStatisticsModel(
-                            totalFinesToday: 0,
-                            revenueToday: 0,
-                            pendingCourtCases: 0,
-                          );
+                      const DistrictStatisticsModel(
+                        totalOfficers: 0,
+                        activeOfficersOnDuty: 0,
+                        totalFinesIssued: 0,
+                        totalRevenue: 0,
+                        pendingFinesCount: 0,
+                        overdueCourtCases: 0,
+                      );
 
                       final cards = [
-                        _StatisticCardData(
-                          title: 'Fines Today',
-                          value: '${statistics.totalFinesToday}',
-                          subtitle: 'Issued today',
-                          icon: Icons.receipt_long_outlined,
-                        ),
-                        _StatisticCardData(
-                          title: 'Revenue Today',
-                          value: _formatRevenue(statistics.revenueToday),
-                          subtitle: 'Paid fine revenue',
-                          icon: Icons.payments_outlined,
-                        ),
-                        _StatisticCardData(
-                          title: 'Court Cases',
-                          value: '${statistics.pendingCourtCases}',
-                          subtitle: 'Pending review',
-                          icon: Icons.gavel_outlined,
-                        ),
-                      ];
+                      _StatisticCardData(
+                        title: 'Total Officers',
+                        value: '${statistics.totalOfficers}',
+                        subtitle: 'Registered officers',
+                        icon: Icons.groups_outlined,
+                      ),
+                      _StatisticCardData(
+                        title: 'On Duty Officers',
+                        value: '${statistics.activeOfficersOnDuty}',
+                        subtitle: 'Currently active',
+                        icon: Icons.local_police_outlined,
+                      ),
+                      _StatisticCardData(
+                        title: 'Total Fines',
+                        value: '${statistics.totalFinesIssued}',
+                        subtitle: 'Issued fines',
+                        icon: Icons.receipt_long_outlined,
+                      ),
+                      _StatisticCardData(
+                        title: 'Revenue',
+                        value: _formatRevenue(statistics.totalRevenue),
+                        subtitle: 'Collected revenue',
+                        icon: Icons.payments_outlined,
+                      ),
+                      _StatisticCardData(
+                        title: 'Pending Fines',
+                        value: '${statistics.pendingFinesCount}',
+                        subtitle: 'Awaiting payment',
+                        icon: Icons.pending_actions_outlined,
+                      ),
+                      _StatisticCardData(
+                        title: 'Court Cases',
+                        value: '${statistics.overdueCourtCases}',
+                        subtitle: 'Overdue cases',
+                        icon: Icons.gavel_outlined,
+                      ),
+                    ];
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

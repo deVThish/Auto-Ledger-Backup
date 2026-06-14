@@ -10,7 +10,9 @@ class FineService {
   final ApiClient _apiClient;
 
   Future<List<FineModel>> getDistrictCourtCases() async {
-    final response = await _apiClient.get(ApiConstants.districtCourtCases);
+    final response = await _apiClient.get(
+      ApiConstants.districtCourtCases,
+    );
 
     if (response is! List) {
       return <FineModel>[];
@@ -24,18 +26,20 @@ class FineService {
 
   Future<void> resolveCourtCase({
     required String fineId,
-    required String finalVerdict,
+    required String verdict,
   }) async {
     await _apiClient.patch(
-      '${ApiConstants.resolveCourtCasePrefix}/$fineId/resolve',
+      '${ApiConstants.resolveCourtCasePrefix}/$fineId/court-verdict',
       body: {
-        'finalVerdict': finalVerdict,
+        'verdict': verdict,
       },
     );
   }
 
   Future<DistrictStatisticsModel> getDistrictStatistics() async {
-    final response = await _apiClient.get(ApiConstants.districtStatistics);
+    final response = await _apiClient.get(
+      ApiConstants.districtStatistics,
+    );
 
     return DistrictStatisticsModel.fromJson(
       response as Map<String, dynamic>,

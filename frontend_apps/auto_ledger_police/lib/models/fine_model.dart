@@ -1,3 +1,5 @@
+import 'offense_model.dart';
+
 class FineModel {
   const FineModel({
     required this.id,
@@ -6,9 +8,7 @@ class FineModel {
     required this.dueDate,
     required this.licenseNumber,
     required this.driverName,
-    required this.offenseName,
-    required this.points,
-    required this.amount,
+    required this.offenses,
     required this.officerName,
     required this.officerBadgeNumber,
   });
@@ -19,17 +19,41 @@ class FineModel {
   final DateTime? dueDate;
   final String licenseNumber;
   final String driverName;
-  final String offenseName;
-  final int points;
-  final double amount;
+  final List<OffenseModel> offenses;
   final String officerName;
   final String officerBadgeNumber;
+
+  String get offenseName {
+    if (offenses.isEmpty) return '';
+    return offenses.map((offense) => offense.name).join(', ');
+  }
+
+  int get points {
+    return offenses.fold<int>(
+      0,
+      (sum, offense) => sum + offense.points,
+    );
+  }
+
+  double get amount {
+    return offenses.fold<double>(
+      0,
+      (sum, offense) => sum + offense.amount,
+    );
+  }
 
   factory FineModel.fromJson(Map<String, dynamic> json) {
     final license = json['license'];
     final user = license is Map<String, dynamic> ? license['user'] : null;
     final officer = json['officer'];
-    final offense = json['offenseCategory'] ?? json['offense'];
+    final rawOffenses = json['offenses'];
+
+    final offenses = rawOffenses is List
+        ? rawOffenses
+            .whereType<Map<String, dynamic>>()
+            .map(OffenseModel.fromJson)
+            .toList()
+        : _readSingleOffense(json);
 
     return FineModel(
       id: json['id']?.toString() ?? '',
@@ -42,17 +66,7 @@ class FineModel {
       driverName: user is Map<String, dynamic>
           ? user['name']?.toString() ?? ''
           : json['driverName']?.toString() ?? '',
-      offenseName: offense is Map<String, dynamic>
-          ? offense['name']?.toString() ??
-          offense['description']?.toString() ??
-          ''
-          : json['offenseName']?.toString() ?? '',
-      points: offense is Map<String, dynamic>
-          ? _readInt(offense['points'])
-          : _readInt(json['points']),
-      amount: offense is Map<String, dynamic>
-          ? _readDouble(offense['amount'])
-          : _readDouble(json['amount']),
+      offenses: offenses,
       officerName: officer is Map<String, dynamic>
           ? officer['name']?.toString() ?? ''
           : json['officerName']?.toString() ?? '',
@@ -60,6 +74,32 @@ class FineModel {
           ? officer['badgeNumber']?.toString() ?? ''
           : json['officerBadgeNumber']?.toString() ?? '',
     );
+  }
+
+  static List<OffenseModel> _readSingleOffense(Map<String, dynamic> json) {
+    final offense = json['offenseCategory'] ?? json['offense'];
+
+    if (offense is Map<String, dynamic>) {
+      return [OffenseModel.fromJson(offense)];
+    }
+
+    final offenseName = json['offenseName']?.toString() ?? '';
+
+    if (offenseName.trim().isEmpty) {
+      return <OffenseModel>[];
+    }
+
+    return [
+      OffenseModel(
+        id: '',
+        code: '',
+        name: offenseName,
+        description: offenseName,
+        amount: _readDouble(json['amount']),
+        points: _readInt(json['points']),
+        isCourtCase: false,
+      ),
+    ];
   }
 
   static int _readInt(dynamic value) {
@@ -81,20 +121,36 @@ class FineModel {
 
 class DistrictStatisticsModel {
   const DistrictStatisticsModel({
-    required this.totalFinesToday,
-    required this.revenueToday,
-    required this.pendingCourtCases,
+    required this.totalOfficers,
+    required this.activeOfficersOnDuty,
+    required this.totalFinesIssued,
+    required this.totalRevenue,
+    required this.pendingFinesCount,
+    required this.overdueCourtCases,
   });
 
-  final int totalFinesToday;
-  final double revenueToday;
-  final int pendingCourtCases;
+  final int totalOfficers;
+  final int activeOfficersOnDuty;
+  final int totalFinesIssued;
+  final double totalRevenue;
+  final int pendingFinesCount;
+  final int overdueCourtCases;
 
-  factory DistrictStatisticsModel.fromJson(Map<String, dynamic> json) {
+  factory DistrictStatisticsModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return DistrictStatisticsModel(
-      totalFinesToday: _readInt(json['totalFinesToday']),
-      revenueToday: _readDouble(json['revenueToday']),
-      pendingCourtCases: _readInt(json['pendingCourtCases']),
+      totalOfficers: _readInt(json['totalOfficers']),
+      activeOfficersOnDuty:
+          _readInt(json['activeOfficersOnDuty']),
+      totalFinesIssued:
+          _readInt(json['totalFinesIssued']),
+      totalRevenue:
+          _readDouble(json['totalRevenue']),
+      pendingFinesCount:
+          _readInt(json['pendingFinesCount']),
+      overdueCourtCases:
+          _readInt(json['overdueCourtCases']),
     );
   }
 
@@ -112,5 +168,49 @@ class DistrictStatisticsModel {
     }
 
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+}
+
+class FineIssueResultModel {
+  const FineIssueResultModel({
+    required this.fineDetails,
+    required this.licenseStatus,
+    required this.accumulatedPoints,
+    this.temporaryLicenseExpiry,
+  });
+
+  final List<FineModel> fineDetails;
+  final String licenseStatus;
+  final int accumulatedPoints;
+  final DateTime? temporaryLicenseExpiry;
+
+  factory FineIssueResultModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawFineDetails = json['fineDetails'];
+
+    return FineIssueResultModel(
+      fineDetails: rawFineDetails is List
+          ? rawFineDetails
+              .whereType<Map<String, dynamic>>()
+              .map(FineModel.fromJson)
+              .toList()
+          : <FineModel>[],
+      licenseStatus:
+          json['licenseStatus']?.toString() ?? '',
+      accumulatedPoints:
+          _readInt(json['accumulatedPoints']),
+      temporaryLicenseExpiry: DateTime.tryParse(
+        json['temporaryLicenseExpiry']?.toString() ?? '',
+      ),
+    );
+  }
+
+  static int _readInt(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }

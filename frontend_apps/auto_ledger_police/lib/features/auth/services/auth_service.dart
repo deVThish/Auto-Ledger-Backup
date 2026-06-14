@@ -14,14 +14,14 @@ class AuthService {
   final TokenStorage _tokenStorage;
 
   Future<AuthResponseModel> login({
-    required String badgeNumber,
+    required String username,
     required String password,
   }) async {
     final response = await _apiClient.post(
       ApiConstants.login,
       requiresAuth: false,
       body: {
-        'badgeNumber': badgeNumber.trim(),
+        'username': username.trim(),
         'password': password.trim(),
       },
     );
@@ -34,9 +34,9 @@ class AuthService {
       accessToken: authResponse.accessToken,
       officerId: authResponse.officer.id,
       officerName: authResponse.officer.name,
-      officerBadgeNumber: authResponse.officer.badgeNumber,
+      officerBadgeNumber: '',
       role: authResponse.officer.role,
-      districtId: authResponse.officer.districtId,
+      districtId: authResponse.officer.divisionId,
     );
 
     return authResponse;

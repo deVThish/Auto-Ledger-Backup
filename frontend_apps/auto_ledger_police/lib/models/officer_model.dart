@@ -2,43 +2,27 @@ class OfficerModel {
   const OfficerModel({
     required this.id,
     required this.name,
+    required this.email,
     required this.badgeNumber,
-    required this.role,
-    required this.districtId,
-    required this.shifts,
+    required this.status,
+    required this.currentShift,
   });
 
   final String id;
   final String name;
+  final String email;
   final String badgeNumber;
-  final String role;
-  final String districtId;
-  final List<ShiftInfoModel> shifts;
+  final String status;
+  final ShiftInfoModel? currentShift;
 
-  ShiftInfoModel? get activeShift {
-    if (shifts.isEmpty) return null;
-    return shifts.first;
-  }
+  ShiftInfoModel? get activeShift => currentShift;
 
-  bool get hasActiveShift => activeShift != null;
+  bool get hasActiveShift => currentShift != null;
 
-  bool get isOnDutyNow {
-    final shift = activeShift;
-
-    if (shift == null || shift.startTime == null || shift.endTime == null) {
-      return false;
-    }
-
-    final now = DateTime.now();
-    final start = shift.startTime!;
-    final end = shift.endTime!;
-
-    return (now.isAtSameMomentAs(start) || now.isAfter(start)) &&
-        (now.isAtSameMomentAs(end) || now.isBefore(end));
-  }
+  bool get isOnDutyNow => status.toUpperCase() == 'ON_DUTY';
 
   bool get isShiftScheduled {
-    final shift = activeShift;
+    final shift = currentShift;
 
     if (shift == null || shift.startTime == null) {
       return false;
@@ -48,7 +32,7 @@ class OfficerModel {
   }
 
   bool get isShiftEnded {
-    final shift = activeShift;
+    final shift = currentShift;
 
     if (shift == null || shift.endTime == null) {
       return false;
@@ -58,68 +42,86 @@ class OfficerModel {
   }
 
   String get shiftStatusLabel {
-    if (!hasActiveShift) return 'No Shift';
-    if (isOnDutyNow) return 'On Duty';
-    if (isShiftScheduled) return 'Scheduled';
-    if (isShiftEnded) return 'Shift Ended';
+    if (!hasActiveShift) {
+      return 'No Shift';
+    }
+
+    if (status.toUpperCase() == 'ON_DUTY') {
+      return 'On Duty';
+    }
+
+    if (isShiftScheduled) {
+      return 'Scheduled';
+    }
+
+    if (isShiftEnded) {
+      return 'Shift Ended';
+    }
 
     return 'Off Duty';
   }
 
   String get shiftSummaryLabel {
-    if (!hasActiveShift) return 'No assigned shift';
-    if (isOnDutyNow) return 'Currently working';
-    if (isShiftScheduled) return 'Upcoming shift';
-    if (isShiftEnded) return 'Assigned shift ended';
+    if (!hasActiveShift) {
+      return 'No assigned shift';
+    }
+
+    if (status.toUpperCase() == 'ON_DUTY') {
+      return 'Currently working';
+    }
+
+    if (isShiftScheduled) {
+      return 'Upcoming shift';
+    }
+
+    if (isShiftEnded) {
+      return 'Assigned shift ended';
+    }
 
     return 'Outside shift time';
   }
 
   factory OfficerModel.fromJson(Map<String, dynamic> json) {
-    final rawShifts = json['shifts'];
+    final currentShiftJson = json['currentShift'];
 
     return OfficerModel(
-      id: _readString(json, 'id'),
-      name: _readString(json, 'name'),
-      badgeNumber: _readString(json, 'badgeNumber'),
-      role: _readString(json, 'role'),
-      districtId: _readString(json, 'districtId'),
-      shifts: rawShifts is List
-          ? rawShifts
-          .whereType<Map<String, dynamic>>()
-          .map(ShiftInfoModel.fromJson)
-          .toList()
-          : <ShiftInfoModel>[],
+      id: json['traffic_Officer_Id']?.toString() ??
+          json['id']?.toString() ??
+          '',
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      badgeNumber: json['badge_No']?.toString() ??
+          json['badgeNo']?.toString() ??
+          '',
+      status: json['status']?.toString() ?? 'OFF_DUTY',
+      currentShift: currentShiftJson is Map<String, dynamic>
+          ? ShiftInfoModel.fromJson(currentShiftJson)
+          : null,
     );
-  }
-
-  static String _readString(Map<String, dynamic> json, String key) {
-    final value = json[key];
-
-    if (value == null) {
-      return '';
-    }
-
-    return value.toString();
   }
 }
 
 class ShiftInfoModel {
   const ShiftInfoModel({
-    required this.id,
     required this.startTime,
     required this.endTime,
   });
 
-  final String id;
   final DateTime? startTime;
   final DateTime? endTime;
 
   factory ShiftInfoModel.fromJson(Map<String, dynamic> json) {
     return ShiftInfoModel(
-      id: json['id']?.toString() ?? '',
-      startTime: DateTime.tryParse(json['startTime']?.toString() ?? ''),
-      endTime: DateTime.tryParse(json['endTime']?.toString() ?? ''),
+      startTime: DateTime.tryParse(
+        json['startTime']?.toString() ??
+            json['start_Time']?.toString() ??
+            '',
+      ),
+      endTime: DateTime.tryParse(
+        json['endTime']?.toString() ??
+            json['end_Time']?.toString() ??
+            '',
+      ),
     );
   }
 }

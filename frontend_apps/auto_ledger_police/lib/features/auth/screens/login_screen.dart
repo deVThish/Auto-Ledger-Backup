@@ -17,7 +17,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _badgeController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
 
@@ -26,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _badgeController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final response = await _authService.login(
-        badgeNumber: _badgeController.text,
+        username: _usernameController.text,
         password: _passwordController.text,
       );
 
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (role == 'DIVISIONAL_HEAD') {
         Navigator.of(context).pushNamedAndRemoveUntil(
           AppRoutes.divisionalDashboard,
-              (route) => false,
+          (route) => false,
         );
         return;
       }
@@ -65,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (role == 'TRAFFIC_OFFICER') {
         Navigator.of(context).pushNamedAndRemoveUntil(
           AppRoutes.trafficOfficerDashboard,
-              (route) => false,
+          (route) => false,
         );
         return;
       }
@@ -103,7 +103,8 @@ class _LoginScreenState extends State<LoginScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isSmallScreen = constraints.maxHeight < 680;
-            final horizontalPadding = constraints.maxWidth < 380 ? 22.0 : 28.0;
+            final horizontalPadding =
+                constraints.maxWidth < 380 ? 22.0 : 28.0;
 
             return SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -167,7 +168,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(28),
-                              border: Border.all(color: AppTheme.borderGray),
+                              border: Border.all(
+                                color: AppTheme.borderGray,
+                              ),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.06),
@@ -189,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 const Text(
-                                  'Use your badge number and password.',
+                                  'Use your username and password.',
                                   style: TextStyle(
                                     color: AppTheme.textGray,
                                     fontSize: 13,
@@ -197,15 +200,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 22),
                                 AppTextField(
-                                  controller: _badgeController,
-                                  label: 'Badge Number',
-                                  hint: 'Example: HEAD-GALLE-01',
-                                  icon: Icons.badge_outlined,
+                                  controller: _usernameController,
+                                  label: 'Username',
+                                  hint: 'Enter your username',
+                                  icon: Icons.person_outline,
                                   textInputAction: TextInputAction.next,
                                   validator: (value) {
                                     if (value == null ||
                                         value.trim().isEmpty) {
-                                      return 'Badge number is required';
+                                      return 'Username is required';
                                     }
                                     return null;
                                   },
@@ -221,7 +224,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   suffixIcon: IconButton(
                                     onPressed: () {
                                       setState(() {
-                                        _isPasswordHidden = !_isPasswordHidden;
+                                        _isPasswordHidden =
+                                            !_isPasswordHidden;
                                       });
                                     },
                                     icon: Icon(
@@ -240,6 +244,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                     }
                                     return null;
                                   },
+                                ),
+                                const SizedBox(height: 12),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.forgotPassword,
+                                      );
+                                    },
+                                    child: const Text(
+                                      'Forgot Password?',
+                                      style: TextStyle(
+                                        color: AppTheme.primaryBlack,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 24),
                                 AppButton(

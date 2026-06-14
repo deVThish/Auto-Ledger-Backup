@@ -122,7 +122,7 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
     try {
       await _fineService.resolveCourtCase(
         fineId: fineId,
-        finalVerdict: verdict,
+        verdict: verdict,
       );
 
       if (!mounted) return;
