@@ -5,6 +5,8 @@ class OfficerModel {
     required this.email,
     required this.badgeNumber,
     required this.status,
+    required this.role,
+    required this.divisionId,
     required this.currentShift,
   });
 
@@ -13,6 +15,8 @@ class OfficerModel {
   final String email;
   final String badgeNumber;
   final String status;
+  final String role;
+  final String divisionId;
   final ShiftInfoModel? currentShift;
 
   ShiftInfoModel? get activeShift => currentShift;
@@ -94,6 +98,10 @@ class OfficerModel {
           json['badgeNo']?.toString() ??
           '',
       status: json['status']?.toString() ?? 'OFF_DUTY',
+      role: json['role']?.toString() ?? '',
+      divisionId: json['divisionId']?.toString() ??
+          json['division_Id']?.toString() ??
+          '',
       currentShift: currentShiftJson is Map<String, dynamic>
           ? ShiftInfoModel.fromJson(currentShiftJson)
           : null,
