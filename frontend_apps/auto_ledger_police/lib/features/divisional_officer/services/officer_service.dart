@@ -50,16 +50,18 @@ class OfficerService {
     required DateTime endTime,
     String location = 'Duty Location',
   }) async {
+    final payload = {
+      'officerId': officerId,
+      'date':
+          '${startTime.year}-${startTime.month.toString().padLeft(2, '0')}-${startTime.day.toString().padLeft(2, '0')}T00:00:00.000Z',
+      'startTime': startTime.toUtc().toIso8601String(),
+      'endTime': endTime.toUtc().toIso8601String(),
+      'location': location,
+    };
+
     final response = await _apiClient.post(
       ApiConstants.assignShift,
-      body: {
-        'officerId': officerId,
-        'date':
-            '${startTime.year}-${startTime.month.toString().padLeft(2, '0')}-${startTime.day.toString().padLeft(2, '0')}',
-        'startTime': startTime.toIso8601String(),
-        'endTime': endTime.toIso8601String(),
-        'location': location,
-      },
+      body: payload,
     );
 
     return ShiftModel.fromJson(
