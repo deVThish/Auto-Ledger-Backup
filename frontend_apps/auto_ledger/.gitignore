@@ -48,4 +48,4 @@ app.*.map.json
 .fvm/
 
 # Firebase
-firebase.json
+/firebase.json
