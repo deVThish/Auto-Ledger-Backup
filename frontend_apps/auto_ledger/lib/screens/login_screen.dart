@@ -33,35 +33,41 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    setState(() => _isLoading = true);
-    try {
-      final deviceId = await DeviceInfoUtil.getDeviceId();
-      final success = await AuthService.loginUser(
-        _nicController.text.trim(),
-        _passwordController.text.trim(),
-        deviceId,
-      );
-
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login Successful!')),
-        );
-        // Navigate to Home Screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login Failed. Check credentials or device.')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
+
+  // Future<void> _handleLogin() async {
+  //   setState(() => _isLoading = true);
+  //   try {
+  //     final deviceId = await DeviceInfoUtil.getDeviceId();
+  //     final success = await AuthService.loginUser(
+  //       _nicController.text.trim(),
+  //       _passwordController.text.trim(),
+  //       deviceId,
+  //     );
+  //
+  //     if (success && mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Login Successful!')),
+  //       );
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(builder: (_) => const HomeScreen()),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Login Failed. Check credentials or device.')),
+  //       );
+  //     }
+  //   } finally {
+  //     if (mounted) setState(() => _isLoading = false);
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +168,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   TextButton(
                     onPressed: () {
-                      // Navigate to Register Screen
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const RegisterScreen()),
