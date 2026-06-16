@@ -41,7 +41,7 @@ dependencies:
   device_info_plus: ^12.4.0
   local_auth: ^2.3.0
   qr_flutter: ^4.1.0
-  google_fonts: ^6.3.2
+  google_fonts: 6.2.1
 
 dev_dependencies:
   flutter_test:

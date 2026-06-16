@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 
 class GlassContainer extends StatelessWidget {
   final Widget child;
-  final double width;
-  final double height;
+  final double? width;
+  final double? height;
   final double borderRadius;
   final EdgeInsetsGeometry padding;
 
@@ -12,7 +12,7 @@ class GlassContainer extends StatelessWidget {
     super.key,
     required this.child,
     this.width = double.infinity,
-    this.height = double.infinity,
+    this.height,
     this.borderRadius = 16.0,
     this.padding = const EdgeInsets.all(16.0),
   });
