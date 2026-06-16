@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../utils/secure_storage.dart';
@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isFront = true;
 
+  // --- Dummy Data for License Card ---
   final String fakeName = "DOE JOHN SAMANTHA";
   final String fakeAddress = "NO 123, FAKE ROAD\nCOLOMBO 07";
   final String fakeNicNo = "199012345678";
@@ -29,6 +30,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final String fakeIssueDate = "05.07.2022";
   final String fakeExpiryDate = "05.07.2030";
   final String fakeRestriction = "AT";
+
+  // --- Dummy Data for Status ---
+  final String fakeStatus = "ACTIVE"; // Change to 'ACTIVE', 'SUSPENDED', 'REVOKED' to test
 
   @override
   void dispose() {
@@ -84,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Stack(
         children: [
+          // Hologram effect background
           Positioned.fill(
             child: Opacity(
               opacity: 0.12,
@@ -201,6 +206,71 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text('4a. $fakeIssueDate', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.black87)),
+                            const SizedBox(height: 12),
+
+                            // --- NEW SHINY & DYNAMIC STATUS BADGE ---
+                            Builder(
+                              builder: (context) {
+                                List<Color> statusGradient;
+                                Color glowColor;
+                                IconData statusIcon;
+
+                                if (fakeStatus == 'ACTIVE') {
+                                  statusGradient = [const Color(0xFF00b09b), const Color(0xFF96c93d)];
+                                  glowColor = const Color(0xFF00b09b);
+                                  statusIcon = Icons.check_circle_rounded;
+                                } else if (fakeStatus == 'SUSPENDED') {
+                                  statusGradient = [const Color(0xFFf12711), const Color(0xFFf5af19)];
+                                  glowColor = const Color(0xFFf12711);
+                                  statusIcon = Icons.warning_rounded;
+                                } else {
+                                  statusGradient = [const Color(0xFFcb2d3e), const Color(0xFFef473a)];
+                                  glowColor = const Color(0xFFcb2d3e);
+                                  statusIcon = Icons.cancel_rounded;
+                                }
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: statusGradient,
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: glowColor.withValues(alpha: 0.5),
+                                        blurRadius: 6,
+                                        spreadRadius: 1,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(statusIcon, color: Colors.white, size: 11),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        fakeStatus,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            // --- END OF BADGE ---
                           ],
                         ),
                       ),
@@ -414,6 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          const SizedBox(height: 10),
           Text(
             _isFront ? 'Tap the card to see the back side' : 'Tap the card to see the front side',
             style: const TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
@@ -507,6 +578,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ? const Center(child: Text('Fines Screen Coming Soon!'))
           : const Center(child: Text('Profile Screen Coming Soon!')),
       bottomNavigationBar: NavigationBar(
+        height: 65,
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
         destinations: const [
