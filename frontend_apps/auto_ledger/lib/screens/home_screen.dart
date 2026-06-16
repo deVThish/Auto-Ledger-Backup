@@ -18,12 +18,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   bool _isFront = true;
 
-  // --- Backend Data State ---
   Map<String, dynamic>? _licenseData;
   bool _isLoading = true;
   String _errorMessage = '';
 
-  // --- QR State ---
   bool _showQR = false;
   bool _isGeneratingQR = false;
   String _qrToken = '';
@@ -42,7 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // Backend එකෙන් Data ගන්න Function එක
   Future<void> _fetchLicenseData() async {
     try {
       final response = await ApiService.dio.get('/license/my-license');
@@ -63,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Backend එකෙන් QR Token එක ගන්න Function එක
   Future<void> _generateQR() async {
     setState(() {
       _isGeneratingQR = true;
@@ -118,7 +114,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // දින ෆෝමැට් කරන්න හදපු Helper Function එක
   String _formatDate(String? isoString) {
     if (isoString == null || isoString.isEmpty) return '---';
     try {
@@ -129,8 +124,26 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildDetailText(String number, String value, {bool isBold = false}) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: number,
+            style: TextStyle(fontSize: 8.5, color: Colors.blueGrey[800], fontWeight: FontWeight.bold),
+          ),
+          TextSpan(
+            text: value,
+            style: TextStyle(fontSize: 9.5, fontWeight: isBold ? FontWeight.bold : FontWeight.w600, color: Colors.black87),
+          ),
+        ],
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
   Widget _buildFrontCard() {
-    // API එකෙන් එන දත්ත අරගැනීම
     final String name = _licenseData?['full_Name'] ?? 'N/A';
     final String address = _licenseData?['address'] ?? 'N/A';
     final String nicNo = _licenseData?['nic_No'] ?? 'N/A';
@@ -156,30 +169,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Stack(
         children: [
           Positioned.fill(
-            child: Opacity(
-              opacity: 0.12,
-              child: ShaderMask(
-                shaderCallback: (Rect bounds) {
-                  return const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.black, Colors.transparent],
-                    stops: [0.3, 1.0],
-                  ).createShader(bounds);
-                },
-                blendMode: BlendMode.dstIn,
-                child: Image.asset(
-                  'assets/sadakadapahana.png',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topLeft,
-                  color: Colors.black,
-                  colorBlendMode: BlendMode.srcIn,
-                  errorBuilder: (c, e, s) => const SizedBox(),
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
             child: Center(
               child: Opacity(
                 opacity: 0.08,
@@ -194,18 +183,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Positioned(
-            bottom: 25,
-            right: 60,
+            bottom: 18,
+            right: 48,
             child: Opacity(
-              opacity: 0.25,
-              child: Container(
-                width: 35,
-                height: 45,
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  border: Border.all(color: Colors.grey.withValues(alpha: 0.4), width: 0.5),
-                ),
-                child: const Icon(Icons.person, size: 30, color: Colors.black),
+              opacity: 0.15,
+              child: Image.asset(
+                'assets/punkalasa.png',
+                width: 60,
+                color: Colors.black,
+                colorBlendMode: BlendMode.srcIn,
+                errorBuilder: (c, e, s) => const Icon(Icons.security, size: 50, color: Colors.black),
               ),
             ),
           ),
@@ -264,9 +251,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             Container(
                               width: 70,
                               height: 85,
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: Colors.transparent,
-                                border: Border.all(color: Colors.grey.withValues(alpha: 0.4), width: 0.5),
                               ),
                               child: imageUrl != null && imageUrl.isNotEmpty
                                   ? Image.network(
@@ -279,8 +265,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 4),
                             Text('4a. $issueDate', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.black87)),
                             const SizedBox(height: 12),
-
-                            // SHINY & DYNAMIC STATUS BADGE
                             Builder(
                               builder: (context) {
                                 List<Color> statusGradient;
@@ -306,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: BackdropFilter(
                                     filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: statusGradient.map((c) => c.withValues(alpha: 0.8)).toList(),
@@ -323,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                         ],
                                         border: Border.all(
-                                          color: Colors.white.withValues(alpha: 0.5),
+                                          color: Colors.white.withValues(alpha: 0.6),
                                           width: 1.0,
                                         ),
                                       ),
@@ -335,13 +319,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Text(
                                             status,
                                             style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 9.5,
-                                                fontWeight: FontWeight.w900,
-                                                letterSpacing: 0.8,
-                                                shadows: [
-                                                  Shadow(blurRadius: 2.0, color: Colors.black45, offset: Offset(1, 1))
-                                                ]
+                                              color: Colors.white,
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 0.8,
                                             ),
                                           ),
                                         ],
@@ -403,27 +384,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Crash නොවෙන විදිහට අකුරු එළියට පනින්නැති වෙන්න හදපු අලුත් Function එක
-  Widget _buildDetailText(String number, String value, {bool isBold = false}) {
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: number,
-            style: TextStyle(fontSize: 8.5, color: Colors.blueGrey[800], fontWeight: FontWeight.bold),
-          ),
-          TextSpan(
-            text: value,
-            style: TextStyle(fontSize: 9.5, fontWeight: isBold ? FontWeight.bold : FontWeight.w600, color: Colors.black87),
-          ),
-        ],
-      ),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  // Dynamic Category Row Builder (Backend එකෙන් එන Data වලට)
   TableRow _buildCategoryRow(String code, String icon) {
     final categories = _licenseData?['vehicleCategories'] as List<dynamic>? ?? [];
     final cat = categories.cast<Map<String, dynamic>>().firstWhere(
