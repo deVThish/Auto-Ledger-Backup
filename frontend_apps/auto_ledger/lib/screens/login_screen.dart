@@ -3,6 +3,8 @@ import '../services/auth_service.dart';
 import '../utils/device_info.dart';
 import '../utils/settings_util.dart';
 import '../widgets/glass_container.dart';
+import 'home_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,6 +45,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Login Successful!')),
+        );
+        // Navigate to Home Screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       }
     } catch (e) {
@@ -148,12 +155,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     IconButton(
                       icon: const Icon(Icons.fingerprint, color: Colors.white, size: 40),
                       onPressed: () {
-                        // TODO: Implement Biometric Login
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Biometric Login Coming Soon!')),
+                        );
                       },
                     ),
                   TextButton(
                     onPressed: () {
-                      // TODO: Navigate to Register Screen
+                      // Navigate to Register Screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                      );
                     },
                     child: const Text(
                       'New Driver? Register Here',
