@@ -3,6 +3,7 @@ import '../services/auth_service.dart';
 import '../utils/device_info.dart';
 import '../widgets/glass_container.dart';
 import 'login_screen.dart';
+import 'home_screen.dart'; // Add this import
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -22,29 +23,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
     try {
       final deviceId = await DeviceInfoUtil.getDeviceId();
+      final nic = _nicController.text.trim();
+
       final data = {
-        "nicNo": _nicController.text.trim(),
+        "nicNo": nic,
         "name": _nameController.text.trim(),
         "mobilePhoneNo": _mobileController.text.trim(),
         "password": _passwordController.text.trim(),
         "deviceId": deviceId
       };
 
+      // 1. Register User (Updates the dummy user created via Postman)
       final success = await AuthService.registerUser(data);
 
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration Successful! Please Login.')),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+        // 2. Auto Verify Registration (Simulates OTP verification for now)
+        final isVerified = await AuthService.verifyRegistration(nic);
+
+        if (isVerified && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registration Successful! Logging in...'), backgroundColor: Colors.green),
+          );
+          // 3. Navigate directly to Home Screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        } else {
+          throw Exception("Verification failed");
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration Failed.')),
+          const SnackBar(content: Text('Registration Failed. Make sure your NIC matches the license.'), backgroundColor: Colors.red),
         );
       }
     } finally {
