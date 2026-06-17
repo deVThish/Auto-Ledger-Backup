@@ -7,10 +7,20 @@ import {
   Request,
   UseGuards,
   Param,
+  Query,
 } from '@nestjs/common';
 import { LicenseService } from './license.service';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiProperty,
+  ApiPropertyOptional,
+  PartialType,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import {
   IsString,
   IsNotEmpty,
@@ -27,48 +37,65 @@ export interface AuthRequest {
 }
 
 export class VehicleCategoryDto {
+  @ApiProperty({ example: 'B' })
   @IsString()
   @IsNotEmpty()
   vehicleClass: string;
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @IsDateString()
   issueDate: Date;
 
+  @ApiProperty({ example: '2032-01-01T00:00:00Z' })
   @IsDateString()
   expiryDate: Date;
 
+  @ApiPropertyOptional({ example: 'AT' })
   @IsString()
   @IsOptional()
   restriction?: string;
 }
 
 export class CreateLicenseDto {
+  @ApiProperty({ example: 'B1234567' })
   @IsString()
   @IsNotEmpty()
   licenseNo: string;
 
+  @ApiProperty({ example: 'K.V.V. Thishan' })
+  @IsString()
+  @IsNotEmpty()
+  fullName: string;
+
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'No 10, Galle Road, Galle' })
   @IsString()
   @IsNotEmpty()
   address: string;
 
+  @ApiProperty({ example: 'O+' })
   @IsString()
   @IsNotEmpty()
   bloodGroup: string;
 
+  @ApiProperty({ example: '2000-01-01T00:00:00Z' })
   @IsDateString()
   dateOfBirth: Date;
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @IsDateString()
   issueDate: Date;
 
-  @IsString()
-  @IsNotEmpty()
-  userId: string;
-
+  @ApiPropertyOptional({ example: 'base64_image_string' })
   @IsString()
   @IsOptional()
   image?: string;
 
+  @ApiProperty({ type: [VehicleCategoryDto] })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => VehicleCategoryDto)
@@ -76,28 +103,36 @@ export class CreateLicenseDto {
 }
 
 export class ScanQRDto {
+  @ApiProperty({ example: 'License_ID:RandomHash:Timestamp' })
   @IsString()
   @IsNotEmpty()
   qrToken: string;
 
+  @ApiPropertyOptional({ example: 'Galle Fort' })
   @IsString()
   @IsOptional()
   location?: string;
 }
 
 export class UpdateStatusDto {
+  @ApiProperty({
+    example: 'SUSPENDED',
+    enum: ['ACTIVE', 'SUSPENDED', 'EXPIRED', 'REVOKED'],
+  })
   @IsEnum(['ACTIVE', 'SUSPENDED', 'EXPIRED', 'REVOKED'])
   status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED';
 }
 
+export class UpdateLicenseDto extends PartialType(CreateLicenseDto) {}
+
 @ApiTags('Driving License')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('license')
 export class LicenseController {
   constructor(private readonly licenseService: LicenseService) {}
 
-  @ApiOperation({ summary: 'Create a new driving license (DMT Admin Only)' })
+  @ApiOperation({ summary: 'Create a new driving license' })
   @Post()
   async createLicense(
     @Request() req: AuthRequest,
@@ -105,15 +140,24 @@ export class LicenseController {
   ) {
     return this.licenseService.createLicense({
       licenseNo: data.licenseNo,
+      fullName: data.fullName,
+      nicNo: data.nicNo,
       address: data.address,
       bloodGroup: data.bloodGroup,
       dateOfBirth: data.dateOfBirth,
       issueDate: data.issueDate,
-      userId: data.userId,
       image: data.image,
       categories: data.categories,
       dmtAdminId: req.user.id,
     });
+  }
+
+  @Get('get-upload-url')
+  async getUploadUrl(
+    @Query('fileName') fileName: string,
+    @Query('fileType') fileType: string,
+  ) {
+    return this.licenseService.getS3UploadUrl(fileName, fileType);
   }
 
   @ApiOperation({ summary: 'Get current user active license' })
@@ -128,7 +172,7 @@ export class LicenseController {
     return this.licenseService.generateLicenseQR(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Scan License QR Code (Traffic Officer Only)' })
+  @ApiOperation({ summary: 'Scan License QR Code' })
   @Post('scan-qr')
   async scanQR(@Request() req: AuthRequest, @Body() data: ScanQRDto) {
     return this.licenseService.scanLicenseQR(
@@ -138,11 +182,41 @@ export class LicenseController {
     );
   }
 
-  @ApiOperation({
-    summary: 'Update License Status (DMT Admin / Divisional Head)',
-  })
+  @ApiOperation({ summary: 'Update License Status' })
   @Patch(':id/status')
   async updateStatus(@Param('id') id: string, @Body() data: UpdateStatusDto) {
     return this.licenseService.updateStatus(id, data.status);
+  }
+
+  @ApiOperation({ summary: 'Get License by NIC' })
+  @Get('search/:nic')
+  async getLicenseByNIC(@Param('nic') nic: string) {
+    return this.licenseService.getLicenseByNIC(nic);
+  }
+
+  @ApiOperation({ summary: 'DMT Admin: Get all licenses (Can filter by NIC)' })
+  @Roles('DMT_ADMIN')
+  @Get('all')
+  async getAllLicenses(@Query('nic') nic?: string) {
+    return this.licenseService.getAllLicenses(nic);
+  }
+
+  @ApiOperation({ summary: 'DMT Admin: Update License Details' })
+  @Roles('DMT_ADMIN')
+  @Patch(':id/update')
+  async updateLicenseDetails(
+    @Param('id') id: string,
+    @Body() updateData: UpdateLicenseDto,
+  ) {
+    return this.licenseService.updateLicenseDetails(id, updateData);
+  }
+
+  @ApiOperation({
+    summary: 'DMT Admin: Get licenses with Fines (Can filter by NIC)',
+  })
+  @Roles('DMT_ADMIN')
+  @Get('with-fines')
+  async getLicensesWithFines(@Query('nic') nic?: string) {
+    return this.licenseService.getLicensesWithFines(nic);
   }
 }
