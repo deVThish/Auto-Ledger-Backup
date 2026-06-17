@@ -1,33 +1,46 @@
-# Auto-Ledger-App 🚦📱
+# 🚦 Auto-Ledger 📱  
+### Smart Digital Driving License & Penalty Points System (Sri Lanka)
 
-An enterprise-level Smart Digital Driving License and Penalty Points System for Sri Lanka.
-Developed as the Final Year Project for HND in Software Engineering.
+An **enterprise-level full-stack system** designed for managing digital driving licenses, traffic violations, and penalty points tracking in Sri Lanka.
 
-## 🏛 Architecture (Monorepo)
+This project is developed as the **Final Year HND in Software Engineering project**.
 
-- **Frontend:** Flutter & Dart (Driver App & Police Enforcement App)
-- **Backend:** Nest.js (TypeScript) API
-- **Database:** PostgreSQL (Neon.tech)
-- **Caching & Real-time:** Redis (Upstash)
-- **Infrastructure:** Docker Containerization
+---
+
+## ✨ Overview
+
+Auto-Ledger is a **multi-platform ecosystem** consisting of:
+
+- 👨‍✈️ Driver Mobile App  
+- 🚓 Police Mobile App  
+- 🖥️ Admin Web Portal (DMT Admin + Police Admin)  
+- ⚙️ Secure Backend API  
+- 🗄️ Scalable Database Infrastructure  
+
+---
+
+## 🏛️ System Architecture (Monorepo)
+
+| Component | Technology |
+|----------|------------|
+| 📱 Mobile Frontend | Flutter & Dart (Driver App + Police App) |
+| 🖥️ Web Frontend | React.js with Next.js (Admin Panels) |
+| ⚙️ Backend | NestJS (TypeScript REST API) |
+| 🗄️ Database | PostgreSQL (Neon / AWS RDS) |
+| ⚡ Cache | Redis (Upstash) |
+| 🐳 Infrastructure | Docker & Docker Compose |
+
+---
 
 ## 📂 Repository Structure
 
-- `/frontend_apps/AutoLedger` - Driver Mobile Application
-- `/frontend_apps/AutoLedgerPolice` - Police Enforcement Mobile Application
-- `/backend/nest-api` - Main Backend API
-- `docker-compose.yml` - Local database & caching infrastructure
-
-## 🚀 Live Deployment
-
-![Hosted on Render](https://img.shields.io/badge/Hosted_on-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)
-
-* **Main API Base URL:** [https://auto-ledger-api.onrender.com](https://auto-ledger-api.onrender.com)
-* **Mock DMT API:** [https://auto-ledger-mock-dmt-yv7q.onrender.com](https://auto-ledger-mock-dmt-yv7q.onrender.com)
-
-## 🤝 Development Team
-
-- K.V.V. Thishan
-- T.I.K. Vithanage
-- M.V.P. Abeywardhana
-- H.K.C. Hashan
+```bash
+📦 Auto-Ledger-App
+ ┣ 📂 frontend_apps
+ ┃ ┣ 📂 AutoLedger              # Driver Mobile App (Flutter)
+ ┃ ┣ 📂 AutoLedgerPolice        # Police Mobile App (Flutter)
+ ┃ ┣ 📂 DMT_Admin               # DMT Admin Web Portal (Next.js)
+ ┃ ┗ 📂 Police_Admin            # Police Admin Web Portal (Next.js)
+ ┣ 📂 backend
+ ┃ ┗ 📂 nest-api                # NestJS Backend API
+ ┗ 📜 docker-compose.yml        # Local infrastructure (DB + Redis)

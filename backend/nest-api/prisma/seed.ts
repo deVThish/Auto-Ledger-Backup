@@ -4,39 +4,35 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting database seeding for Auto-Ledger...');
-
-  const dmtPlainPassword = 'DmtAdmin@Password123!';
-  const policePlainPassword = 'PoliceAdmin@Password123!';
-
+  const dmtPlainPassword = 'Dmt1234$';
+  const policePlainPassword = 'Poli1234$';
   const saltRounds = 10;
+
   const hashedDmtPassword = await bcrypt.hash(dmtPlainPassword, saltRounds);
   const hashedPolicePassword = await bcrypt.hash(
     policePlainPassword,
     saltRounds,
   );
 
-  const dmtAdmin = await prisma.dMT_Admin.create({
-    data: {
+  await prisma.dMT_Admin.upsert({
+    where: { username: 'maindmt' },
+    update: {},
+    create: {
+      username: 'maindmt',
       name: 'Main DMT Admin',
       password: hashedDmtPassword,
     },
   });
-  console.log(
-    `DMT Admin Created! -> ID: ${dmtAdmin.dmt_Admin_Id} | Password: ${dmtPlainPassword}`,
-  );
 
-  const policeAdmin = await prisma.police_Admin.create({
-    data: {
+  await prisma.police_Admin.upsert({
+    where: { username: 'mainpolice' },
+    update: {},
+    create: {
+      username: 'mainpolice',
       name: 'Main Police Admin',
       password: hashedPolicePassword,
     },
   });
-  console.log(
-    `Police Admin Created! -> ID: ${policeAdmin.police_Admin_Id} | Password: ${policePlainPassword}`,
-  );
-
-  console.log('Seeding finished successfully!');
 }
 
 main()

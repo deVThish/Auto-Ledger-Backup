@@ -1,149 +1,114 @@
 import {
   Controller,
-  Post,
   Get,
+  Post,
+  Body,
+  Param,
   Patch,
   Delete,
-  Body,
-  Request,
   UseGuards,
-  Param,
+  Request,
 } from '@nestjs/common';
-import { FinesService } from './fines.service';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
-  IsString,
-  IsNotEmpty,
-  IsArray,
-  IsEnum,
-  IsOptional,
-  IsNumber,
-  IsBoolean,
-} from 'class-validator';
+  FinesService,
+  CreateOffenseData,
+  UpdateOffenseData,
+} from './fines.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 export interface AuthRequest {
   user: { id: string; role?: string };
 }
 
-export class IssueFineDto {
-  @IsString()
-  @IsNotEmpty()
-  licenseId: string;
-
-  @IsArray()
-  @IsString({ each: true })
-  offenseIds: string[];
-
-  @IsString()
-  @IsOptional()
-  comment?: string;
-}
-
-export class CourtVerdictDto {
-  @IsEnum(['ACTIVE', 'REVOKED'])
-  verdict: 'ACTIVE' | 'REVOKED';
-}
-
-// Police Admin Offense DTOs
-export class CreateOffenseDto {
-  @IsString()
-  @IsNotEmpty()
-  code: string;
-
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @IsNumber()
-  @IsNotEmpty()
-  points: number;
-
-  @IsNumber()
-  @IsNotEmpty()
-  amount: number;
-
-  @IsBoolean()
-  @IsNotEmpty()
-  isCourtCase: boolean;
-}
-
-export class UpdateOffenseDto {
-  @IsString()
-  @IsOptional()
-  name?: string;
-
-  @IsNumber()
-  @IsOptional()
-  points?: number;
-
-  @IsNumber()
-  @IsOptional()
-  amount?: number;
-
-  @IsBoolean()
-  @IsOptional()
-  isCourtCase?: boolean;
-}
-
-@ApiTags('Fines & Penalties')
+@ApiTags('Fines & Court Cases')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('fines')
 export class FinesController {
   constructor(private readonly finesService: FinesService) {}
 
-  @ApiOperation({ summary: 'Issue a new fine (Traffic Officer Only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('TRAFFIC_OFFICER')
   @Post()
-  async issueFine(@Request() req: AuthRequest, @Body() data: IssueFineDto) {
+  issueFine(
+    @Request() req: AuthRequest,
+    @Body() body: { licenseId: string; offenseIds: string[]; comment?: string },
+  ) {
     return this.finesService.issueFine({
-      licenseId: data.licenseId,
+      licenseId: body.licenseId,
       officerId: req.user.id,
-      offenseIds: data.offenseIds,
-      comment: data.comment,
+      offenseIds: body.offenseIds,
+      comment: body.comment,
     });
   }
 
-  @ApiOperation({ summary: 'Get all fines for current driver' })
+  @UseGuards(JwtAuthGuard)
   @Get('my-fines')
-  async getMyFines(@Request() req: AuthRequest) {
+  getMyFines(@Request() req: AuthRequest) {
     return this.finesService.getMyFines(req.user.id);
   }
 
-  @ApiOperation({
-    summary: 'Process Court Case Verdict (Divisional Head Only)',
-  })
-  @Patch('court-case/:id')
-  async processCourtCase(
-    @Param('id') fineId: string,
-    @Body() data: CourtVerdictDto,
-  ) {
-    return this.finesService.updateCourtCase(fineId, data.verdict);
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/pay')
+  payFine(@Param('id') id: string, @Body() body: { amount: number }) {
+    return this.finesService.payFine(id, body.amount);
   }
 
-  // --- POLICE ADMIN OFFENSE CRUD ROUTES ---
-
-  @ApiOperation({ summary: 'Create Offense Category (Police Admin Only)' })
-  @Post('offense')
-  async createOffenseCategory(
-    @Request() req: AuthRequest,
-    @Body() data: CreateOffenseDto,
-  ) {
-    return this.finesService.createOffenseCategory(data, req.user.id);
+  @UseGuards(JwtAuthGuard)
+  @Post('pay-bulk')
+  payBulkFines(@Body() body: { fineIds: string[]; totalAmount: number }) {
+    return this.finesService.payBulkFines(body.fineIds, body.totalAmount);
   }
 
-  @ApiOperation({ summary: 'Update Offense Category (Police Admin Only)' })
-  @Patch('offense/:id')
-  async updateOffenseCategory(
-    @Param('id') offenseId: string,
-    @Body() data: UpdateOffenseDto,
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DIVISIONAL_HEAD')
+  @Patch(':id/court-verdict')
+  updateCourtVerdict(
+    @Param('id') id: string,
+    @Body('verdict') verdict: 'ACTIVE' | 'REVOKED',
   ) {
-    return this.finesService.updateOffenseCategory(offenseId, data);
+    return this.finesService.updateCourtCase(id, verdict);
   }
 
-  @ApiOperation({ summary: 'Delete Offense Category (Police Admin Only)' })
-  @Delete('offense/:id')
-  async deleteOffenseCategory(@Param('id') offenseId: string) {
-    return this.finesService.deleteOffenseCategory(offenseId);
+  @Get('offenses')
+  getAllOffenses() {
+    return this.finesService.getAllOffenses();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('POLICE_ADMIN')
+  @Post('offenses')
+  createOffense(@Request() req: AuthRequest, @Body() body: CreateOffenseData) {
+    return this.finesService.createOffenseCategory(body, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('POLICE_ADMIN')
+  @Patch('offenses/:id')
+  updateOffense(@Param('id') id: string, @Body() body: UpdateOffenseData) {
+    return this.finesService.updateOffenseCategory(id, body);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('POLICE_ADMIN')
+  @Delete('offenses/:id')
+  deleteOffense(@Param('id') id: string) {
+    return this.finesService.deleteOffenseCategory(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DIVISIONAL_HEAD')
+  @Get('court-cases')
+  getCourtCases(@Request() req: AuthRequest) {
+    return this.finesService.getCourtCasesByDH(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DIVISIONAL_HEAD')
+  @Get('dashboard-stats')
+  getDashboardStats(@Request() req: AuthRequest) {
+    return this.finesService.getDashboardStats(req.user.id);
   }
 }
