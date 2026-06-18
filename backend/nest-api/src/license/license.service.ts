@@ -68,8 +68,7 @@ export class LicenseService {
     const bucketName =
       this.configService.get<string>('AWS_S3_BUCKET_NAME') ||
       'auto-ledger-images';
-    const region =
-      this.configService.get<string>('AWS_REGION') || 'ap-southeast-1';
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
 
     const cleanFileName = fileName.replace(/\s+/g, '-');
     const uniqueFileName = `licenses/${Date.now()}-${cleanFileName}`;
@@ -84,7 +83,6 @@ export class LicenseService {
       expiresIn: 60,
     });
     const publicFileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${uniqueFileName}`;
-
     return {
       uploadUrl,
       fileUrl: publicFileUrl,
