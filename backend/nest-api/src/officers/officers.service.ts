@@ -43,26 +43,37 @@ export class OfficersService {
     name: string;
     passwordStr: string;
   }) {
-    const existingDivision = await this.prisma.division.findUnique({
-      where: { division_Name: data.divisionName },
+    const existingDivision = await this.prisma.division.findFirst({
+      where: {
+        OR: [
+          { division_Name: data.divisionName },
+          { division_Id: data.divisionName },
+        ],
+      },
       include: { divisionalHead: true },
     });
+
     if (!existingDivision) throw new NotFoundException('Division not found');
+
     if (existingDivision.divisionalHead)
       throw new BadRequestException(
         'This Division already has a Head assigned',
       );
+
     const existingUsername = await this.prisma.divisional_Head.findUnique({
       where: { username: data.username },
     });
     if (existingUsername)
       throw new BadRequestException('Head username already exists');
+
     const existingEmail = await this.prisma.divisional_Head.findUnique({
       where: { email: data.email },
     });
     if (existingEmail)
       throw new BadRequestException('Head email already exists');
+
     const hashedPassword = await bcrypt.hash(data.passwordStr, 10);
+
     return this.prisma.divisional_Head.create({
       data: {
         username: data.username,
@@ -87,11 +98,13 @@ export class OfficersService {
     });
     if (existingBadge)
       throw new BadRequestException('Badge number already exists');
+
     const existingEmail = await this.prisma.traffic_Officer.findUnique({
       where: { email: data.email },
     });
     if (existingEmail)
       throw new BadRequestException('Officer email already exists');
+
     const hashedPassword = await bcrypt.hash(data.passwordStr, 10);
     return this.prisma.traffic_Officer.create({
       data: {
@@ -199,5 +212,26 @@ export class OfficersService {
       status: off.shifts.length > 0 ? 'ON_DUTY' : 'OFF_DUTY',
       currentShift: off.shifts.length > 0 ? off.shifts[0] : null,
     }));
+  }
+
+  async getAllDivisions() {
+    return this.prisma.division.findMany({
+      include: {
+        divisionalHead: {
+          select: {
+            divisional_Head_Id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getAllDivisionalHeads() {
+    return this.prisma.divisional_Head.findMany({
+      include: {
+        division: true,
+      },
+    });
   }
 }
