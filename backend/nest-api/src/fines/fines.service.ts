@@ -197,9 +197,10 @@ export class FinesService {
   async createOffenseCategory(data: CreateOffenseData, policeAdminId: string) {
     return this.prisma.offence_Category.create({
       data: {
-        ...data,
-        points_Value: data.points,
+        code: data.code,
+        name: data.name,
         amount: data.amount,
+        points_Value: data.points,
         is_Court_Case: data.isCourtCase,
         police_Admin_Id: policeAdminId,
       },
