@@ -5,7 +5,6 @@ import {
   Body,
   Param,
   Patch,
-  Delete,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -77,6 +76,16 @@ export class FinesController {
     return this.finesService.getAllOffenses();
   }
 
+  @Get('dmt/all-fines')
+  getAllFinesForDMT() {
+    return this.finesService.getAllFinesForDMT();
+  }
+
+  @Get('dmt/problematic-licenses')
+  getProblematicLicensesForDMT() {
+    return this.finesService.getProblematicLicensesForDMT();
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('POLICE_ADMIN')
   @Post('offenses')
@@ -93,9 +102,9 @@ export class FinesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('POLICE_ADMIN')
-  @Delete('offenses/:id')
-  deleteOffense(@Param('id') id: string) {
-    return this.finesService.deleteOffenseCategory(id);
+  @Patch('offenses/:id/toggle')
+  toggleOffenseStatus(@Param('id') id: string) {
+    return this.finesService.toggleOffenseStatus(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
