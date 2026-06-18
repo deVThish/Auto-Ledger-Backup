@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
@@ -19,7 +17,7 @@ class QrScannerScreen extends StatefulWidget {
 class _QrScannerScreenState extends State<QrScannerScreen> {
   final _formKey = GlobalKey<FormState>();
   final _qrTokenController = TextEditingController();
-  final _licenseNumberController = TextEditingController();
+  final _locationController = TextEditingController();
   final _trafficFineService = TrafficFineService();
 
   bool _isLoading = false;
@@ -27,30 +25,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   @override
   void dispose() {
     _qrTokenController.dispose();
-    _licenseNumberController.dispose();
+    _locationController.dispose();
     super.dispose();
-  }
-
-  String _extractLicenseNumber(String token) {
-    try {
-      final parts = token.trim().split('.');
-
-      if (parts.length != 3) {
-        return '';
-      }
-
-      final normalizedPayload = base64Url.normalize(parts[1]);
-      final decodedPayload = utf8.decode(base64Url.decode(normalizedPayload));
-      final payload = jsonDecode(decodedPayload);
-
-      if (payload is! Map<String, dynamic>) {
-        return '';
-      }
-
-      return payload['licenseNumber']?.toString() ?? '';
-    } catch (_) {
-      return '';
-    }
   }
 
   Future<void> _handleVerify() async {
@@ -65,24 +41,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
 
     final qrToken = _qrTokenController.text.trim();
-    final extractedLicenseNumber = _extractLicenseNumber(qrToken);
-    final fallbackLicenseNumber = _licenseNumberController.text.trim();
-    final licenseNumber = extractedLicenseNumber.isNotEmpty
-        ? extractedLicenseNumber
-        : fallbackLicenseNumber;
-
-    if (licenseNumber.isEmpty) {
-      AppErrorHandler.showPopup(
-        context,
-        message: 'Unable to read license number from QR token.',
-      );
-      return;
-    }
+    final location = _locationController.text.trim();
 
     setState(() => _isLoading = true);
 
     try {
-      final license = await _trafficFineService.verifyLicense(licenseNumber);
+      final license = await _trafficFineService.scanQr(
+        qrToken: qrToken,
+        location: location,
+      );
 
       if (!mounted) return;
 
@@ -130,7 +97,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+            final horizontalPadding =
+                constraints.maxWidth < 380 ? 20.0 : 26.0;
 
             return SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -144,7 +112,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlack,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.primaryBlack,
+                            Color(0xFF31363F),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(28),
                       ),
                       child: const Column(
@@ -166,7 +141,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                           ),
                           SizedBox(height: 8),
                           Text(
-                            'Paste the driver QR token to verify the license before issuing a fine.',
+                            'Paste or scan the driver QR token, then continue to the license and offense selection flow.',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
@@ -217,17 +192,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
-                              controller: _licenseNumberController,
+                              controller: _locationController,
                               textInputAction: TextInputAction.done,
                               decoration: const InputDecoration(
-                                labelText: 'License Number',
-                                hintText: 'Optional if QR token contains it',
-                                prefixIcon: Icon(Icons.credit_card_rounded),
+                                labelText: 'Location',
+                                hintText: 'Current GPS or typed location',
+                                prefixIcon: Icon(Icons.place_outlined),
                               ),
                             ),
                             const SizedBox(height: 14),
                             const Text(
-                              'Use the license number field only when the QR token cannot be decoded on the device.',
+                              'If the QR expires, ask the driver to generate a fresh QR code before scanning again.',
                               style: TextStyle(
                                 color: AppTheme.textGray,
                                 fontSize: 12,
@@ -237,7 +212,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             ),
                             const SizedBox(height: 24),
                             AppButton(
-                              text: 'Verify License',
+                              text: 'Scan QR',
                               icon: Icons.verified_user_outlined,
                               isLoading: _isLoading,
                               onPressed: _handleVerify,

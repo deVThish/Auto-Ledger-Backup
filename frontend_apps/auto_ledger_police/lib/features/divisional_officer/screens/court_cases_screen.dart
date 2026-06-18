@@ -17,6 +17,7 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
   final _fineService = FineService();
 
   late Future<List<FineModel>> _courtCasesFuture;
+  List<FineModel> _cachedCourtCases = [];
   bool _isResolving = false;
 
   @override
@@ -25,8 +26,10 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
     _courtCasesFuture = _loadCourtCases();
   }
 
-  Future<List<FineModel>> _loadCourtCases() {
-    return _fineService.getDistrictCourtCases();
+  Future<List<FineModel>> _loadCourtCases() async {
+    final courtCases = await _fineService.getDistrictCourtCases();
+    _cachedCourtCases = courtCases;
+    return courtCases;
   }
 
   Future<void> _refreshCourtCases() async {
@@ -201,9 +204,11 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
                   child: FutureBuilder<List<FineModel>>(
                     future: _courtCasesFuture,
                     builder: (context, snapshot) {
+                      final courtCases = snapshot.data ?? _cachedCourtCases;
                       final isLoading =
-                          snapshot.connectionState == ConnectionState.waiting;
-                      final courtCases = snapshot.data ?? <FineModel>[];
+                          snapshot.connectionState ==
+                              ConnectionState.waiting &&
+                          courtCases.isEmpty;
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,7 +287,7 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
                           const SizedBox(height: 14),
                           if (isLoading)
                             const _LoadingCard()
-                          else if (snapshot.hasError)
+                          else if (snapshot.hasError && courtCases.isEmpty)
                             _ErrorCard(
                               onRetry: _refreshCourtCases,
                               message: snapshot.error is ApiException

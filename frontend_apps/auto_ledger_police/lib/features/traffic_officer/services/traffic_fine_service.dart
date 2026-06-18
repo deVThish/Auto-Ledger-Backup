@@ -14,53 +14,100 @@ class TrafficFineService {
   Future<List<OffenseModel>> getOffenses() async {
     final response = await _apiClient.get(ApiConstants.offenses);
 
-    if (response is! List) {
+    final items = _unwrapList(response);
+    if (items.isEmpty) {
       return <OffenseModel>[];
     }
 
-    return response
+    return items
         .whereType<Map<String, dynamic>>()
         .map(OffenseModel.fromJson)
         .toList();
   }
 
-  Future<LicenseModel> verifyLicense(String licenseNumber) async {
-    final encodedLicenseNumber = Uri.encodeComponent(licenseNumber.trim());
-
-    final response = await _apiClient.get(
-      '${ApiConstants.verifyLicensePrefix}/$encodedLicenseNumber',
+  Future<LicenseModel> scanQr({
+    required String qrToken,
+    required String location,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.scanQr,
+      body: {
+        'qrToken': qrToken.trim(),
+        'location':
+            location.trim().isEmpty ? 'Current Location' : location.trim(),
+      },
     );
 
-    return LicenseModel.fromJson(response as Map<String, dynamic>);
+    final payload = _unwrapMap(response);
+    return LicenseModel.fromJson(payload);
   }
 
   Future<FineIssueResultModel> issueFine({
-    required String qrToken,
-    required List<String> offenseCodes,
-    required String officerId,
+    required String licenseId,
+    required List<String> offenseIds,
+    required String comment,
   }) async {
     final response = await _apiClient.post(
       ApiConstants.issueFine,
       body: {
-        'qrToken': qrToken.trim(),
-        'offenseCodes': offenseCodes,
-        'officerId': officerId,
+        'licenseId': licenseId.trim(),
+        'offenseIds': offenseIds
+            .map((id) => id.trim())
+            .where((id) => id.isNotEmpty)
+            .toList(),
+        'comment': comment.trim(),
       },
     );
 
-    return FineIssueResultModel.fromJson(response as Map<String, dynamic>);
+    final payload = _unwrapMap(response);
+    return FineIssueResultModel.fromJson(payload);
   }
 
   Future<List<FineModel>> getFineHistory() async {
     final response = await _apiClient.get(ApiConstants.fineHistory);
 
-    if (response is! List) {
+    final items = _unwrapList(response);
+    if (items.isEmpty) {
       return <FineModel>[];
     }
 
-    return response
+    return items
         .whereType<Map<String, dynamic>>()
         .map(FineModel.fromJson)
         .toList();
+  }
+
+  Map<String, dynamic> _unwrapMap(dynamic response) {
+    if (response is Map<String, dynamic>) {
+      final data = response['data'];
+      if (data is Map<String, dynamic>) return data;
+
+      final result = response['result'];
+      if (result is Map<String, dynamic>) return result;
+
+      return response;
+    }
+
+    return <String, dynamic>{};
+  }
+
+  List<dynamic> _unwrapList(dynamic response) {
+    if (response is List) return response;
+
+    if (response is Map<String, dynamic>) {
+      final items = response['items'];
+      if (items is List) return items;
+
+      final data = response['data'];
+      if (data is List) return data;
+
+      final fines = response['fines'];
+      if (fines is List) return fines;
+
+      final results = response['results'];
+      if (results is List) return results;
+    }
+
+    return <dynamic>[];
   }
 }

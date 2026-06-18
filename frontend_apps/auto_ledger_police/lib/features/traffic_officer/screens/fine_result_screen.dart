@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/fine_model.dart';
 import '../../../shared/widgets/app_button.dart';
@@ -22,34 +23,39 @@ class FineResultScreen extends StatelessWidget {
   }
 
   double get _totalAmount {
-    return result.fineDetails.fold<double>(
-      0,
-          (sum, fine) => sum + fine.amount,
-    );
+    return result.fineDetails.fold<double>(0, (sum, fine) => sum + fine.amount);
   }
 
   int get _totalPoints {
-    return result.fineDetails.fold<int>(
-      0,
-          (sum, fine) => sum + fine.points,
-    );
+    return result.fineDetails.fold<int>(0, (sum, fine) => sum + fine.points);
   }
 
   void _goToDashboard(BuildContext context) {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.trafficOfficerDashboard,
+      (route) => false,
+    );
   }
 
   void _issueAnotherFine(BuildContext context) {
-    Navigator.of(context).pushAndRemoveUntil(
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => const QrScannerScreen(),
       ),
-          (route) => route.isFirst,
     );
+  }
+
+  Color _statusColor() {
+    final status = result.licenseStatus.toUpperCase();
+    if (status == 'ACTIVE') return AppTheme.successGreen;
+    if (status == 'SUSPENDED' || status == 'REVOKED') return AppTheme.errorRed;
+    return AppTheme.primaryBlack;
   }
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = _statusColor();
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundWhite,
       appBar: AppBar(
@@ -64,7 +70,8 @@ class FineResultScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+            final horizontalPadding =
+                constraints.maxWidth < 380 ? 20.0 : 26.0;
 
             return SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -78,7 +85,14 @@ class FineResultScreen extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlack,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.primaryBlack,
+                            Color(0xFF31363F),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(28),
                       ),
                       child: Column(
@@ -120,9 +134,10 @@ class FineResultScreen extends StatelessWidget {
                       licenseStatus: result.licenseStatus,
                       accumulatedPoints: result.accumulatedPoints,
                       temporaryExpiry:
-                      _formatDate(result.temporaryLicenseExpiry),
+                          _formatDate(result.temporaryLicenseExpiry),
                       totalPoints: _totalPoints,
                       totalAmount: _totalAmount,
+                      statusColor: statusColor,
                     ),
                     const SizedBox(height: 24),
                     const Text(
@@ -138,7 +153,7 @@ class FineResultScreen extends StatelessWidget {
                       const _EmptyResultCard()
                     else
                       ...result.fineDetails.map(
-                            (fine) => Padding(
+                        (fine) => Padding(
                           padding: const EdgeInsets.only(bottom: 14),
                           child: _FineDetailCard(fine: fine),
                         ),
@@ -193,6 +208,7 @@ class _ResultSummaryCard extends StatelessWidget {
     required this.temporaryExpiry,
     required this.totalPoints,
     required this.totalAmount,
+    required this.statusColor,
   });
 
   final String licenseStatus;
@@ -200,6 +216,7 @@ class _ResultSummaryCard extends StatelessWidget {
   final String temporaryExpiry;
   final int totalPoints;
   final double totalAmount;
+  final Color statusColor;
 
   @override
   Widget build(BuildContext context) {
@@ -207,15 +224,23 @@ class _ResultSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.lightGray,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(25),
         border: Border.all(color: AppTheme.borderGray),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
           _InfoRow(
             title: 'License Status',
             value: licenseStatus.isEmpty ? '-' : licenseStatus,
+            valueColor: statusColor,
           ),
           const SizedBox(height: 12),
           _InfoRow(
@@ -247,10 +272,12 @@ class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.title,
     required this.value,
+    this.valueColor,
   });
 
   final String title;
   final String value;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -272,8 +299,8 @@ class _InfoRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.end,
-            style: const TextStyle(
-              color: AppTheme.primaryBlack,
+            style: TextStyle(
+              color: valueColor ?? AppTheme.primaryBlack,
               fontSize: 14,
               fontWeight: FontWeight.w900,
             ),

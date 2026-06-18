@@ -26,6 +26,11 @@ class OfficerService {
       },
     );
 
+    final data = _extractMap(response);
+    if (data != null) {
+      return OfficerModel.fromJson(data);
+    }
+
     return OfficerModel.fromJson(response as Map<String, dynamic>);
   }
 
@@ -34,14 +39,8 @@ class OfficerService {
       ApiConstants.districtOfficers,
     );
 
-    if (response is! List) {
-      return <OfficerModel>[];
-    }
-
-    return response
-        .whereType<Map<String, dynamic>>()
-        .map(OfficerModel.fromJson)
-        .toList();
+    final rawList = _extractList(response);
+    return rawList.map(OfficerModel.fromJson).toList();
   }
 
   Future<ShiftModel> assignShift({
@@ -52,8 +51,7 @@ class OfficerService {
   }) async {
     final payload = {
       'officerId': officerId,
-      'date':
-          '${startTime.year}-${startTime.month.toString().padLeft(2, '0')}-${startTime.day.toString().padLeft(2, '0')}T00:00:00.000Z',
+      'date': startTime.toUtc().toIso8601String(),
       'startTime': startTime.toUtc().toIso8601String(),
       'endTime': endTime.toUtc().toIso8601String(),
       'location': location,
@@ -64,8 +62,84 @@ class OfficerService {
       body: payload,
     );
 
-    return ShiftModel.fromJson(
-      response as Map<String, dynamic>,
+    final data = _extractMap(response);
+    if (data != null) {
+      return ShiftModel.fromJson(data);
+    }
+
+    return ShiftModel.fromJson(response as Map<String, dynamic>);
+  }
+
+  Future<ShiftModel> updateShift({
+    required String shiftId,
+    required DateTime startTime,
+    required DateTime endTime,
+    String location = 'Duty Location',
+  }) async {
+    final payload = {
+      'date': startTime.toUtc().toIso8601String(),
+      'startTime': startTime.toUtc().toIso8601String(),
+      'endTime': endTime.toUtc().toIso8601String(),
+      'location': location,
+    };
+
+    final response = await _apiClient.patch(
+      '${ApiConstants.assignShift}/$shiftId',
+      body: payload,
     );
+
+    final data = _extractMap(response);
+    if (data != null) {
+      return ShiftModel.fromJson(data);
+    }
+
+    return ShiftModel.fromJson(response as Map<String, dynamic>);
+  }
+
+  List<Map<String, dynamic>> _extractList(dynamic response) {
+    if (response is List) {
+      return response.whereType<Map<String, dynamic>>().toList();
+    }
+
+    if (response is Map<String, dynamic>) {
+      final keys = <String>[
+        'data',
+        'items',
+        'results',
+        'officers',
+        'list',
+      ];
+
+      for (final key in keys) {
+        final candidate = response[key];
+        final extracted = _extractList(candidate);
+        if (extracted.isNotEmpty) {
+          return extracted;
+        }
+      }
+    }
+
+    return <Map<String, dynamic>>[];
+  }
+
+  Map<String, dynamic>? _extractMap(dynamic response) {
+    if (response is Map<String, dynamic>) {
+      final dataKeys = <String>[
+        'data',
+        'result',
+        'item',
+      ];
+
+      for (final key in dataKeys) {
+        final candidate = response[key];
+        if (candidate is Map<String, dynamic>) {
+          return candidate;
+        }
+      }
+
+      return response;
+    }
+
+    return null;
   }
 }

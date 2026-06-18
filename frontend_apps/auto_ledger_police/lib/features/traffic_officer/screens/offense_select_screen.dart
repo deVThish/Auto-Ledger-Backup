@@ -25,7 +25,7 @@ class OffenseSelectScreen extends StatefulWidget {
 
 class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
   final _trafficFineService = TrafficFineService();
-  final Set<String> _selectedCodes = <String>{};
+  final Set<String> _selectedOffenseIds = <String>{};
 
   late Future<List<OffenseModel>> _offensesFuture;
 
@@ -33,6 +33,11 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
   void initState() {
     super.initState();
     _offensesFuture = _loadOffenses();
+  }
+
+  String _offenseKey(OffenseModel offense) {
+    if (offense.id.trim().isNotEmpty) return offense.id.trim();
+    return offense.code.trim();
   }
 
   Future<List<OffenseModel>> _loadOffenses() {
@@ -48,35 +53,30 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
   }
 
   void _toggleOffense(OffenseModel offense) {
-    if (offense.code.isEmpty) return;
+    final key = _offenseKey(offense);
+    if (key.isEmpty) return;
 
     setState(() {
-      if (_selectedCodes.contains(offense.code)) {
-        _selectedCodes.remove(offense.code);
+      if (_selectedOffenseIds.contains(key)) {
+        _selectedOffenseIds.remove(key);
       } else {
-        _selectedCodes.add(offense.code);
+        _selectedOffenseIds.add(key);
       }
     });
   }
 
   List<OffenseModel> _selectedOffenses(List<OffenseModel> offenses) {
     return offenses
-        .where((offense) => _selectedCodes.contains(offense.code))
+        .where((offense) => _selectedOffenseIds.contains(_offenseKey(offense)))
         .toList();
   }
 
   double _totalAmount(List<OffenseModel> offenses) {
-    return offenses.fold<double>(
-      0,
-          (sum, offense) => sum + offense.amount,
-    );
+    return offenses.fold<double>(0, (sum, offense) => sum + offense.amount);
   }
 
   int _totalPoints(List<OffenseModel> offenses) {
-    return offenses.fold<int>(
-      0,
-          (sum, offense) => sum + offense.points,
-    );
+    return offenses.fold<int>(0, (sum, offense) => sum + offense.points);
   }
 
   void _openConfirmation(List<OffenseModel> offenses) {
@@ -122,7 +122,8 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+            final horizontalPadding =
+                constraints.maxWidth < 380 ? 20.0 : 26.0;
 
             return RefreshIndicator(
               color: AppTheme.primaryBlack,
@@ -171,19 +172,19 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
                                   : 'Unable to load offenses.',
                             )
                           else if (offenses.isEmpty)
-                              const _EmptyCard()
-                            else
-                              ...offenses.map(
-                                    (offense) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: _OffenseCard(
-                                    offense: offense,
-                                    isSelected:
-                                    _selectedCodes.contains(offense.code),
-                                    onTap: () => _toggleOffense(offense),
-                                  ),
+                            const _EmptyCard()
+                          else
+                            ...offenses.map(
+                              (offense) => Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: _OffenseCard(
+                                  offense: offense,
+                                  isSelected: _selectedOffenseIds
+                                      .contains(_offenseKey(offense)),
+                                  onTap: () => _toggleOffense(offense),
                                 ),
                               ),
+                            ),
                           const SizedBox(height: 10),
                           AppButton(
                             text: 'Continue',
@@ -217,7 +218,14 @@ class _HeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppTheme.primaryBlack,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryBlack,
+            Color(0xFF31363F),
+          ],
+        ),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(
@@ -354,6 +362,9 @@ class _OffenseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = offense.name.isEmpty ? 'Traffic Offense' : offense.name;
+    final code = offense.code.isEmpty ? offense.id : offense.code;
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(25),
@@ -383,7 +394,7 @@ class _OffenseCard extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   color:
-                  isSelected ? AppTheme.primaryBlack : AppTheme.lightGray,
+                      isSelected ? AppTheme.primaryBlack : AppTheme.lightGray,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Icon(
@@ -400,7 +411,7 @@ class _OffenseCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      offense.name.isEmpty ? 'Traffic Offense' : offense.name,
+                      title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -411,7 +422,7 @@ class _OffenseCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      offense.code.isEmpty ? 'No code' : offense.code,
+                      code.isEmpty ? 'No code' : code,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -452,10 +463,7 @@ class _MiniBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: AppTheme.lightGray,
         borderRadius: BorderRadius.circular(14),

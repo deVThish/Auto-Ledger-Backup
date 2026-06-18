@@ -29,24 +29,19 @@ class FineModel {
   }
 
   int get points {
-    return offenses.fold<int>(
-      0,
-      (sum, offense) => sum + offense.points,
-    );
+    return offenses.fold<int>(0, (sum, offense) => sum + offense.points);
   }
 
   double get amount {
-    return offenses.fold<double>(
-      0,
-      (sum, offense) => sum + offense.amount,
-    );
+    return offenses.fold<double>(0, (sum, offense) => sum + offense.amount);
   }
 
   factory FineModel.fromJson(Map<String, dynamic> json) {
     final license = json['license'];
     final user = license is Map<String, dynamic> ? license['user'] : null;
     final officer = json['officer'];
-    final rawOffenses = json['offenses'];
+    final rawOffenses =
+        json['offenses'] ?? json['fineDetails'] ?? json['items'] ?? json['fine'];
 
     final offenses = rawOffenses is List
         ? rawOffenses
@@ -56,34 +51,71 @@ class FineModel {
         : _readSingleOffense(json);
 
     return FineModel(
-      id: json['id']?.toString() ?? '',
-      status: json['status']?.toString() ?? '',
-      issuedAt: DateTime.tryParse(json['issuedAt']?.toString() ?? ''),
-      dueDate: DateTime.tryParse(json['dueDate']?.toString() ?? ''),
+      id: _readString(
+        json,
+        const ['id', 'fineId', 'fine_id'],
+      ),
+      status: _readString(
+        json,
+        const ['status', 'fineStatus'],
+      ),
+      issuedAt: _readDate(
+        json,
+        const ['issuedAt', 'createdAt', 'fineIssuedAt'],
+      ),
+      dueDate: _readDate(
+        json,
+        const ['dueDate', 'payBy', 'due_at'],
+      ),
       licenseNumber: license is Map<String, dynamic>
-          ? license['licenseNumber']?.toString() ?? ''
-          : json['licenseNumber']?.toString() ?? '',
+          ? _readString(
+              license,
+              const ['licenseNumber', 'licenseNo', 'license_no'],
+            )
+          : _readString(
+              json,
+              const ['licenseNumber', 'licenseNo', 'license_no'],
+            ),
       driverName: user is Map<String, dynamic>
-          ? user['name']?.toString() ?? ''
-          : json['driverName']?.toString() ?? '',
+          ? _readString(
+              user,
+              const ['name', 'fullName', 'driverName'],
+            )
+          : _readString(
+              json,
+              const ['driverName', 'name', 'fullName'],
+            ),
       offenses: offenses,
       officerName: officer is Map<String, dynamic>
-          ? officer['name']?.toString() ?? ''
-          : json['officerName']?.toString() ?? '',
+          ? _readString(
+              officer,
+              const ['name', 'fullName', 'officerName'],
+            )
+          : _readString(
+              json,
+              const ['officerName', 'name', 'fullName'],
+            ),
       officerBadgeNumber: officer is Map<String, dynamic>
-          ? officer['badgeNumber']?.toString() ?? ''
-          : json['officerBadgeNumber']?.toString() ?? '',
+          ? _readString(
+              officer,
+              const ['badgeNumber', 'badgeNo', 'badge_No'],
+            )
+          : _readString(
+              json,
+              const ['officerBadgeNumber', 'badgeNumber', 'badgeNo'],
+            ),
     );
   }
 
   static List<OffenseModel> _readSingleOffense(Map<String, dynamic> json) {
-    final offense = json['offenseCategory'] ?? json['offense'];
+    final offense = json['offenseCategory'] ?? json['offense'] ?? json['item'];
 
     if (offense is Map<String, dynamic>) {
       return [OffenseModel.fromJson(offense)];
     }
 
-    final offenseName = json['offenseName']?.toString() ?? '';
+    final offenseName =
+        json['offenseName']?.toString() ?? json['title']?.toString() ?? '';
 
     if (offenseName.trim().isEmpty) {
       return <OffenseModel>[];
@@ -95,18 +127,31 @@ class FineModel {
         code: '',
         name: offenseName,
         description: offenseName,
-        amount: _readDouble(json['amount']),
-        points: _readInt(json['points']),
+        amount: _readDouble(json['amount'] ?? json['fee']),
+        points: _readInt(json['points'] ?? json['demeritPoints']),
         isCourtCase: false,
       ),
     ];
+  }
+
+  static String _readString(
+    Map<String, dynamic> json,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    for (final key in keys) {
+      final value = json[key];
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+    return fallback;
   }
 
   static int _readInt(dynamic value) {
     if (value is num) {
       return value.toInt();
     }
-
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
@@ -114,8 +159,20 @@ class FineModel {
     if (value is num) {
       return value.toDouble();
     }
-
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static DateTime? _readDate(
+    Map<String, dynamic> json,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final raw = json[key]?.toString() ?? '';
+      if (raw.trim().isEmpty) continue;
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 }
 
@@ -141,16 +198,11 @@ class DistrictStatisticsModel {
   ) {
     return DistrictStatisticsModel(
       totalOfficers: _readInt(json['totalOfficers']),
-      activeOfficersOnDuty:
-          _readInt(json['activeOfficersOnDuty']),
-      totalFinesIssued:
-          _readInt(json['totalFinesIssued']),
-      totalRevenue:
-          _readDouble(json['totalRevenue']),
-      pendingFinesCount:
-          _readInt(json['pendingFinesCount']),
-      overdueCourtCases:
-          _readInt(json['overdueCourtCases']),
+      activeOfficersOnDuty: _readInt(json['activeOfficersOnDuty']),
+      totalFinesIssued: _readInt(json['totalFinesIssued']),
+      totalRevenue: _readDouble(json['totalRevenue']),
+      pendingFinesCount: _readInt(json['pendingFinesCount']),
+      overdueCourtCases: _readInt(json['overdueCourtCases']),
     );
   }
 
@@ -158,7 +210,6 @@ class DistrictStatisticsModel {
     if (value is num) {
       return value.toInt();
     }
-
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
@@ -166,7 +217,6 @@ class DistrictStatisticsModel {
     if (value is num) {
       return value.toDouble();
     }
-
     return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
@@ -187,7 +237,19 @@ class FineIssueResultModel {
   factory FineIssueResultModel.fromJson(
     Map<String, dynamic> json,
   ) {
-    final rawFineDetails = json['fineDetails'];
+    final rawFineDetails =
+        json['fineDetails'] ?? json['fines'] ?? json['results'] ?? json['data'];
+
+    final nestedLicense = json['license'];
+    String resolvedLicenseStatus = (json['licenseStatus'] ??
+            json['status'] ??
+            '')
+        .toString();
+
+    if (resolvedLicenseStatus.trim().isEmpty &&
+        nestedLicense is Map<String, dynamic>) {
+      resolvedLicenseStatus = nestedLicense['status']?.toString() ?? '';
+    }
 
     return FineIssueResultModel(
       fineDetails: rawFineDetails is List
@@ -196,12 +258,12 @@ class FineIssueResultModel {
               .map(FineModel.fromJson)
               .toList()
           : <FineModel>[],
-      licenseStatus:
-          json['licenseStatus']?.toString() ?? '',
+      licenseStatus: resolvedLicenseStatus,
       accumulatedPoints:
-          _readInt(json['accumulatedPoints']),
-      temporaryLicenseExpiry: DateTime.tryParse(
-        json['temporaryLicenseExpiry']?.toString() ?? '',
+          _readInt(json['accumulatedPoints'] ?? json['points'] ?? 0),
+      temporaryLicenseExpiry: _readDate(
+        json,
+        const ['temporaryLicenseExpiry', 'temporaryExpiry', 'tempExpiry'],
       ),
     );
   }
@@ -210,7 +272,19 @@ class FineIssueResultModel {
     if (value is num) {
       return value.toInt();
     }
-
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static DateTime? _readDate(
+    Map<String, dynamic> json,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final raw = json[key]?.toString() ?? '';
+      if (raw.trim().isEmpty) continue;
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 }

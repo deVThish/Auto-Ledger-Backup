@@ -17,6 +17,7 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
   final _fineService = FineService();
 
   late Future<DistrictStatisticsModel> _statisticsFuture;
+  DistrictStatisticsModel? _cachedStatistics;
 
   @override
   void initState() {
@@ -24,8 +25,10 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
     _statisticsFuture = _loadStatistics();
   }
 
-  Future<DistrictStatisticsModel> _loadStatistics() {
-    return _fineService.getDistrictStatistics();
+  Future<DistrictStatisticsModel> _loadStatistics() async {
+    final statistics = await _fineService.getDistrictStatistics();
+    _cachedStatistics = statistics;
+    return statistics;
   }
 
   Future<void> _refreshStatistics() async {
@@ -74,8 +77,11 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
                   child: FutureBuilder<DistrictStatisticsModel>(
                     future: _statisticsFuture,
                     builder: (context, snapshot) {
+                      final statistics = snapshot.data ?? _cachedStatistics;
                       final isLoading =
-                          snapshot.connectionState == ConnectionState.waiting;
+                          snapshot.connectionState ==
+                              ConnectionState.waiting &&
+                          statistics == null;
 
                       if (isLoading) {
                         return const Column(
@@ -88,7 +94,7 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
                         );
                       }
 
-                      if (snapshot.hasError) {
+                      if (snapshot.hasError && statistics == null) {
                         return Column(
                           children: [
                             const SizedBox(height: 18),
@@ -104,7 +110,7 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
                         );
                       }
 
-                      final statistics = snapshot.data ??
+                      final resolvedStatistics = statistics ??
                       const DistrictStatisticsModel(
                         totalOfficers: 0,
                         activeOfficersOnDuty: 0,
@@ -117,37 +123,37 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
                       final cards = [
                       _StatisticCardData(
                         title: 'Total Officers',
-                        value: '${statistics.totalOfficers}',
+                        value: '${resolvedStatistics.totalOfficers}',
                         subtitle: 'Registered officers',
                         icon: Icons.groups_outlined,
                       ),
                       _StatisticCardData(
                         title: 'On Duty Officers',
-                        value: '${statistics.activeOfficersOnDuty}',
+                        value: '${resolvedStatistics.activeOfficersOnDuty}',
                         subtitle: 'Currently active',
                         icon: Icons.local_police_outlined,
                       ),
                       _StatisticCardData(
                         title: 'Total Fines',
-                        value: '${statistics.totalFinesIssued}',
+                        value: '${resolvedStatistics.totalFinesIssued}',
                         subtitle: 'Issued fines',
                         icon: Icons.receipt_long_outlined,
                       ),
                       _StatisticCardData(
                         title: 'Revenue',
-                        value: _formatRevenue(statistics.totalRevenue),
+                        value: _formatRevenue(resolvedStatistics.totalRevenue),
                         subtitle: 'Collected revenue',
                         icon: Icons.payments_outlined,
                       ),
                       _StatisticCardData(
                         title: 'Pending Fines',
-                        value: '${statistics.pendingFinesCount}',
+                        value: '${resolvedStatistics.pendingFinesCount}',
                         subtitle: 'Awaiting payment',
                         icon: Icons.pending_actions_outlined,
                       ),
                       _StatisticCardData(
                         title: 'Court Cases',
-                        value: '${statistics.overdueCourtCases}',
+                        value: '${resolvedStatistics.overdueCourtCases}',
                         subtitle: 'Overdue cases',
                         icon: Icons.gavel_outlined,
                       ),

@@ -3,6 +3,11 @@ import '../../../core/network/api_client.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../models/auth_response_model.dart';
 
+enum LoginRole {
+  divisionalHead,
+  trafficOfficer,
+}
+
 class AuthService {
   AuthService({
     ApiClient? apiClient,
@@ -14,16 +19,31 @@ class AuthService {
   final TokenStorage _tokenStorage;
 
   Future<AuthResponseModel> login({
-    required String username,
+    String? username,
+    String? loginId,
     required String password,
+    LoginRole loginRole = LoginRole.trafficOfficer,
   }) async {
+    final resolvedLoginId = (loginId ?? username ?? '').trim();
+
+    final endpoint = loginRole == LoginRole.divisionalHead
+        ? ApiConstants.headLogin
+        : ApiConstants.officerLogin;
+
+    final payload = loginRole == LoginRole.divisionalHead
+        ? {
+            'username': resolvedLoginId,
+            'password': password.trim(),
+          }
+        : {
+            'badgeNo': resolvedLoginId,
+            'password': password.trim(),
+          };
+
     final response = await _apiClient.post(
-      ApiConstants.login,
+      endpoint,
       requiresAuth: false,
-      body: {
-        'username': username.trim(),
-        'password': password.trim(),
-      },
+      body: payload,
     );
 
     final authResponse = AuthResponseModel.fromJson(
@@ -34,12 +54,25 @@ class AuthService {
       accessToken: authResponse.accessToken,
       officerId: authResponse.officer.id,
       officerName: authResponse.officer.name,
-      officerBadgeNumber: '',
+      officerBadgeNumber: authResponse.officer.badgeNumber,
       role: authResponse.officer.role,
       districtId: authResponse.officer.divisionId,
     );
 
     return authResponse;
+  }
+
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    await _apiClient.patch(
+      ApiConstants.changePassword,
+      body: {
+        'oldPassword': oldPassword.trim(),
+        'newPassword': newPassword.trim(),
+      },
+    );
   }
 
   Future<void> logout() async {

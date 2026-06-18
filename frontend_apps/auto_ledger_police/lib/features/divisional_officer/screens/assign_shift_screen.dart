@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
@@ -23,6 +22,7 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
   final _officerService = OfficerService();
 
   late Future<List<OfficerModel>> _officersFuture;
+  List<OfficerModel> _cachedOfficers = [];
 
   OfficerModel? _selectedOfficer;
   DateTime? _startDateTime;
@@ -34,12 +34,17 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
     super.initState();
     _selectedOfficer = widget.initialOfficer;
     _fillShiftTimes(widget.initialOfficer);
-    _officersFuture = _officerService.getDistrictTrafficOfficers();
+    _officersFuture = _loadOfficers();
+  }
+
+  Future<List<OfficerModel>> _loadOfficers() async {
+    final officers = await _officerService.getDistrictTrafficOfficers();
+    _cachedOfficers = officers;
+    return officers;
   }
 
   void _fillShiftTimes(OfficerModel? officer) {
     final shift = officer?.activeShift;
-
     _startDateTime = shift?.startTime;
     _endDateTime = shift?.endTime;
   }
@@ -51,28 +56,43 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
     });
   }
 
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
   Future<void> _selectDateTime({required bool isStart}) async {
     final now = DateTime.now();
+    final today = _dateOnly(now);
+
+    final baseValue = isStart
+        ? (_startDateTime ?? now)
+        : (_endDateTime ?? _startDateTime ?? now);
+
+    final safeInitialDate = _dateOnly(baseValue).isBefore(today)
+        ? today
+        : _dateOnly(baseValue);
 
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: isStart ? (_startDateTime ?? now) : (_endDateTime ?? now),
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 2),
+      initialDate: safeInitialDate,
+      firstDate: today,
+      lastDate: DateTime(now.year + 2, 12, 31),
     );
 
     if (selectedDate == null || !mounted) return;
 
+    final initialTimeSource = isStart
+        ? (_startDateTime ?? now)
+        : (_endDateTime ?? _startDateTime ?? now);
+
     final selectedTime = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(
-        isStart ? (_startDateTime ?? now) : (_endDateTime ?? now),
-      ),
+      initialTime: TimeOfDay.fromDateTime(initialTimeSource),
     );
 
-    if (selectedTime == null) return;
+    if (selectedTime == null || !mounted) return;
 
-    final dateTime = DateTime(
+    final selectedDateTime = DateTime(
       selectedDate.year,
       selectedDate.month,
       selectedDate.day,
@@ -82,9 +102,9 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
 
     setState(() {
       if (isStart) {
-        _startDateTime = dateTime;
+        _startDateTime = selectedDateTime;
       } else {
-        _endDateTime = dateTime;
+        _endDateTime = selectedDateTime;
       }
     });
   }
@@ -92,22 +112,37 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
   String _formatDateTime(DateTime? dateTime) {
     if (dateTime == null) return 'Select date and time';
 
+    final local = dateTime.toLocal();
     final date =
-        '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+        '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
 
-    final hour = dateTime.hour > 12
-        ? dateTime.hour - 12
-        : dateTime.hour == 0
-        ? 12
-        : dateTime.hour;
+    final hour = local.hour > 12
+        ? local.hour - 12
+        : local.hour == 0
+            ? 12
+            : local.hour;
 
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
 
     return '$date  $hour:$minute $period';
   }
 
+  String? get _selectedShiftId {
+    final id = _selectedOfficer?.activeShift?.id;
+    if (id == null || id.trim().isEmpty) {
+      return null;
+    }
+    return id;
+  }
+
+  String get _submitText {
+    return _selectedShiftId == null ? 'Assign Shift' : 'Update Shift';
+  }
+
   Future<void> _handleAssignShift() async {
+    if (_isLoading) return;
+
     if (_selectedOfficer == null) {
       AppErrorHandler.showPopup(
         context,
@@ -132,6 +167,22 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
       return;
     }
 
+    final now = DateTime.now();
+    final isNewShift = _selectedShiftId == null;
+
+    if (
+      isNewShift &&
+      _startDateTime!.isBefore(
+        now.subtract(const Duration(minutes: 1)),
+      )
+    ) {
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Start time cannot be set in the past.',
+      );
+      return;
+    }
+
     if (!_endDateTime!.isAfter(_startDateTime!)) {
       AppErrorHandler.showPopup(
         context,
@@ -143,36 +194,54 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _officerService.assignShift(
-        officerId: _selectedOfficer!.id,
-        startTime: _startDateTime!,
-        endTime: _endDateTime!,
-      );
+      if (_selectedShiftId == null) {
+        await _officerService.assignShift(
+          officerId: _selectedOfficer!.id,
+          startTime: _startDateTime!,
+          endTime: _endDateTime!,
+        );
+      } else {
+        await _officerService.updateShift(
+          shiftId: _selectedShiftId!,
+          startTime: _startDateTime!,
+          endTime: _endDateTime!,
+        );
+      }
+
+      final freshOfficers = await _officerService.getDistrictTrafficOfficers();
 
       if (!mounted) return;
 
-      AppErrorHandler.showPopup(
-        context,
-        message: 'Shift assigned successfully.',
-        isError: false,
+      final updatedOfficer = freshOfficers.firstWhere(
+        (o) => o.id == _selectedOfficer!.id,
+        orElse: () => _selectedOfficer!,
       );
 
       setState(() {
-        _officersFuture = _officerService.getDistrictTrafficOfficers();
+        _cachedOfficers = freshOfficers;
+        _officersFuture = Future.value(freshOfficers);
+        _selectedOfficer = updatedOfficer;
+        _fillShiftTimes(updatedOfficer);
       });
+
+      AppErrorHandler.showPopup(
+        context,
+        message: _selectedShiftId == null
+            ? 'Shift assigned successfully.'
+            : 'Shift updated successfully.',
+        isError: false,
+      );
     } on ApiException catch (error) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: error.message,
       );
     } catch (_) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
-        message: 'Unable to assign shift. Please try again.',
+        message: 'Unable to save shift. Please try again.',
       );
     } finally {
       if (mounted) {
@@ -182,28 +251,32 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
   }
 
   Future<void> _refreshOfficers() async {
-    setState(() {
-      _officersFuture = _officerService.getDistrictTrafficOfficers();
-      _selectedOfficer = widget.initialOfficer;
-      _fillShiftTimes(widget.initialOfficer);
-    });
+    final officers = await _loadOfficers();
+    if (!mounted) return;
 
-    await _officersFuture;
+    final updated = _selectedOfficer == null
+        ? null
+        : officers.firstWhere(
+            (o) => o.id == _selectedOfficer!.id,
+            orElse: () => _selectedOfficer!,
+          );
+
+    setState(() {
+      _selectedOfficer = updated;
+      _fillShiftTimes(updated);
+      _officersFuture = Future.value(officers);
+    });
   }
 
   OfficerModel? _resolveSelectedOfficer(List<OfficerModel> officers) {
     final selected = _selectedOfficer;
-
-    if (selected == null) {
-      return null;
-    }
+    if (selected == null) return null;
 
     for (final officer in officers) {
       if (officer.id == selected.id) {
         return officer;
       }
     }
-
     return selected;
   }
 
@@ -218,12 +291,6 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: _refreshOfficers,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -249,31 +316,38 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                           color: AppTheme.primaryBlack,
                           borderRadius: BorderRadius.circular(28),
                         ),
-                        child: const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: const Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.schedule_outlined,
                               color: Colors.white,
                               size: 34,
                             ),
-                            SizedBox(height: 18),
-                            Text(
-                              'Assign Duty Shift',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 23,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Select a traffic officer and set the active duty start and end time.',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                                height: 1.45,
-                                fontWeight: FontWeight.w500,
+                            SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Assign Duty Shift',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 23,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Select a traffic officer and set the active duty start and end time.',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                      height: 1.45,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -283,30 +357,29 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Colors.white.withValues(alpha: 0.75),
                           borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: AppTheme.borderGray),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 24,
-                              offset: const Offset(0, 10),
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
                             ),
                           ],
                         ),
                         child: FutureBuilder<List<OfficerModel>>(
                           future: _officersFuture,
                           builder: (context, snapshot) {
-                            final isLoading = snapshot.connectionState ==
-                                ConnectionState.waiting;
-                            final officers = snapshot.data ?? <OfficerModel>[];
+                            final officers = snapshot.data ?? _cachedOfficers;
+                            final isLoading = snapshot.connectionState == ConnectionState.waiting && officers.isEmpty;
                             final selected = _resolveSelectedOfficer(officers);
 
                             if (isLoading) {
                               return const _LoadingView();
                             }
 
-                            if (snapshot.hasError) {
+                            if (snapshot.hasError && officers.isEmpty) {
                               return _ErrorView(
                                 message: snapshot.error is ApiException
                                     ? (snapshot.error as ApiException).message
@@ -346,7 +419,7 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                                 ),
                                 const SizedBox(height: 24),
                                 AppButton(
-                                  text: 'Assign Shift',
+                                  text: _submitText,
                                   icon: Icons.schedule_send_outlined,
                                   isLoading: _isLoading,
                                   onPressed: _handleAssignShift,
@@ -385,8 +458,8 @@ class _OfficerDropdown extends StatelessWidget {
     final selected = selectedOfficer == null
         ? null
         : officers.where((officer) => officer.id == selectedOfficer!.id).isEmpty
-        ? null
-        : officers.firstWhere((officer) => officer.id == selectedOfficer!.id);
+            ? null
+            : officers.firstWhere((officer) => officer.id == selectedOfficer!.id);
 
     return DropdownButtonFormField<OfficerModel>(
       initialValue: selected,
@@ -420,8 +493,7 @@ class _OfficerDropdownText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = officer.name.isEmpty ? 'Unnamed Officer' : officer.name;
-    final badgeNumber =
-    officer.badgeNumber.isEmpty ? 'No badge' : officer.badgeNumber;
+    final badgeNumber = officer.badgeNumber.isEmpty ? 'No badge' : officer.badgeNumber;
 
     return Row(
       children: [
@@ -460,9 +532,7 @@ class _ExistingShiftNotice extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            officer.isOnDutyNow
-                ? Icons.play_circle_outline_rounded
-                : Icons.schedule_rounded,
+            officer.isOnDutyNow ? Icons.play_circle_outline_rounded : Icons.schedule_rounded,
             color: AppTheme.primaryBlack,
             size: 22,
           ),

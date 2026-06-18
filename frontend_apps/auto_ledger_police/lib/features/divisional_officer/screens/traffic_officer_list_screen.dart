@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/officer_model.dart';
@@ -10,30 +10,43 @@ class TrafficOfficerListScreen extends StatefulWidget {
   const TrafficOfficerListScreen({super.key});
 
   @override
-  State<TrafficOfficerListScreen> createState() =>
-      _TrafficOfficerListScreenState();
+  State<TrafficOfficerListScreen> createState() => _TrafficOfficerListScreenState();
 }
 
 class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
   final _officerService = OfficerService();
 
   late Future<List<OfficerModel>> _officersFuture;
+  List<OfficerModel> _cachedOfficers = [];
+  Timer? _clockTimer;
 
   @override
   void initState() {
     super.initState();
     _officersFuture = _loadOfficers();
+    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
-  Future<List<OfficerModel>> _loadOfficers() {
-    return _officerService.getDistrictTrafficOfficers();
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<List<OfficerModel>> _loadOfficers() async {
+    final officers = await _officerService.getDistrictTrafficOfficers();
+    _cachedOfficers = officers;
+    return officers;
   }
 
   Future<void> _refreshOfficers() async {
     setState(() {
       _officersFuture = _loadOfficers();
     });
-
     await _officersFuture;
   }
 
@@ -45,7 +58,6 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
     );
 
     if (!mounted) return;
-
     _refreshOfficers();
   }
 
@@ -63,8 +75,8 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
     final hour = dateTime.hour > 12
         ? dateTime.hour - 12
         : dateTime.hour == 0
-        ? 12
-        : dateTime.hour;
+            ? 12
+            : dateTime.hour;
 
     final minute = dateTime.minute.toString().padLeft(2, '0');
     final period = dateTime.hour >= 12 ? 'PM' : 'AM';
@@ -83,12 +95,6 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: _refreshOfficers,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -106,9 +112,17 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                   child: FutureBuilder<List<OfficerModel>>(
                     future: _officersFuture,
                     builder: (context, snapshot) {
-                      final isLoading =
-                          snapshot.connectionState == ConnectionState.waiting;
-                      final officers = snapshot.data ?? <OfficerModel>[];
+                      final officers = snapshot.data ?? _cachedOfficers;
+                      final isLoading = snapshot.connectionState == ConnectionState.waiting && officers.isEmpty;
+
+                      if (snapshot.hasError && officers.isEmpty) {
+                        return _ErrorCard(
+                          message: snapshot.error is ApiException
+                              ? (snapshot.error as ApiException).message
+                              : 'Unable to load traffic officers.',
+                          onRetry: _refreshOfficers,
+                        );
+                      }
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,21 +138,27 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                             child: const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.groups_2_outlined,
-                                  color: Colors.white,
-                                  size: 34,
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.groups_2_outlined,
+                                      color: Colors.white,
+                                      size: 30,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'District Officers',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(height: 18),
-                                Text(
-                                  'District Officers',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 23,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                SizedBox(height: 8),
+                                SizedBox(height: 14),
                                 Text(
                                   'View traffic officers assigned to your district and manage their duty shifts.',
                                   style: TextStyle(
@@ -187,7 +207,7 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                           const SizedBox(height: 14),
                           if (isLoading)
                             const _LoadingCard()
-                          else if (snapshot.hasError)
+                          else if (snapshot.hasError && officers.isEmpty)
                             _ErrorCard(
                               onRetry: _refreshOfficers,
                               message: snapshot.error is ApiException
@@ -195,18 +215,18 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                                   : 'Unable to load traffic officers.',
                             )
                           else if (officers.isEmpty)
-                              const _EmptyCard()
-                            else
-                              ...officers.map(
-                                    (officer) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: _OfficerListCard(
-                                    officer: officer,
-                                    shiftTime: _formatShiftTime(officer),
-                                    onAssignShift: () => _openAssignShift(officer),
-                                  ),
+                            const _EmptyCard()
+                          else
+                            ...officers.map(
+                              (officer) => Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: _OfficerListCard(
+                                  officer: officer,
+                                  shiftTime: _formatShiftTime(officer),
+                                  onAssignShift: () => _openAssignShift(officer),
                                 ),
                               ),
+                            ),
                           const SizedBox(height: 18),
                         ],
                       );
@@ -237,11 +257,9 @@ class _OfficerListCard extends StatelessWidget {
     if (officer.isOnDutyNow) {
       return AppTheme.successGreen;
     }
-
-    if (officer.hasActiveShift) {
+    if (officer.hasActiveShift && !officer.isShiftEnded) {
       return AppTheme.primaryBlack;
     }
-
     return AppTheme.textGray;
   }
 
@@ -249,7 +267,6 @@ class _OfficerListCard extends StatelessWidget {
     if (officer.isOnDutyNow) {
       return AppTheme.successGreen.withValues(alpha: 0.10);
     }
-
     return AppTheme.lightGray;
   }
 
@@ -260,14 +277,14 @@ class _OfficerListCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.75),
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.borderGray),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -327,9 +344,7 @@ class _OfficerListCard extends StatelessWidget {
                   color: _statusBackground,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: officer.isOnDutyNow
-                        ? AppTheme.successGreen
-                        : Colors.transparent,
+                    color: officer.isOnDutyNow ? AppTheme.successGreen : Colors.transparent,
                   ),
                 ),
                 child: Row(
@@ -372,9 +387,9 @@ class _OfficerListCard extends StatelessWidget {
                 Icon(
                   officer.isOnDutyNow
                       ? Icons.play_circle_outline_rounded
-                      : officer.hasActiveShift
-                      ? Icons.schedule_rounded
-                      : Icons.schedule_outlined,
+                      : officer.hasActiveShift && !officer.isShiftEnded
+                          ? Icons.schedule_rounded
+                          : Icons.schedule_outlined,
                   color: AppTheme.primaryBlack,
                   size: 22,
                 ),

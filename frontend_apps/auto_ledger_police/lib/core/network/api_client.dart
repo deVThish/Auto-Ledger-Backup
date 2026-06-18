@@ -92,6 +92,10 @@ class ApiClient {
   }
 
   dynamic _handleResponse(http.Response response) {
+    print('====================');
+    print('STATUS CODE: ${response.statusCode}');
+    print('RESPONSE BODY: ${response.body}');
+    print('====================');
     final decodedBody = _decodeBody(response.body);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

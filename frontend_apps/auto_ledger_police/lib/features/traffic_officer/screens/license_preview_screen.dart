@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -5,6 +7,7 @@ import '../../../core/utils/app_error_handler.dart';
 import '../../../models/fine_model.dart';
 import '../../../models/license_model.dart';
 import '../../../shared/widgets/app_button.dart';
+import 'offense_select_screen.dart';
 
 class LicensePreviewScreen extends StatelessWidget {
   const LicensePreviewScreen({
@@ -23,22 +26,40 @@ class LicensePreviewScreen extends StatelessWidget {
   }
 
   Color _statusColor() {
-    if (license.status == 'ACTIVE') {
+    final status = license.status.toUpperCase();
+
+    if (status == 'ACTIVE') {
       return AppTheme.successGreen;
     }
 
-    if (license.status == 'REVOKED') {
+    if (status == 'SUSPENDED' || status == 'REVOKED') {
       return AppTheme.errorRed;
     }
 
     return AppTheme.primaryBlack;
   }
 
-  void _showNextStepMessage(BuildContext context) {
-    AppErrorHandler.showPopup(
-      context,
-      message: 'Offense selection will be connected next.',
-      isError: false,
+  bool get _hasCriticalStatus {
+    final status = license.status.toUpperCase();
+    return status == 'SUSPENDED' || status == 'REVOKED';
+  }
+
+  void _openOffenseSelection(BuildContext context) {
+    if (license.id.trim().isEmpty) {
+      AppErrorHandler.showPopup(
+        context,
+        message: 'License id is missing from the backend response.',
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OffenseSelectScreen(
+          qrToken: qrToken,
+          license: license,
+        ),
+      ),
     );
   }
 
@@ -59,7 +80,8 @@ class LicensePreviewScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+            final horizontalPadding =
+                constraints.maxWidth < 380 ? 20.0 : 26.0;
 
             return SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -73,8 +95,22 @@ class LicensePreviewScreen extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlack,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.primaryBlack,
+                            Color(0xFF32363F),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 28,
+                            offset: const Offset(0, 14),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,7 +150,37 @@ class LicensePreviewScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18),
+                    if (_hasCriticalStatus)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorRed.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: AppTheme.errorRed),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: AppTheme.errorRed,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'License is ${license.status.toUpperCase()}. Proceed carefully before issuing a fine.',
+                                style: const TextStyle(
+                                  color: AppTheme.errorRed,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_hasCriticalStatus) const SizedBox(height: 14),
                     _StatusCard(
                       status: license.status,
                       points: license.points,
@@ -125,7 +191,7 @@ class LicensePreviewScreen extends StatelessWidget {
                       issueDate: _formatDate(license.issueDate),
                       expiryDate: _formatDate(license.expiryDate),
                       temporaryExpiry:
-                      _formatDate(license.temporaryLicenseExpiry),
+                          _formatDate(license.temporaryLicenseExpiry),
                     ),
                     const SizedBox(height: 24),
                     const Text(
@@ -141,7 +207,7 @@ class LicensePreviewScreen extends StatelessWidget {
                       const _NoRecentFineCard()
                     else
                       ...license.recentFines.map(
-                            (fine) => Padding(
+                        (fine) => Padding(
                           padding: const EdgeInsets.only(bottom: 14),
                           child: _RecentFineCard(fine: fine),
                         ),
@@ -151,7 +217,7 @@ class LicensePreviewScreen extends StatelessWidget {
                       text: 'Continue to Offenses',
                       icon: Icons.arrow_forward_rounded,
                       isLoading: false,
-                      onPressed: () => _showNextStepMessage(context),
+                      onPressed: () => _openOffenseSelection(context),
                     ),
                     const SizedBox(height: 28),
                   ],

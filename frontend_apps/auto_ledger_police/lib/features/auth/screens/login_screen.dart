@@ -17,18 +17,61 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _loginIdController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
 
+  LoginRole _selectedRole = LoginRole.trafficOfficer;
   bool _isPasswordHidden = true;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _loginIdController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  String get _screenTitle {
+    return _selectedRole == LoginRole.divisionalHead
+        ? 'Divisional Head Portal'
+        : 'Traffic Officer Portal';
+  }
+
+  String get _loginLabel {
+    return _selectedRole == LoginRole.divisionalHead
+        ? 'Username'
+        : 'Badge Number';
+  }
+
+  String get _loginHint {
+    return _selectedRole == LoginRole.divisionalHead
+        ? 'Enter your username'
+        : 'Enter your badge number';
+  }
+
+  String get _helperText {
+    return _selectedRole == LoginRole.divisionalHead
+        ? 'Use your username and password to enter the Divisional Head portal.'
+        : 'Use your badge number and password to enter the Traffic Officer portal.';
+  }
+
+  String get _buttonText {
+    return _selectedRole == LoginRole.divisionalHead
+        ? 'Login as Divisional Head'
+        : 'Login as Traffic Officer';
+  }
+
+  String get _loginIdRequiredMessage {
+    return _selectedRole == LoginRole.divisionalHead
+        ? 'Username is required'
+        : 'Badge number is required';
+  }
+
+  String get _switchHint {
+    return _selectedRole == LoginRole.divisionalHead
+        ? 'Head login active'
+        : 'Officer login active';
   }
 
   Future<void> _handleLogin() async {
@@ -46,13 +89,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final response = await _authService.login(
-        username: _usernameController.text,
+        loginId: _loginIdController.text,
         password: _passwordController.text,
+        loginRole: _selectedRole,
       );
 
       if (!mounted) return;
 
-      final role = response.officer.role;
+      final role = response.officer.role.toUpperCase();
 
       if (role == 'DIVISIONAL_HEAD') {
         Navigator.of(context).pushNamedAndRemoveUntil(
@@ -72,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       AppErrorHandler.showPopup(
         context,
-        message: 'Unsupported officer role.',
+        message: 'Unsupported officer role: $role',
       );
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -97,6 +141,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isTrafficOfficer = _selectedRole == LoginRole.trafficOfficer;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundWhite,
       body: SafeArea(
@@ -118,13 +164,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox(height: isSmallScreen ? 24 : 36),
+                          SizedBox(height: isSmallScreen ? 22 : 34),
                           Container(
-                            width: 78,
-                            height: 78,
+                            width: 84,
+                            height: 84,
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryBlack,
-                              borderRadius: BorderRadius.circular(24),
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppTheme.primaryBlack,
+                                  Color(0xFF31363F),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(26),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.14),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ],
                             ),
                             child: const Icon(
                               Icons.local_police_outlined,
@@ -133,19 +193,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 22),
-                          const Text(
-                            'Auto-Ledger',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppTheme.primaryBlack,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            child: Text(
+                              _screenTitle,
+                              key: ValueKey<String>(_screenTitle),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: AppTheme.primaryBlack,
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 6),
                           const Text(
-                            'Police Officer Portal',
+                            'Secure access for authorized personnel',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: AppTheme.textGray,
@@ -153,16 +217,64 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Secure access for authorized personnel',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppTheme.textGray,
-                              fontSize: 13,
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: AppTheme.borderGray),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _RoleSwitchChip(
+                                    label: 'Divisional Head',
+                                    selected:
+                                        _selectedRole ==
+                                        LoginRole.divisionalHead,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedRole =
+                                            LoginRole.divisionalHead;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _RoleSwitchChip(
+                                    label: 'Traffic Officer',
+                                    selected: isTrafficOfficer,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedRole =
+                                            LoginRole.trafficOfficer;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          SizedBox(height: isSmallScreen ? 28 : 42),
+                          const SizedBox(height: 10),
+                          Text(
+                            _switchHint,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppTheme.textGray,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: isSmallScreen ? 22 : 34),
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
@@ -191,24 +303,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                const Text(
-                                  'Use your username and password.',
-                                  style: TextStyle(
+                                Text(
+                                  _helperText,
+                                  style: const TextStyle(
                                     color: AppTheme.textGray,
                                     fontSize: 13,
+                                    height: 1.35,
                                   ),
                                 ),
                                 const SizedBox(height: 22),
                                 AppTextField(
-                                  controller: _usernameController,
-                                  label: 'Username',
-                                  hint: 'Enter your username',
-                                  icon: Icons.person_outline,
+                                  controller: _loginIdController,
+                                  label: _loginLabel,
+                                  hint: _loginHint,
+                                  icon: Icons.badge_outlined,
                                   textInputAction: TextInputAction.next,
                                   validator: (value) {
                                     if (value == null ||
                                         value.trim().isEmpty) {
-                                      return 'Username is required';
+                                      return _loginIdRequiredMessage;
                                     }
                                     return null;
                                   },
@@ -266,7 +379,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 24),
                                 AppButton(
-                                  text: 'Login',
+                                  text: _buttonText,
                                   icon: Icons.login_rounded,
                                   isLoading: _isLoading,
                                   onPressed: _handleLogin,
@@ -306,6 +419,65 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleSwitchChip extends StatelessWidget {
+  const _RoleSwitchChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primaryBlack : AppTheme.lightGray,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected ? AppTheme.primaryBlack : AppTheme.borderGray,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 14,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : const [],
+          ),
+          alignment: Alignment.center,
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            style: TextStyle(
+              color: selected ? Colors.white : AppTheme.primaryBlack,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ),
       ),
     );

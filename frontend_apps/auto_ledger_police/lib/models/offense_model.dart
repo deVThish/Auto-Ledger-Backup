@@ -18,25 +18,57 @@ class OffenseModel {
   final bool isCourtCase;
 
   factory OffenseModel.fromJson(Map<String, dynamic> json) {
-    final name = json['name']?.toString() ?? '';
-    final description = json['description']?.toString() ?? name;
+    final name = _readString(
+      json,
+      const ['name', 'title', 'offenseName', 'offenseTitle'],
+    );
+    final description = _readString(
+      json,
+      const ['description', 'details'],
+      fallback: name,
+    );
 
     return OffenseModel(
-      id: json['id']?.toString() ?? '',
-      code: json['code']?.toString() ?? '',
+      id: _readString(
+        json,
+        const ['id', 'offenseId', 'offense_id'],
+      ),
+      code: _readString(
+        json,
+        const ['code', 'offenseCode', 'offense_code'],
+      ),
       name: name,
       description: description,
-      amount: _readDouble(json['amount']),
-      points: _readInt(json['points']),
-      isCourtCase: json['isCourtCase'] == true,
+      amount: _readDouble(
+        json['amount'] ?? json['fee'] ?? json['price'],
+      ),
+      points: _readInt(
+        json['points'] ?? json['demeritPoints'] ?? json['deductPoints'],
+      ),
+      isCourtCase: json['isCourtCase'] == true ||
+          json['courtCase'] == true ||
+          json['is_court_case'] == true,
     );
+  }
+
+  static String _readString(
+    Map<String, dynamic> json,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    for (final key in keys) {
+      final value = json[key];
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+    return fallback;
   }
 
   static double _readDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
     }
-
     return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
@@ -44,7 +76,6 @@ class OffenseModel {
     if (value is num) {
       return value.toInt();
     }
-
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }

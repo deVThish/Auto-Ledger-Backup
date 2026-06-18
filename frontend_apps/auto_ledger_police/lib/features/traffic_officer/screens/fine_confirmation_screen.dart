@@ -1,7 +1,8 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
 import '../../../models/license_model.dart';
@@ -28,78 +29,147 @@ class FineConfirmationScreen extends StatefulWidget {
 
 class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
   final _trafficFineService = TrafficFineService();
-  final _tokenStorage = const TokenStorage();
+  final _commentController = TextEditingController();
 
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  String _offenseKey(OffenseModel offense) {
+    if (offense.id.trim().isNotEmpty) return offense.id.trim();
+    return offense.code.trim();
+  }
 
   double get _totalAmount {
     return widget.selectedOffenses.fold<double>(
       0,
-          (sum, offense) => sum + offense.amount,
+      (sum, offense) => sum + offense.amount,
     );
   }
 
   int get _totalPoints {
     return widget.selectedOffenses.fold<int>(
       0,
-          (sum, offense) => sum + offense.points,
+      (sum, offense) => sum + offense.points,
     );
   }
 
   Future<bool> _confirmIssueFine() async {
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.25),
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
-          ),
-          title: const Text(
-            'Issue Fine?',
-            style: TextStyle(
-              color: AppTheme.primaryBlack,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          content: const Text(
-            'This will issue the selected offenses to this driver license.',
-            style: TextStyle(
-              color: AppTheme.textGray,
-              fontWeight: FontWeight.w600,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: AppTheme.textGray,
-                  fontWeight: FontWeight.w800,
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.65),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 36,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 62,
+                      height: 62,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryBlack,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: const Icon(
+                        Icons.fact_check_outlined,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Issue Fine?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.primaryBlack,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'This will submit the selected offenses and update the driver license status if needed.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.textGray,
+                        fontSize: 13,
+                        height: 1.45,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryBlack,
+                              side: const BorderSide(color: AppTheme.borderGray),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              minimumSize: const Size.fromHeight(50),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryBlack,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              minimumSize: const Size.fromHeight(50),
+                            ),
+                            child: const Text(
+                              'Issue Fine',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlack,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-              ),
-              child: const Text(
-                'Issue Fine',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
+          ),
         );
       },
     );
@@ -109,17 +179,13 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
 
   Future<void> _issueFine() async {
     final confirmed = await _confirmIssueFine();
-
     if (!confirmed) return;
 
-    final session = await _tokenStorage.getSession();
-
-    if (!mounted) return;
-
-    if (session == null) {
+    final licenseId = widget.license.id.trim();
+    if (licenseId.isEmpty) {
       AppErrorHandler.showPopup(
         context,
-        message: 'Session expired. Please login again.',
+        message: 'License id is missing. Please scan the QR again.',
       );
       return;
     }
@@ -128,12 +194,12 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
 
     try {
       final result = await _trafficFineService.issueFine(
-        qrToken: widget.qrToken,
-        offenseCodes: widget.selectedOffenses
-            .map((offense) => offense.code)
-            .where((code) => code.trim().isNotEmpty)
+        licenseId: licenseId,
+        offenseIds: widget.selectedOffenses
+            .map(_offenseKey)
+            .where((id) => id.isNotEmpty)
             .toList(),
-        officerId: session.officerId,
+        comment: _commentController.text.trim(),
       );
 
       if (!mounted) return;
@@ -182,7 +248,8 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+            final horizontalPadding =
+                constraints.maxWidth < 380 ? 20.0 : 26.0;
 
             return SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -204,6 +271,41 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                     ),
                     const SizedBox(height: 24),
                     const Text(
+                      'Officer Notes',
+                      style: TextStyle(
+                        color: AppTheme.primaryBlack,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppTheme.borderGray),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _commentController,
+                        maxLines: 4,
+                        textInputAction: TextInputAction.newline,
+                        decoration: const InputDecoration(
+                          hintText: 'Optional note for this fine',
+                          prefixIcon: Icon(Icons.edit_note_rounded),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.all(18),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
                       'Selected Offenses',
                       style: TextStyle(
                         color: AppTheme.primaryBlack,
@@ -213,7 +315,7 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                     ),
                     const SizedBox(height: 14),
                     ...widget.selectedOffenses.map(
-                          (offense) => Padding(
+                      (offense) => Padding(
                         padding: const EdgeInsets.only(bottom: 14),
                         child: _SelectedOffenseCard(offense: offense),
                       ),
@@ -252,7 +354,14 @@ class _HeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppTheme.primaryBlack,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryBlack,
+            Color(0xFF31363F),
+          ],
+        ),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(
@@ -383,6 +492,8 @@ class _SelectedOffenseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = offense.name.isEmpty ? 'Traffic Offense' : offense.name;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -419,7 +530,7 @@ class _SelectedOffenseCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  offense.name.isEmpty ? 'Traffic Offense' : offense.name,
+                  title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

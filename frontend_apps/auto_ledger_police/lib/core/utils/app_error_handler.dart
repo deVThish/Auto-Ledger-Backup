@@ -1,15 +1,13 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../theme/app_theme.dart';
 
 class AppErrorHandler {
   static void showPopup(
-      BuildContext context, {
-        required String message,
-        bool isError = true,
-      }) {
+    BuildContext context, {
+    required String message,
+    bool isError = true,
+  }) {
     final overlay = Overlay.of(context);
     final color = isError ? AppTheme.errorRed : AppTheme.successGreen;
     final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
@@ -26,7 +24,7 @@ class AppErrorHandler {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(25),
                 border: Border.all(color: color),
                 boxShadow: [
                   BoxShadow(
