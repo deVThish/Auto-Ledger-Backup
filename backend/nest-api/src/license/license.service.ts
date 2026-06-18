@@ -5,7 +5,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export interface VehicleCategoryData {
   vehicleClass: string;
@@ -39,7 +42,52 @@ export interface UpdateLicenseData {
 
 @Injectable()
 export class LicenseService {
-  constructor(private prisma: PrismaService) {}
+  private s3Client: S3Client;
+
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+  ) {
+    const region =
+      this.configService.get<string>('AWS_REGION') || 'ap-southeast-1';
+    const accessKeyId =
+      this.configService.get<string>('AWS_ACCESS_KEY_ID') || '';
+    const secretAccessKey =
+      this.configService.get<string>('AWS_SECRET_ACCESS_KEY') || '';
+
+    this.s3Client = new S3Client({
+      region: region,
+      credentials: {
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
+      },
+    });
+  }
+
+  async getS3UploadUrl(fileName: string, fileType: string) {
+    const bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME') ||
+      'auto-ledger-images';
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
+
+    const cleanFileName = fileName.replace(/\s+/g, '-');
+    const uniqueFileName = `licenses/${Date.now()}-${cleanFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: uniqueFileName,
+      ContentType: fileType,
+    });
+
+    const uploadUrl = await getSignedUrl(this.s3Client, command, {
+      expiresIn: 60,
+    });
+    const publicFileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${uniqueFileName}`;
+    return {
+      uploadUrl,
+      fileUrl: publicFileUrl,
+    };
+  }
 
   async createLicense(data: CreateLicenseData) {
     let user = await this.prisma.user.findUnique({
@@ -52,7 +100,7 @@ export class LicenseService {
           nic_No: data.nicNo,
           name: 'Pending App Registration',
           password: 'NOT_REGISTERED',
-          mobile_Phone_No: 'PENDING',
+          mobile_Phone_No: `PENDING_${data.nicNo}`,
           device_Id: 'PENDING',
         },
       });
