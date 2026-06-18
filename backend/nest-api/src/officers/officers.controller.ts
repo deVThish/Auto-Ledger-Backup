@@ -145,4 +145,16 @@ export class OfficersController {
   async getOfficerShifts(@Param('id') id: string) {
     return this.officersService.getOfficerShifts(id);
   }
+
+  @Roles('POLICE_ADMIN')
+  @Get('divisions')
+  async getAllDivisions() {
+    return this.officersService.getAllDivisions();
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Get('divisional-heads')
+  async getAllDivisionalHeads() {
+    return this.officersService.getAllDivisionalHeads();
+  }
 }
