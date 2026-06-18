@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image"; // <-- Added Next.js Image import
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -9,6 +10,7 @@ import {
   UserPlus,
   LogOut,
   FileWarning,
+  Ban, // <-- Added Ban icon for Revoked page
 } from "lucide-react";
 
 export default function DMTLayout({ children }: { children: React.ReactNode }) {
@@ -42,6 +44,14 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
           <FileWarning className="mr-3 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
         ),
       };
+    // Added Header mapping for Revoked Page
+    if (pathname.includes("/revoked"))
+      return {
+        title: "Actioned Licenses Registry",
+        icon: (
+          <Ban className="mr-3 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+        ),
+      };
     return {
       title: "DMT Admin Dashboard",
       icon: (
@@ -58,11 +68,15 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
 
       <aside className="w-72 bg-[#0a0f16]/50 backdrop-blur-3xl border-r border-white/5 flex flex-col p-6 m-4 rounded-[2.5rem] shadow-[0_0_40px_rgba(0,229,255,0.03)] z-10">
         <div className="mb-8 text-center flex flex-col items-center">
-          <div className="w-24 h-24 mb-4 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md p-1 shadow-[0_0_20px_rgba(34,211,238,0.1)] border border-white/10">
-            <img
+          <div className="relative w-24 h-24 mb-4 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md p-1 shadow-[0_0_20px_rgba(34,211,238,0.1)] border border-white/10 overflow-hidden">
+            {/* Fixed: Replaced <img> with Next.js <Image /> */}
+            <Image
               src="/dmt_logo.png"
               alt="DMT Logo"
+              width={96}
+              height={96}
               className="w-full h-full object-contain rounded-full"
+              priority
             />
           </div>
           <h1 className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 mt-2">
@@ -96,6 +110,13 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
             to="/dmt-dashboard/fines"
             icon={<FileWarning size={20} />}
             label="Traffic Fines"
+            currentPath={pathname}
+          />
+          {/* New Revoked Page Button */}
+          <SidebarBtn
+            to="/dmt-dashboard/revoked"
+            icon={<Ban size={20} />}
+            label="Revoked Licenses"
             currentPath={pathname}
           />
         </nav>
@@ -148,6 +169,7 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Fixed: Changed icon type from any to React.ReactNode
 function SidebarBtn({
   to,
   icon,
@@ -155,7 +177,7 @@ function SidebarBtn({
   currentPath,
 }: {
   to: string;
-  icon: any;
+  icon: React.ReactNode;
   label: string;
   currentPath: string;
 }) {

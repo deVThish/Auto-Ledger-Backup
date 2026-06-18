@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import {
   ShieldAlert,
   PlusCircle,
-  Trash2,
   Edit,
   Save,
   AlertCircle,
@@ -13,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  Power, // <-- අලුතින් add කරපු Icon එක
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -140,22 +140,23 @@ export default function ManageOffenses() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleDelete = async (id: string) => {
+  // Toggle Active/Disable action
+  const handleToggleActive = async (id: string) => {
     if (
       !window.confirm(
-        "Are you sure you want to permanently delete this offense?",
+        "Are you sure you want to change the status of this offense?",
       )
     )
       return;
     try {
-      await api.delete(`/fines/offenses/${id}`);
-      showToast("success", "Offense deleted successfully");
+      await api.patch(`/fines/offenses/${id}/toggle`);
+      showToast("success", "Offense status updated successfully");
       await loadFines();
     } catch (err: unknown) {
       const error = err as ApiError;
       showToast(
         "error",
-        error.response?.data?.message || "Error deleting offense",
+        error.response?.data?.message || "Error updating status",
       );
     }
   };
@@ -220,7 +221,7 @@ export default function ManageOffenses() {
             Offenses
           </h2>
           <p className="text-sm text-slate-400 mt-1">
-            Add, update, or remove traffic violations and fine configurations.
+            Add, update, or toggle traffic violations and fine configurations.
           </p>
         </div>
       </div>
@@ -422,12 +423,13 @@ export default function ManageOffenses() {
                     >
                       <Edit size={18} />
                     </button>
+                    {/* Changed from Trash2 to Power Icon with Orange color for Toggle Status */}
                     <button
-                      onClick={() => handleDelete(fine.id)}
-                      className="p-2 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-lg transition-colors"
-                      title="Delete Offense"
+                      onClick={() => handleToggleActive(fine.id)}
+                      className="p-2 text-orange-400 hover:bg-orange-500/20 hover:text-orange-300 rounded-lg transition-colors"
+                      title="Enable / Disable Offense"
                     >
-                      <Trash2 size={18} />
+                      <Power size={18} />
                     </button>
                   </td>
                 </tr>
