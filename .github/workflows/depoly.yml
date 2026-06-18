@@ -21,5 +21,7 @@ jobs:
                   key: ${{ secrets.AWS_SSH_KEY }}
                   script: |
                       cd ~/Auto-Ledger
-                      git pull origin development
-                      docker compose up -d --build backend
+                      git fetch origin
+                      git reset --hard origin/development
+                      docker compose build --no-cache backend
+                      docker compose up -d backend
