@@ -30,6 +30,8 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    env_file:
+      - ./backend/nest-api/.env
     environment:
       - DATABASE_URL=postgresql://admin:password123@db:5432/auto_ledger_db?schema=public
       - JWT_SECRET=AutoLedgerSecretKey2026

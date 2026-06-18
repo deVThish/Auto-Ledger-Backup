@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -43,18 +44,32 @@ export interface UpdateLicenseData {
 export class LicenseService {
   private s3Client: S3Client;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+  ) {
+    const region =
+      this.configService.get<string>('AWS_REGION') || 'ap-southeast-1';
+    const accessKeyId =
+      this.configService.get<string>('AWS_ACCESS_KEY_ID') || '';
+    const secretAccessKey =
+      this.configService.get<string>('AWS_SECRET_ACCESS_KEY') || '';
+
     this.s3Client = new S3Client({
-      region: process.env.AWS_S3_REGION,
+      region: region,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
       },
     });
   }
 
   async getS3UploadUrl(fileName: string, fileType: string) {
-    const bucketName = process.env.AWS_S3_BUCKET_NAME;
+    const bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME') ||
+      'auto-ledger-images';
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
+
     const cleanFileName = fileName.replace(/\s+/g, '-');
     const uniqueFileName = `licenses/${Date.now()}-${cleanFileName}`;
 
@@ -67,8 +82,7 @@ export class LicenseService {
     const uploadUrl = await getSignedUrl(this.s3Client, command, {
       expiresIn: 60,
     });
-    const publicFileUrl = `https://${bucketName}.s3.${process.env.AWS_S3_REGION}.amazonaws.com/${uniqueFileName}`;
-
+    const publicFileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${uniqueFileName}`;
     return {
       uploadUrl,
       fileUrl: publicFileUrl,
