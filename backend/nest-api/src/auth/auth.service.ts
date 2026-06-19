@@ -15,6 +15,7 @@ import {
   Traffic_Officer,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as nodemailer from 'nodemailer';
 import { ChangePasswordDto } from './auth.controller';
 
 export interface RegisterData {
@@ -31,6 +32,29 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
+
+  private async sendOtpEmail(email: string, otp: string) {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Auto-Ledger: Password Reset OTP',
+      text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+  }
+
+  private generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
 
   async loginAdmin(username: string, pass: string, type: 'DMT' | 'POLICE') {
     let adminObj: DMT_Admin | Police_Admin | null = null;
@@ -72,8 +96,8 @@ export class AuthService {
       where: { username: username },
     });
 
-    if (!head)
-      throw new UnauthorizedException('Invalid Head Username or password.');
+    if (!head || !head.is_Active)
+      throw new UnauthorizedException('Invalid or inactive Head account.');
 
     const isPasswordValid = await bcrypt.compare(pass, head.password);
     if (!isPasswordValid)
@@ -185,34 +209,60 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  async resetHeadPasswordSelf(
+  async requestHeadPasswordReset(username: string, email: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || head.email !== email || !head.is_Active) {
+      throw new BadRequestException('Invalid Username or Email provided.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.prisma.divisional_Head.update({
+      where: { username: username },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+
+    await this.sendOtpEmail(email, otp);
+    return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async resetHeadPassword(
     username: string,
     email: string,
+    otp: string,
     newPasswordStr: string,
   ) {
     const head = await this.prisma.divisional_Head.findUnique({
       where: { username: username },
     });
 
-    if (!head || head.email !== email) {
-      throw new BadRequestException('Invalid Username or Email provided.');
+    if (!head || head.email !== email || head.reset_Otp !== otp) {
+      throw new BadRequestException('Invalid OTP or Credentials.');
+    }
+
+    if (!head.reset_Otp_Expires_At || new Date() > head.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
     }
 
     const hashedPassword = await bcrypt.hash(newPasswordStr, 10);
 
     await this.prisma.divisional_Head.update({
       where: { username: username },
-      data: { password: hashedPassword },
+      data: {
+        password: hashedPassword,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
     });
 
     return { message: 'Divisional Head password reset successfully.' };
   }
 
-  async resetOfficerPasswordSelf(
-    badgeNo: string,
-    email: string,
-    newPasswordStr: string,
-  ) {
+  async requestOfficerPasswordReset(badgeNo: string, email: string) {
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { badge_No: badgeNo },
     });
@@ -221,11 +271,48 @@ export class AuthService {
       throw new BadRequestException('Invalid Badge Number or Email provided.');
     }
 
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.prisma.traffic_Officer.update({
+      where: { badge_No: badgeNo },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+
+    await this.sendOtpEmail(email, otp);
+    return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async resetOfficerPassword(
+    badgeNo: string,
+    email: string,
+    otp: string,
+    newPasswordStr: string,
+  ) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+
+    if (!officer || officer.email !== email || officer.reset_Otp !== otp) {
+      throw new BadRequestException('Invalid OTP or Credentials.');
+    }
+
+    if (
+      !officer.reset_Otp_Expires_At ||
+      new Date() > officer.reset_Otp_Expires_At
+    ) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
     const hashedPassword = await bcrypt.hash(newPasswordStr, 10);
 
     await this.prisma.traffic_Officer.update({
       where: { badge_No: badgeNo },
-      data: { password: hashedPassword },
+      data: {
+        password: hashedPassword,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
     });
 
     return { message: 'Traffic Officer password reset successfully.' };
