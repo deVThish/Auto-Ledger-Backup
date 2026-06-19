@@ -220,7 +220,12 @@ export default function ManageHeads() {
                   <option
                     key={div.division_Id}
                     value={div.division_Name}
-                    className="text-white"
+                    disabled={hasActiveHead}
+                    className={
+                      hasActiveHead
+                        ? "text-slate-600 bg-[#030508]"
+                        : "text-white"
+                    }
                   >
                     {div.division_Name} ({div.division_Id}){" "}
                     {hasActiveHead ? " - [ Active Head Exists ]" : ""}
