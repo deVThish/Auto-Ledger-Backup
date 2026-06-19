@@ -289,10 +289,6 @@ export class OfficersService {
       include: {
         divisionalHeads: {
           where: { is_Active: true },
-          select: {
-            divisional_Head_Id: true,
-            name: true,
-          },
         },
       },
     });
