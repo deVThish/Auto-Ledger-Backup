@@ -10,16 +10,21 @@ import {
   X,
   Lock,
   User,
-  Info,
   Eye,
   EyeOff,
+  Power,
 } from "lucide-react";
 import { api } from "@/lib/api";
+
+interface DivisionalHeadInfo {
+  divisional_Head_Id: string;
+  name: string;
+}
 
 interface Division {
   division_Id: string;
   division_Name: string;
-  divisionalHead?: Record<string, unknown> | null;
+  divisionalHeads?: DivisionalHeadInfo[];
 }
 
 interface DivisionalHead {
@@ -27,6 +32,7 @@ interface DivisionalHead {
   name: string;
   username: string;
   email: string;
+  is_Active: boolean;
   division?: {
     division_Name: string;
   };
@@ -92,7 +98,10 @@ export default function ManageHeads() {
         passwordStr: headForm.passwordStr,
       });
 
-      showToast("success", "Divisional Head registered successfully!");
+      showToast(
+        "success",
+        "Divisional Head registered & activated successfully!",
+      );
       setHeadForm({
         name: "",
         username: "",
@@ -110,8 +119,30 @@ export default function ManageHeads() {
     }
   };
 
-  const availableDivisions = divisions.filter((div) => !div.divisionalHead);
-  const allOccupied = divisions.length > 0 && availableDivisions.length === 0;
+  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      if (currentStatus) {
+        await api.patch(`/officers/head/${id}/disable`);
+        showToast("success", "Divisional Head disabled successfully");
+      } else {
+        if (
+          !window.confirm(
+            "Activating this head will automatically disable the currently active head for this division. Do you want to continue?",
+          )
+        )
+          return;
+        await api.patch(`/officers/head/${id}/activate`);
+        showToast("success", "Divisional Head activated & officers reassigned");
+      }
+      await loadData();
+    } catch (err: unknown) {
+      const error = err as ApiError;
+      showToast(
+        "error",
+        error.response?.data?.message || "Error updating status",
+      );
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 relative">
@@ -150,24 +181,6 @@ export default function ManageHeads() {
           <Users className="mr-2" size={18} /> Register Divisional Head
         </h3>
 
-        {allOccupied && (
-          <div className="mb-8 w-full bg-[#132752]/40 border border-[#1a2f5c] rounded-2xl p-5 flex items-start shadow-inner">
-            <div className="bg-blue-500/20 p-2 rounded-lg mr-4 flex-shrink-0 border border-blue-500/30">
-              <Info size={20} className="text-blue-400" />
-            </div>
-            <div>
-              <h4 className="text-blue-400 font-bold text-sm mb-1">
-                Action Required: No Vacant Divisions
-              </h4>
-              <p className="text-slate-400 text-xs leading-relaxed">
-                All currently active Police Divisions have already been assigned
-                a Divisional Head. To register a new Divisional Head, you must
-                first create a new Police Division in the system.
-              </p>
-            </div>
-          </div>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="space-y-2">
             <label className="text-[11px] font-bold text-slate-400 uppercase">
@@ -175,13 +188,12 @@ export default function ManageHeads() {
             </label>
             <input
               required
-              disabled={allOccupied}
               value={headForm.name}
               onChange={(e) =>
                 setHeadForm({ ...headForm, name: e.target.value })
               }
               type="text"
-              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white"
             />
           </div>
 
@@ -192,29 +204,26 @@ export default function ManageHeads() {
             </label>
             <select
               required
-              disabled={allOccupied}
               value={headForm.divisionName}
               onChange={(e) =>
                 setHeadForm({ ...headForm, divisionName: e.target.value })
               }
-              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white"
             >
               <option value="" disabled>
                 -- Select a Division --
               </option>
               {divisions.map((div) => {
-                const isOccupied = !!div.divisionalHead;
+                const hasActiveHead =
+                  div.divisionalHeads && div.divisionalHeads.length > 0;
                 return (
                   <option
                     key={div.division_Id}
                     value={div.division_Name}
-                    disabled={isOccupied}
-                    className={
-                      isOccupied ? "text-red-400 bg-[#1a0f16]" : "text-white"
-                    }
+                    className="text-white"
                   >
                     {div.division_Name} ({div.division_Id}){" "}
-                    {isOccupied ? " - [ Assigned ]" : ""}
+                    {hasActiveHead ? " - [ Active Head Exists ]" : ""}
                   </option>
                 );
               })}
@@ -228,13 +237,12 @@ export default function ManageHeads() {
             </label>
             <input
               required
-              disabled={allOccupied}
               value={headForm.username}
               onChange={(e) =>
                 setHeadForm({ ...headForm, username: e.target.value })
               }
               type="text"
-              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white font-mono"
               placeholder="e.g. jdoe_head"
             />
           </div>
@@ -246,20 +254,18 @@ export default function ManageHeads() {
             <div className="relative">
               <input
                 required
-                disabled={allOccupied}
                 value={headForm.passwordStr}
                 onChange={(e) =>
                   setHeadForm({ ...headForm, passwordStr: e.target.value })
                 }
                 type={showPassword ? "text" : "password"}
-                className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 pr-10 text-sm focus:border-amber-500 outline-none text-white font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 pr-10 text-sm focus:border-amber-500 outline-none text-white font-mono"
                 placeholder="Enter secure password"
               />
               <button
                 type="button"
-                disabled={allOccupied}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-amber-400"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -272,13 +278,12 @@ export default function ManageHeads() {
             </label>
             <input
               required
-              disabled={allOccupied}
               value={headForm.email}
               onChange={(e) =>
                 setHeadForm({ ...headForm, email: e.target.value })
               }
               type="email"
-              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white"
             />
           </div>
         </div>
@@ -286,10 +291,9 @@ export default function ManageHeads() {
         <div className="flex justify-end border-t border-[#1a2f5c] pt-6">
           <button
             type="submit"
-            disabled={allOccupied}
-            className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:hover:bg-amber-600 text-white px-8 py-3 rounded-xl font-bold flex items-center shadow-lg shadow-amber-900/40 transition-all"
+            className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center shadow-lg shadow-amber-900/40 transition-all"
           >
-            <PlusCircle size={18} className="mr-2" /> Register Head
+            <PlusCircle size={18} className="mr-2" /> Register & Activate Head
           </button>
         </div>
       </form>
@@ -301,7 +305,8 @@ export default function ManageHeads() {
               <th className="p-4">Name</th>
               <th className="p-4">Username</th>
               <th className="p-4">Division</th>
-              <th className="p-4">Email</th>
+              <th className="p-4">Status</th>
+              <th className="p-4 text-center">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1a2f5c]">
@@ -319,13 +324,37 @@ export default function ManageHeads() {
                     {head.division?.division_Name}
                   </span>
                 </td>
-                <td className="p-4 text-slate-400">{head.email}</td>
+                <td className="p-4">
+                  {head.is_Active ? (
+                    <span className="text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded font-bold">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded font-bold">
+                      Disabled
+                    </span>
+                  )}
+                </td>
+                <td className="p-4 text-center">
+                  <button
+                    onClick={() =>
+                      handleToggleStatus(
+                        head.divisional_Head_Id,
+                        head.is_Active,
+                      )
+                    }
+                    className={`p-2 rounded-lg transition-colors ${head.is_Active ? "text-red-400 hover:bg-red-500/20 hover:text-red-300" : "text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"}`}
+                    title={head.is_Active ? "Disable Head" : "Activate Head"}
+                  >
+                    <Power size={18} />
+                  </button>
+                </td>
               </tr>
             ))}
             {heads.length === 0 && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={5}
                   className="p-8 text-center text-slate-500 font-bold uppercase text-xs"
                 >
                   No divisional heads registered.
