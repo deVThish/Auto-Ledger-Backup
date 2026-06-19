@@ -4,10 +4,15 @@ import React, { useState, useEffect } from "react";
 import { Map, PlusCircle, AlertCircle, CheckCircle2, X } from "lucide-react";
 import { api } from "@/lib/api";
 
+interface DivisionalHeadInfo {
+  divisional_Head_Id: string;
+  name: string;
+}
+
 interface Division {
   division_Id: string;
   division_Name: string;
-  divisionalHead?: Record<string, unknown>;
+  divisionalHeads?: DivisionalHeadInfo[];
 }
 
 interface ApiError {
@@ -181,9 +186,10 @@ export default function ManageDivisions() {
                   {division.division_Name}
                 </td>
                 <td className="p-4">
-                  {division.divisionalHead ? (
+                  {division.divisionalHeads &&
+                  division.divisionalHeads.length > 0 ? (
                     <span className="text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                      Active Head
+                      Active Head: {division.divisionalHeads[0].name}
                     </span>
                   ) : (
                     <span className="text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
