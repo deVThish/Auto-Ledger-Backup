@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image"; // <-- Added Next.js Image import
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -10,12 +10,26 @@ import {
   UserPlus,
   LogOut,
   FileWarning,
-  Ban, // <-- Added Ban icon for Revoked page
+  Ban,
 } from "lucide-react";
 
 export default function DMTLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = setTimeout(() => {
+      const role = localStorage.getItem("userRole");
+      if (role !== "DMT_ADMIN") {
+        router.push("/login");
+      } else {
+        setIsLoading(false);
+      }
+    }, 0);
+
+    return () => clearTimeout(checkAuth);
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -44,7 +58,6 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
           <FileWarning className="mr-3 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
         ),
       };
-    // Added Header mapping for Revoked Page
     if (pathname.includes("/revoked"))
       return {
         title: "Actioned Licenses Registry",
@@ -62,6 +75,11 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
 
   const header = getHeaderDetails();
 
+  // Prevent rendering until authorization is confirmed
+  if (isLoading) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen bg-[#030508] text-slate-200 overflow-hidden font-sans relative">
       <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#110c24] via-[#050810] to-[#030407]"></div>
@@ -69,7 +87,6 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
       <aside className="w-72 bg-[#0a0f16]/50 backdrop-blur-3xl border-r border-white/5 flex flex-col p-6 m-4 rounded-[2.5rem] shadow-[0_0_40px_rgba(0,229,255,0.03)] z-10">
         <div className="mb-8 text-center flex flex-col items-center">
           <div className="relative w-24 h-24 mb-4 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md p-1 shadow-[0_0_20px_rgba(34,211,238,0.1)] border border-white/10 overflow-hidden">
-            {/* Fixed: Replaced <img> with Next.js <Image /> */}
             <Image
               src="/dmt_logo.png"
               alt="DMT Logo"
@@ -112,7 +129,6 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
             label="Traffic Fines"
             currentPath={pathname}
           />
-          {/* New Revoked Page Button */}
           <SidebarBtn
             to="/dmt-dashboard/revoked"
             icon={<Ban size={20} />}
@@ -169,7 +185,6 @@ export default function DMTLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Fixed: Changed icon type from any to React.ReactNode
 function SidebarBtn({
   to,
   icon,

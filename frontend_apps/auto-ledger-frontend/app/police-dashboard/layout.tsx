@@ -1,9 +1,8 @@
-// app/police-dashboard/layout.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image"; // <-- Next.js Image imported
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Shield, Gavel, Users, LogOut, Map } from "lucide-react";
 
@@ -14,6 +13,20 @@ export default function PoliceLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = setTimeout(() => {
+      const role = localStorage.getItem("userRole");
+      if (role !== "POLICE_ADMIN") {
+        router.push("/login");
+      } else {
+        setIsLoading(false);
+      }
+    }, 0);
+
+    return () => clearTimeout(checkAuth);
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -44,15 +57,18 @@ export default function PoliceLayout({
 
   const header = getHeaderDetails();
 
+  // Prevent rendering until authorization is confirmed
+  if (isLoading) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen bg-[#061022] text-slate-200 overflow-hidden font-sans relative">
       <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#040b17] via-[#091730] to-[#040b17]"></div>
 
-      {/* --- SIDEBAR --- */}
       <aside className="w-72 bg-[#091730]/90 backdrop-blur-xl border-r border-[#1a2f5c] flex flex-col p-6 m-4 rounded-3xl shadow-2xl z-10">
         <div className="mb-8 text-center flex flex-col items-center">
           <div className="w-24 h-28 mb-4 flex items-center justify-center drop-shadow-xl relative">
-            {/* Fixed: Replaced <img> with Next.js <Image /> */}
             <Image
               src="/Sri_Lanka_Police_logo.png"
               alt="SL Police Logo"
@@ -109,7 +125,6 @@ export default function PoliceLayout({
         </button>
       </aside>
 
-      {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col p-8 overflow-y-auto z-10 custom-scrollbar">
         <header className="flex justify-between items-center mb-8 bg-[#0b1c3b]/60 backdrop-blur-md p-4 px-8 rounded-3xl border border-[#1a2f5c]">
           <div>
@@ -146,7 +161,6 @@ export default function PoliceLayout({
   );
 }
 
-// Fixed: Changed `icon: any` to `icon: React.ReactNode`
 function SidebarBtn({
   to,
   icon,
