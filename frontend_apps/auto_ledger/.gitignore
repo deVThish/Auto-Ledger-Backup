@@ -48,4 +48,10 @@ app.*.map.json
 .fvm/
 
 # Firebase
-/firebase.json
+**/google-services.json
+**/GoogleService-Info.plist
+firebase.json
+
+#Privaate keys
+.env
+
