@@ -43,6 +43,15 @@ class OfficerService {
     return rawList.map(OfficerModel.fromJson).toList();
   }
 
+  Future<List<ShiftModel>> getOfficerShifts(String officerId) async {
+    final response = await _apiClient.get(
+      '/officers/$officerId/shifts',
+    );
+
+    final rawList = _extractList(response);
+    return rawList.map(ShiftModel.fromJson).toList();
+  }
+
   Future<ShiftModel> assignShift({
     required String officerId,
     required DateTime startTime,
@@ -72,16 +81,19 @@ class OfficerService {
 
   Future<ShiftModel> updateShift({
     required String shiftId,
-    required DateTime startTime,
+    DateTime? startTime,
     required DateTime endTime,
     String location = 'Duty Location',
   }) async {
-    final payload = {
-      'date': startTime.toUtc().toIso8601String(),
-      'startTime': startTime.toUtc().toIso8601String(),
+    final payload = <String, dynamic>{
       'endTime': endTime.toUtc().toIso8601String(),
       'location': location,
     };
+
+    if (startTime != null) {
+      payload['date'] = startTime.toUtc().toIso8601String();
+      payload['startTime'] = startTime.toUtc().toIso8601String();
+    }
 
     final response = await _apiClient.patch(
       '${ApiConstants.assignShift}/$shiftId',

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
@@ -53,11 +52,11 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
 
     try {
       await _officerService.registerTrafficOfficer(
-      name: _nameController.text,
-      email: _emailController.text,
-      badgeNumber: _badgeController.text,
-      password: _passwordController.text,
-    );
+        name: _nameController.text,
+        email: _emailController.text,
+        badgeNumber: _badgeController.text,
+        password: _passwordController.text,
+      );
 
       if (!mounted) return;
 
@@ -72,16 +71,20 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
         message: 'Traffic officer created successfully.',
         isError: false,
       );
+
+      if (mounted) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) Navigator.of(context).pop(true);
+        });
+      }
     } on ApiException catch (error) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: error.message,
       );
     } catch (_) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: 'Unable to create traffic officer. Please try again.',
@@ -122,34 +125,57 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlack,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.primaryBlack,
+                            AppTheme.primaryBlack.withValues(alpha: 0.85),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryBlack.withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: const Row(
                         children: [
                           Icon(
                             Icons.person_add_alt_1_outlined,
                             color: Colors.white,
                             size: 34,
                           ),
-                          SizedBox(height: 18),
-                          Text(
-                            'Register New Officer',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 23,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Create a traffic officer account for your assigned district.',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                              height: 1.45,
-                              fontWeight: FontWeight.w500,
+                          SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Register New Officer',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 23,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Create a traffic officer account',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -161,14 +187,34 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Colors.white.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: AppTheme.borderGray),
+                          border: Border.all(
+                            color: AppTheme.primaryBlack.withValues(alpha: 0.12),
+                            width: 1.5,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 24,
-                              offset: const Offset(0, 10),
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                            BoxShadow(
+                              color: Colors.white.withValues(alpha: 0.4),
+                              blurRadius: 30,
+                              offset: const Offset(-4, -4),
+                              spreadRadius: -2,
+                            ),
+                            BoxShadow(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              blurRadius: 15,
+                              offset: const Offset(4, 4),
+                              spreadRadius: -1,
                             ),
                           ],
                         ),
@@ -202,11 +248,9 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
                                 if (value == null || value.trim().isEmpty) {
                                   return 'Email is required';
                                 }
-
                                 if (!value.contains('@')) {
                                   return 'Enter a valid email';
                                 }
-
                                 return null;
                               },
                             ),
@@ -269,7 +313,7 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
                                 onPressed: () {
                                   setState(() {
                                     _isConfirmPasswordHidden =
-                                    !_isConfirmPasswordHidden;
+                                        !_isConfirmPasswordHidden;
                                   });
                                 },
                                 icon: Icon(
@@ -292,7 +336,6 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
                             const SizedBox(height: 24),
                             AppButton(
                               text: 'Create Officer',
-                              icon: Icons.person_add_alt_1_rounded,
                               isLoading: _isLoading,
                               onPressed: _handleCreateOfficer,
                             ),

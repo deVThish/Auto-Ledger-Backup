@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/fine_model.dart';
@@ -35,7 +34,6 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
     setState(() {
       _statisticsFuture = _loadStatistics();
     });
-
     await _statisticsFuture;
   }
 
@@ -54,73 +52,54 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: _refreshStatistics,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
 
-            return RefreshIndicator(
-              color: AppTheme.primaryBlack,
-              onRefresh: _refreshStatistics,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: FutureBuilder<DistrictStatisticsModel>(
-                    future: _statisticsFuture,
-                    builder: (context, snapshot) {
-                      final statistics = snapshot.data ?? _cachedStatistics;
-                      final isLoading =
-                          snapshot.connectionState ==
-                              ConnectionState.waiting &&
-                          statistics == null;
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: FutureBuilder<DistrictStatisticsModel>(
+                  future: _statisticsFuture,
+                  builder: (context, snapshot) {
+                    final snapshotData = snapshot.data;
+                    final statistics = snapshotData ?? _cachedStatistics;
+                    final isFirstLoad = snapshot.connectionState ==
+                            ConnectionState.waiting &&
+                        _cachedStatistics == null &&
+                        snapshotData == null;
 
-                      if (isLoading) {
-                        return const Column(
-                          children: [
-                            SizedBox(height: 18),
-                            _HeaderCard(),
-                            SizedBox(height: 24),
-                            _LoadingCard(),
-                          ],
-                        );
-                      }
-
-                      if (snapshot.hasError && statistics == null) {
-                        return Column(
-                          children: [
-                            const SizedBox(height: 18),
-                            const _HeaderCard(),
-                            const SizedBox(height: 24),
-                            _ErrorCard(
-                              onRetry: _refreshStatistics,
-                              message: snapshot.error is ApiException
-                                  ? (snapshot.error as ApiException).message
-                                  : 'Unable to load district statistics.',
-                            ),
-                          ],
-                        );
-                      }
-
-                      final resolvedStatistics = statistics ??
-                      const DistrictStatisticsModel(
-                        totalOfficers: 0,
-                        activeOfficersOnDuty: 0,
-                        totalFinesIssued: 0,
-                        totalRevenue: 0,
-                        pendingFinesCount: 0,
-                        overdueCourtCases: 0,
+                    if (snapshot.hasError && statistics == null) {
+                      return Column(
+                        children: [
+                          const SizedBox(height: 18),
+                          const _HeaderCard(),
+                          const SizedBox(height: 24),
+                          _ErrorCard(
+                            onRetry: _refreshStatistics,
+                            message: snapshot.error is ApiException
+                                ? (snapshot.error as ApiException).message
+                                : 'Unable to load district statistics.',
+                          ),
+                        ],
                       );
+                    }
 
-                      final cards = [
+                    final resolvedStatistics = statistics ??
+                        const DistrictStatisticsModel(
+                          totalOfficers: 0,
+                          activeOfficersOnDuty: 0,
+                          totalFinesIssued: 0,
+                          totalRevenue: 0,
+                          pendingFinesCount: 0,
+                          overdueCourtCases: 0,
+                        );
+
+                    final cards = [
                       _StatisticCardData(
                         title: 'Total Officers',
                         value: '${resolvedStatistics.totalOfficers}',
@@ -159,6 +138,7 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
                       ),
                     ];
 
+                    if (isFirstLoad) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -175,16 +155,40 @@ class _DistrictStatisticsScreenState extends State<DistrictStatisticsScreen> {
                           ),
                           const SizedBox(height: 14),
                           ...cards.map(
-                                (card) => Padding(
+                            (card) => Padding(
                               padding: const EdgeInsets.only(bottom: 14),
                               child: _StatisticCard(data: card),
                             ),
                           ),
-                          const SizedBox(height: 28),
                         ],
                       );
-                    },
-                  ),
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 18),
+                        const _HeaderCard(),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Key Statistics',
+                          style: TextStyle(
+                            color: AppTheme.primaryBlack,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        ...cards.map(
+                          (card) => Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _StatisticCard(data: card),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                      ],
+                    );
+                  },
                 ),
               ),
             );
@@ -218,34 +222,57 @@ class _HeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppTheme.primaryBlack,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryBlack,
+            AppTheme.primaryBlack.withValues(alpha: 0.85),
+          ],
+        ),
         borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryBlack.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: const Row(
         children: [
           Icon(
             Icons.bar_chart_rounded,
             color: Colors.white,
             size: 34,
           ),
-          SizedBox(height: 18),
-          Text(
-            'District Overview',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 23,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'View today fine activity, paid revenue, and court pending cases for your district.',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              height: 1.45,
-              fontWeight: FontWeight.w500,
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'District Overview',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Performance overview',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -265,14 +292,34 @@ class _StatisticCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.borderGray),
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: AppTheme.primaryBlack.withValues(alpha: 0.12),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 16,
             offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.4),
+            blurRadius: 30,
+            offset: const Offset(-4, -4),
+            spreadRadius: -2,
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.2),
+            blurRadius: 15,
+            offset: const Offset(4, 4),
+            spreadRadius: -1,
           ),
         ],
       ),
@@ -282,8 +329,11 @@ class _StatisticCard extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: AppTheme.lightGray,
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
             ),
             child: Icon(
               data.icon,
@@ -338,28 +388,6 @@ class _StatisticCard extends StatelessWidget {
   }
 }
 
-class _LoadingCard extends StatelessWidget {
-  const _LoadingCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.borderGray),
-      ),
-      child: const Center(
-        child: CircularProgressIndicator(
-          color: AppTheme.primaryBlack,
-        ),
-      ),
-    );
-  }
-}
-
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({
     required this.onRetry,
@@ -375,9 +403,9 @@ class _ErrorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.errorRed),
+        border: Border.all(color: AppTheme.errorRed.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [

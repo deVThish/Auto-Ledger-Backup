@@ -8,6 +8,7 @@ class OfficerModel {
     required this.role,
     required this.divisionId,
     required this.currentShift,
+    this.shifts = const [],
   });
 
   final String id;
@@ -18,16 +19,14 @@ class OfficerModel {
   final String role;
   final String divisionId;
   final ShiftInfoModel? currentShift;
+  final List<ShiftInfoModel> shifts;
 
-  ShiftInfoModel? get activeShift => currentShift;
+  ShiftInfoModel? get activeShift => _resolveDisplayShift();
 
-  bool get hasActiveShift {
-    final shift = currentShift;
-    return shift != null && (shift.startTime != null || shift.endTime != null);
-  }
+  bool get hasActiveShift => activeShift != null;
 
   bool get isShiftScheduled {
-    final shift = currentShift;
+    final shift = activeShift;
     final start = shift?.startTime;
 
     if (shift == null || start == null) {
@@ -38,7 +37,7 @@ class OfficerModel {
   }
 
   bool get isShiftEnded {
-    final shift = currentShift;
+    final shift = activeShift;
     final end = shift?.endTime;
 
     if (shift == null || end == null) {
@@ -49,7 +48,7 @@ class OfficerModel {
   }
 
   bool get isOnDutyNow {
-    final shift = currentShift;
+    final shift = activeShift;
     final start = shift?.startTime;
     final end = shift?.endTime;
 
@@ -63,11 +62,7 @@ class OfficerModel {
 
   String get shiftStatusLabel {
     if (!hasActiveShift) {
-      return 'No Shift';
-    }
-
-    if (isShiftEnded) {
-      return 'No Shift';
+      return 'No Duty';
     }
 
     if (isOnDutyNow) {
@@ -78,16 +73,12 @@ class OfficerModel {
       return 'Scheduled';
     }
 
-    return 'No Shift';
+    return 'No Duty';
   }
 
   String get shiftSummaryLabel {
     if (!hasActiveShift) {
       return 'No assigned shift';
-    }
-
-    if (isShiftEnded) {
-      return 'Assigned shift ended';
     }
 
     if (isOnDutyNow) {
@@ -98,11 +89,11 @@ class OfficerModel {
       return 'Upcoming shift';
     }
 
-    return 'Outside shift time';
+    return 'Assigned shift ended';
   }
 
   String get shiftTimeRange {
-    final shift = currentShift;
+    final shift = activeShift;
     final start = shift?.startTime;
     final end = shift?.endTime;
 
@@ -111,6 +102,86 @@ class OfficerModel {
     }
 
     return '${_formatLocalDateTime(start)} - ${_formatLocalDateTime(end)}';
+  }
+
+  ShiftInfoModel? _resolveDisplayShift() {
+    final now = DateTime.now();
+    final candidates = <ShiftInfoModel>[];
+    final seenKeys = <String>{};
+
+    void addCandidate(ShiftInfoModel? shift) {
+      if (shift == null) return;
+
+      final key = shift.id.isNotEmpty
+          ? 'id:${shift.id}'
+          : 'time:${shift.startTime?.toIso8601String() ?? ''}:${shift.endTime?.toIso8601String() ?? ''}';
+
+      if (seenKeys.add(key)) {
+        candidates.add(shift);
+      }
+    }
+
+    addCandidate(currentShift);
+    for (final shift in shifts) {
+      addCandidate(shift);
+    }
+
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    for (final shift in candidates) {
+      if (_isShiftActiveNow(shift, now)) {
+        return shift;
+      }
+    }
+
+    final futureShifts = candidates.where((shift) {
+      final start = shift.startTime;
+      if (start == null) return false;
+      return start.isAfter(now);
+    }).toList()
+      ..sort((a, b) {
+        final aStart = a.startTime;
+        final bStart = b.startTime;
+        if (aStart == null && bStart == null) return 0;
+        if (aStart == null) return 1;
+        if (bStart == null) return -1;
+        return aStart.compareTo(bStart);
+      });
+
+    if (futureShifts.isNotEmpty) {
+      return futureShifts.first;
+    }
+
+    final pastShifts = candidates.where((shift) {
+      final end = shift.endTime;
+      if (end == null) return false;
+      return end.isBefore(now);
+    }).toList()
+      ..sort((a, b) {
+        final aEnd = a.endTime;
+        final bEnd = b.endTime;
+        if (aEnd == null && bEnd == null) return 0;
+        if (aEnd == null) return 1;
+        if (bEnd == null) return -1;
+        return bEnd.compareTo(aEnd);
+      });
+
+    if (pastShifts.isNotEmpty) {
+      return pastShifts.first;
+    }
+
+    candidates.sort((a, b) {
+      final aStart = a.startTime;
+      final bStart = b.startTime;
+      if (aStart == null && bStart == null) return 0;
+      if (aStart == null) return 1;
+      if (bStart == null) return -1;
+      return bStart.compareTo(aStart);
+    });
+
+    return candidates.first;
   }
 
   factory OfficerModel.fromJson(Map<String, dynamic> json) {
@@ -149,6 +220,7 @@ class OfficerModel {
       currentShift: currentShiftJson is Map<String, dynamic>
           ? ShiftInfoModel.fromJson(currentShiftJson)
           : null,
+      shifts: _readShiftList(json['shifts']),
     );
   }
 }
@@ -207,6 +279,36 @@ class ShiftInfoModel {
           '',
     );
   }
+}
+
+List<ShiftInfoModel> _readShiftList(dynamic rawShifts) {
+  if (rawShifts is! List) {
+    return const [];
+  }
+
+  return rawShifts
+      .whereType<Map<String, dynamic>>()
+      .map(ShiftInfoModel.fromJson)
+      .toList();
+}
+
+bool _isShiftActiveNow(ShiftInfoModel shift, DateTime now) {
+  final start = shift.startTime;
+  final end = shift.endTime;
+
+  if (start != null && end != null) {
+    return !now.isBefore(start) && !now.isAfter(end);
+  }
+
+  if (start != null) {
+    return !now.isBefore(start);
+  }
+
+  if (end != null) {
+    return !now.isAfter(end);
+  }
+
+  return false;
 }
 
 DateTime? _readDateTime(Map<String, dynamic> json, List<String> keys) {
