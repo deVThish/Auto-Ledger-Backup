@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { JwtService } from '@nestjs/jwt';
 
 export interface VehicleCategoryData {
   vehicleClass: string;
@@ -47,6 +48,7 @@ export class LicenseService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private jwtService: JwtService,
   ) {
     const region =
       this.configService.get<string>('AWS_REGION') || 'ap-southeast-1';
@@ -62,6 +64,32 @@ export class LicenseService {
         secretAccessKey: secretAccessKey,
       },
     });
+  }
+
+  private async autoActivateLicenses() {
+    await this.prisma.driving_License.updateMany({
+      where: { status: 'SUSPENDED', suspended_Until: { lte: new Date() } },
+      data: { suspended_Until: null },
+    });
+
+    const licensesToActivate = await this.prisma.driving_License.findMany({
+      where: {
+        status: 'SUSPENDED',
+        suspended_Until: null,
+        fines: {
+          none: { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+        },
+      },
+    });
+
+    if (licensesToActivate.length > 0) {
+      await this.prisma.driving_License.updateMany({
+        where: {
+          license_Id: { in: licensesToActivate.map((l) => l.license_Id) },
+        },
+        data: { status: 'ACTIVE', points: 0 },
+      });
+    }
   }
 
   async getS3UploadUrl(fileName: string, fileType: string) {
@@ -134,31 +162,37 @@ export class LicenseService {
   }
 
   async getMyLicense(userId: string) {
+    await this.autoActivateLicenses();
     const license = await this.prisma.driving_License.findUnique({
       where: { user_Id: userId },
       include: {
-        fines: { where: { status: 'PENDING' } },
+        fines: {
+          where: { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+        },
         temporaryLicenses: true,
         vehicleCategories: true,
       },
     });
-    if (!license) throw new NotFoundException('License not found');
+    if (!license) throw new NotFoundException();
     return license;
   }
 
   async generateLicenseQR(userId: string) {
+    await this.autoActivateLicenses();
     const license = await this.prisma.driving_License.findUnique({
       where: { user_Id: userId },
       include: {
         temporaryLicenses: true,
-        fines: { where: { status: 'PENDING' } },
+        fines: {
+          where: { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+        },
       },
     });
 
-    if (!license) throw new NotFoundException('Active license not found');
+    if (!license) throw new NotFoundException();
 
     if (license.status === 'REVOKED' || license.status === 'EXPIRED') {
-      throw new BadRequestException(`License is ${license.status}`);
+      throw new BadRequestException();
     }
 
     if (license.status === 'SUSPENDED') {
@@ -173,22 +207,20 @@ export class LicenseService {
               data: { status: 'OVERDUE' },
             });
           }
-          throw new BadRequestException(
-            'Temporary license has expired. Auto-escalated to Court Case. QR Code generation blocked.',
-          );
+          await this.prisma.temporary_License.deleteMany({
+            where: { license_Id: license.license_Id },
+          });
+          throw new BadRequestException();
         }
       } else {
-        throw new BadRequestException(
-          'License is suspended. QR Code generation blocked.',
-        );
+        throw new BadRequestException();
       }
     }
 
-    const expiryTime = Date.now() + 3 * 60 * 1000;
     const randomToken = crypto.randomBytes(16).toString('hex');
-    const qrToken = `${license.license_Id}:${randomToken}:${expiryTime}`;
+    const qrToken = `${license.license_Id}:${randomToken}`;
 
-    return { qrToken, expiresAt: new Date(expiryTime) };
+    return { qrToken };
   }
 
   async scanLicenseQR(
@@ -197,33 +229,28 @@ export class LicenseService {
     location?: string,
   ) {
     const parts = qrToken.split(':');
-    if (parts.length !== 3) throw new BadRequestException('Invalid QR format');
+    if (parts.length !== 2) throw new BadRequestException();
 
     const licenseId = parts[0];
-    const expiryTime = parseInt(parts[2], 10);
 
-    if (Date.now() > expiryTime) {
-      throw new BadRequestException(
-        'QR Code has expired. Please ask driver to refresh.',
-      );
-    }
-
+    await this.autoActivateLicenses();
     const license = await this.prisma.driving_License.findUnique({
       where: { license_Id: licenseId },
       include: { user: true },
     });
 
-    if (!license) throw new NotFoundException('License not found');
+    if (!license) throw new NotFoundException();
 
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { traffic_Officer_Id: trafficOfficerId },
     });
 
-    if (!officer) throw new UnauthorizedException('Invalid Officer');
+    if (!officer) throw new UnauthorizedException();
 
     await this.prisma.qR_Scan_History.create({
       data: {
         qr_Token: qrToken,
+        traffic_Officer_Id: trafficOfficerId,
         traffic_Officer_Name: officer.name,
         driver_Name: license.user.name,
         location: location || null,
@@ -231,12 +258,17 @@ export class LicenseService {
       },
     });
 
+    const scanToken = this.jwtService.sign(
+      { licenseId: license.license_Id },
+      { expiresIn: '3m' },
+    );
+
     return {
-      message: 'Scan successful',
       driverName: license.user.name,
       licenseNo: license.license_No,
       status: license.status,
       points: license.points,
+      scanToken: scanToken,
     };
   }
 
@@ -251,6 +283,7 @@ export class LicenseService {
   }
 
   async getLicenseByNIC(nicNo: string) {
+    await this.autoActivateLicenses();
     const license = await this.prisma.driving_License.findUnique({
       where: { nic_No: nicNo },
       include: {
@@ -265,11 +298,12 @@ export class LicenseService {
       },
     });
 
-    if (!license) throw new NotFoundException('License not found for this NIC');
+    if (!license) throw new NotFoundException();
     return license;
   }
 
   async getAllLicenses(nic?: string) {
+    await this.autoActivateLicenses();
     return this.prisma.driving_License.findMany({
       where: nic ? { nic_No: { contains: nic, mode: 'insensitive' } } : {},
       include: {
@@ -284,7 +318,7 @@ export class LicenseService {
       where: { license_Id: licenseId },
     });
 
-    if (!license) throw new NotFoundException('License not found');
+    if (!license) throw new NotFoundException();
 
     const updatePayload: {
       full_Name?: string;
@@ -326,6 +360,7 @@ export class LicenseService {
   }
 
   async getLicensesWithFines(nic?: string) {
+    await this.autoActivateLicenses();
     return this.prisma.driving_License.findMany({
       where: {
         fines: { some: {} },

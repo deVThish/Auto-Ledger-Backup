@@ -103,7 +103,7 @@ export class CreateLicenseDto {
 }
 
 export class ScanQRDto {
-  @ApiProperty({ example: 'License_ID:RandomHash:Timestamp' })
+  @ApiProperty({ example: 'License_ID:RandomHash' })
   @IsString()
   @IsNotEmpty()
   qrToken: string;
@@ -166,12 +166,13 @@ export class LicenseController {
     return this.licenseService.getMyLicense(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Generate 3-Minute QR Code for License' })
+  @ApiOperation({ summary: 'Generate QR Code for License' })
   @Get('generate-qr')
   async generateQR(@Request() req: AuthRequest) {
     return this.licenseService.generateLicenseQR(req.user.id);
   }
 
+  @Roles('TRAFFIC_OFFICER')
   @ApiOperation({ summary: 'Scan License QR Code' })
   @Post('scan-qr')
   async scanQR(@Request() req: AuthRequest, @Body() data: ScanQRDto) {
@@ -188,6 +189,7 @@ export class LicenseController {
     return this.licenseService.updateStatus(id, data.status);
   }
 
+  @Roles('DMT_ADMIN', 'POLICE_ADMIN')
   @ApiOperation({ summary: 'Get License by NIC' })
   @Get('search/:nic')
   async getLicenseByNIC(@Param('nic') nic: string) {
