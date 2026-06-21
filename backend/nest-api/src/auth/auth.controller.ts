@@ -184,7 +184,19 @@ export class ResetPasswordDto {
   newPassword: string;
 }
 
-export class HeadForgotResetDto {
+export class HeadForgotPasswordRequestDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class HeadResetPasswordDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -198,11 +210,16 @@ export class HeadForgotResetDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  otp: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   @MinLength(6)
   newPasswordStr: string;
 }
 
-export class OfficerForgotResetDto {
+export class OfficerForgotPasswordRequestDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -212,6 +229,23 @@ export class OfficerForgotResetDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
+}
+
+export class OfficerResetPasswordDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
 
   @ApiProperty()
   @IsString()
@@ -308,22 +342,44 @@ export class AuthController {
     );
   }
 
-  @ApiOperation({ summary: 'Forgot Password Reset for Divisional Head' })
-  @Post('head/forgot-password')
-  async headForgotPassword(@Body() data: HeadForgotResetDto) {
-    return await this.authService.resetHeadPasswordSelf(
+  @ApiOperation({ summary: 'Step 1: Request OTP for Divisional Head' })
+  @Post('head/forgot-password-request')
+  async headForgotPasswordRequest(@Body() data: HeadForgotPasswordRequestDto) {
+    return await this.authService.requestHeadPasswordReset(
       data.username,
       data.email,
+    );
+  }
+
+  @ApiOperation({ summary: 'Step 2: Reset Password for Divisional Head' })
+  @Post('head/reset-password')
+  async headResetPassword(@Body() data: HeadResetPasswordDto) {
+    return await this.authService.resetHeadPassword(
+      data.username,
+      data.email,
+      data.otp,
       data.newPasswordStr,
     );
   }
 
-  @ApiOperation({ summary: 'Forgot Password Reset for Traffic Officer' })
-  @Post('officer/forgot-password')
-  async officerForgotPassword(@Body() data: OfficerForgotResetDto) {
-    return await this.authService.resetOfficerPasswordSelf(
+  @ApiOperation({ summary: 'Step 1: Request OTP for Traffic Officer' })
+  @Post('officer/forgot-password-request')
+  async officerForgotPasswordRequest(
+    @Body() data: OfficerForgotPasswordRequestDto,
+  ) {
+    return await this.authService.requestOfficerPasswordReset(
       data.badgeNo,
       data.email,
+    );
+  }
+
+  @ApiOperation({ summary: 'Step 2: Reset Password for Traffic Officer' })
+  @Post('officer/reset-password')
+  async officerResetPassword(@Body() data: OfficerResetPasswordDto) {
+    return await this.authService.resetOfficerPassword(
+      data.badgeNo,
+      data.email,
+      data.otp,
       data.newPasswordStr,
     );
   }
