@@ -55,6 +55,7 @@ export class FinesService {
         where: { fine_Id: fine.fine_Id },
         data: { status: 'OVERDUE' },
       });
+      
       await this.prisma.temporary_License.deleteMany({
         where: { license_Id: fine.license_Id },
       });
@@ -106,7 +107,7 @@ export class FinesService {
     );
     const newPoints = oldPoints + totalPointsAdded;
 
-    let newStatus = license.status;
+    let newStatus: 'ACTIVE' | 'SUSPENDED' | 'REVOKED' = 'SUSPENDED';
     let suspendedUntil = license.suspended_Until;
     let fineStatus: 'PENDING' | 'COURT_CASE' = 'PENDING';
 
@@ -152,7 +153,7 @@ export class FinesService {
         },
       });
 
-      if (!isCourtCase && newStatus === 'ACTIVE') {
+      if (!isCourtCase && newStatus !== 'REVOKED') {
         await tx.temporary_License.create({
           data: {
             license_Id: licenseId,
@@ -235,7 +236,7 @@ export class FinesService {
         message:
           isOverdue || fine.status === 'COURT_CASE'
             ? 'Payment recorded. Waiting for Divisional Head approval.'
-            : 'Payment successful.',
+            : 'Payment successful. License activated.',
         paymentId: payment.payment_Id,
         fineStatus: updatedFine.status,
       };
