@@ -55,7 +55,7 @@ export class FinesService {
         where: { fine_Id: fine.fine_Id },
         data: { status: 'OVERDUE' },
       });
-      
+
       await this.prisma.temporary_License.deleteMany({
         where: { license_Id: fine.license_Id },
       });
@@ -154,13 +154,19 @@ export class FinesService {
       });
 
       if (!isCourtCase && newStatus !== 'REVOKED') {
-        await tx.temporary_License.create({
-          data: {
-            license_Id: licenseId,
-            expiry_Date: fineDueDate,
-            issued_By: data.officerId,
-          },
+        const existingTemp = await tx.temporary_License.findFirst({
+          where: { license_Id: licenseId },
         });
+
+        if (!existingTemp) {
+          await tx.temporary_License.create({
+            data: {
+              license_Id: licenseId,
+              expiry_Date: fineDueDate,
+              issued_By: data.officerId,
+            },
+          });
+        }
       }
 
       return fine;
@@ -212,10 +218,6 @@ export class FinesService {
       });
 
       if (!isOverdue && fine.status !== 'COURT_CASE') {
-        await tx.temporary_License.deleteMany({
-          where: { license_Id: fine.license_Id },
-        });
-
         const pendingCount = await tx.fine.count({
           where: {
             license_Id: fine.license_Id,
@@ -225,6 +227,9 @@ export class FinesService {
         });
 
         if (pendingCount === 0 && fine.license.status !== 'REVOKED') {
+          await tx.temporary_License.deleteMany({
+            where: { license_Id: fine.license_Id },
+          });
           await tx.driving_License.update({
             where: { license_Id: fine.license_Id },
             data: { status: 'ACTIVE', suspended_Until: null },
@@ -288,10 +293,6 @@ export class FinesService {
       }
 
       if (!hasOverdueOrCourt) {
-        await tx.temporary_License.deleteMany({
-          where: { license_Id: licenseId },
-        });
-
         const pendingCount = await tx.fine.count({
           where: {
             license_Id: licenseId,
@@ -301,6 +302,9 @@ export class FinesService {
         });
 
         if (pendingCount === 0 && licenseStatus !== 'REVOKED') {
+          await tx.temporary_License.deleteMany({
+            where: { license_Id: licenseId },
+          });
           await tx.driving_License.update({
             where: { license_Id: licenseId },
             data: { status: 'ACTIVE', suspended_Until: null },
