@@ -1,0 +1,1846 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+AGENTS.md
+app/dmt-dashboard/add-driver/page.tsx
+app/dmt-dashboard/drivers/page.tsx
+app/dmt-dashboard/fines/page.tsx
+app/dmt-dashboard/layout.tsx
+app/dmt-dashboard/page.tsx
+app/favicon.ico
+app/globals.css
+app/layout.tsx
+app/login/page.tsx
+app/page.tsx
+app/police-dashboard/divisional-heads/page.tsx
+app/police-dashboard/divisions/page.tsx
+app/police-dashboard/fines/page.tsx
+app/police-dashboard/layout.tsx
+app/police-dashboard/page.tsx
+CLAUDE.md
+eslint.config.mjs
+next.config.ts
+package.json
+postcss.config.mjs
+public/dmt_logo.png
+public/file.svg
+public/globe.svg
+public/next.svg
+public/Sri_Lanka_Police_logo.png
+public/vercel.svg
+public/window.svg
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="AGENTS.md">
+<!-- BEGIN:nextjs-agent-rules -->
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+<!-- END:nextjs-agent-rules -->
+</file>
+
+<file path="app/dmt-dashboard/add-driver/page.tsx">
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { Users, CreditCard, ShieldCheck, Save, X, Car, Bike, Truck, Bus, Tractor, Accessibility, UploadCloud, RefreshCw } from 'lucide-react';
+
+export default function ManageLicensesPage() {
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  const [formData, setFormData] = useState({
+    userId: '', fullName: '', dob: '', address: '', bloodGroup: 'O+', licenseNo: '', issueDate: '', profilePic: '', categories: {} as any
+  });
+
+  const vehicleCategories = [
+    { class: 'A1', desc: 'Light Motor Cycles', icon: <Bike size={16}/> },
+    { class: 'A', desc: 'Motor Cycles', icon: <Bike size={16}/> },
+    { class: 'B1', desc: 'Motor Tricycles', icon: <Car size={16}/> },
+    { class: 'B', desc: 'Dual Purpose Vehicles', icon: <Car size={16}/> },
+    { class: 'B2', desc: 'Light Motor Vehicles', icon: <Car size={16}/> },
+    { class: 'C1', desc: 'Light Motor Lorry', icon: <Truck size={16}/> },
+    { class: 'C', desc: 'Motor Lorry', icon: <Truck size={16}/> },
+    { class: 'CE', desc: 'Heavy Motor Lorry', icon: <Truck size={16}/> },
+    { class: 'D1', desc: 'Light Motor Coach', icon: <Bus size={16}/> },
+    { class: 'D', desc: 'Motor Coach', icon: <Bus size={16}/> },
+    { class: 'DE', desc: 'Heavy Motor Coach', icon: <Bus size={16}/> },
+    { class: 'G1', desc: 'Land Tractor', icon: <Tractor size={16}/> },
+    { class: 'G', desc: 'Tractor with Trailer', icon: <Tractor size={16}/> },
+    { class: 'J', desc: 'Special Purpose Vehicle', icon: <Truck size={16}/> },
+    { class: 'H', desc: 'Invalid Carriages', icon: <Accessibility size={16}/> },
+  ];
+
+  // Load Data and Check for "Edit" request
+  useEffect(() => {
+    const localDrivers = localStorage.getItem('dmtDrivers');
+    if (localDrivers) setDrivers(JSON.parse(localDrivers));
+
+    const editData = localStorage.getItem('editDriver');
+    if (editData) {
+      const driver = JSON.parse(editData);
+      setFormData({ ...driver });
+      setEditingId(driver.id);
+      localStorage.removeItem('editDriver'); // Load wunata passe remove karanawa
+    }
+  }, []);
+
+  const handleCategoryChange = (catClass: string, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev, categories: { ...prev.categories, [catClass]: { ...prev.categories[catClass], [field]: value } }
+    }));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFormData({ ...formData, profilePic: URL.createObjectURL(e.target.files[0]) });
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    let updatedDrivers;
+    if (editingId) {
+      updatedDrivers = drivers.map(d => d.id === editingId ? { ...formData, id: editingId } : d);
+      alert("License Successfully Updated!");
+    } else {
+      updatedDrivers = [...drivers, { ...formData, id: Date.now() }];
+      alert("Digital License Successfully Issued!");
+    }
+    
+    setDrivers(updatedDrivers);
+    localStorage.setItem('dmtDrivers', JSON.stringify(updatedDrivers)); // Save to local storage
+    handleClear();
+  };
+
+  const handleClear = () => {
+    setEditingId(null);
+    setFormData({ userId: '', fullName: '', dob: '', address: '', bloodGroup: 'O+', licenseNo: '', issueDate: '', profilePic: '', categories: {} });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="space-y-8 animate-in slide-in-from-right-8 duration-700 pb-10">
+      <form onSubmit={handleSubmit} className="bg-[#141414]/80 p-8 rounded-[32px] border border-red-900/30 shadow-xl backdrop-blur-sm">
+        <div className="flex justify-between items-center border-b border-red-900/30 pb-4 mb-6">
+          <h3 className="text-xl font-bold text-red-500 flex items-center">
+            <CreditCard className="mr-3" size={20} /> 
+            {editingId ? 'Update Driver License details' : 'Issue New Digital License'}
+          </h3>
+          {editingId && <button type="button" onClick={handleClear} className="text-slate-400 hover:text-red-400 flex items-center text-sm font-bold bg-white/5 px-3 py-1.5 rounded-lg"><X size={16} className="mr-1"/> Cancel Edit</button>}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="flex flex-col items-center space-y-4">
+            <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest"><Users size={16} className="inline mr-2 text-red-500"/> Photograph</h4>
+            <label className="w-40 h-48 border-2 border-dashed border-red-900/50 rounded-2xl flex flex-col items-center justify-center bg-[#0a0a0a] hover:bg-red-900/10 transition-colors cursor-pointer overflow-hidden group">
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              {formData.profilePic ? (
+                <img src={formData.profilePic} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <>
+                  <UploadCloud size={32} className="text-red-500 mb-2 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] text-slate-400 font-bold uppercase text-center px-4">Upload Professional Photo</span>
+                </>
+              )}
+            </label>
+          </div>
+
+          <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4 md:col-span-2">
+              <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-2 border-b border-red-900/20 pb-2">Driver Details</h4>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Full Name <span className="text-red-500">*</span></label>
+              <input required value={formData.fullName} onChange={(e) => setFormData({...formData, fullName: e.target.value})} type="text" className="w-full bg-[#0a0a0a] border border-red-900/30 rounded-xl p-3 text-sm focus:border-red-500 outline-none text-white" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">NIC Number <span className="text-red-500">*</span></label>
+              <input required value={formData.userId} onChange={(e) => setFormData({...formData, userId: e.target.value})} type="text" className="w-full bg-[#0a0a0a] border border-red-900/30 rounded-xl p-3 text-sm focus:border-red-500 outline-none text-white" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Date of Birth <span className="text-red-500">*</span></label>
+              <input required value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} type="date" className="w-full bg-[#0a0a0a] border border-red-900/30 rounded-xl p-3 text-sm focus:border-red-500 outline-none text-slate-300 [color-scheme:dark]" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Blood Group <span className="text-red-500">*</span></label>
+              <select required value={formData.bloodGroup} onChange={(e) => setFormData({...formData, bloodGroup: e.target.value})} className="w-full bg-[#0a0a0a] border border-red-900/30 rounded-xl p-3 text-sm focus:border-red-500 outline-none text-white">
+                <option>O+</option><option>O-</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
+              </select>
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Address <span className="text-red-500">*</span></label>
+              <input required value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} type="text" className="w-full bg-[#0a0a0a] border border-red-900/30 rounded-xl p-3 text-sm focus:border-red-500 outline-none text-white" />
+            </div>
+
+            <div className="space-y-4 md:col-span-2 mt-4">
+              <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-2 border-b border-red-900/20 pb-2 flex items-center"><ShieldCheck size={16} className="mr-2 text-red-500"/> General License Info</h4>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">License Number <span className="text-red-500">*</span></label>
+              <input required value={formData.licenseNo} onChange={(e) => setFormData({...formData, licenseNo: e.target.value})} type="text" className="w-full bg-[#0a0a0a] border border-red-900/30 rounded-xl p-3 text-sm font-mono text-red-400 focus:border-red-500 outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Initial Issue Date <span className="text-red-500">*</span></label>
+              <input required value={formData.issueDate} onChange={(e) => setFormData({...formData, issueDate: e.target.value})} type="date" className="w-full bg-[#0a0a0a] border border-red-900/30 rounded-xl p-3 text-sm focus:border-red-500 outline-none text-slate-300 [color-scheme:dark]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Vehicle Categories (Exact 3 items per row on large screens: lg:grid-cols-3) */}
+        <div className="mt-8 pt-6 border-t border-red-900/30">
+          <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-4 flex items-center"><Car size={16} className="mr-2 text-red-500"/> Allowed Vehicle Categories</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {vehicleCategories.map((cat) => {
+              const catData = formData.categories[cat.class] || {};
+              const isChecked = catData.checked || false;
+              return (
+                <div key={cat.class} className={`border rounded-xl p-4 transition-all duration-300 ${isChecked ? 'bg-red-900/10 border-red-500/50' : 'bg-[#0a0a0a] border-red-900/30'}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <label className="flex items-center cursor-pointer group flex-1">
+                      <input type="checkbox" checked={isChecked} onChange={(e) => handleCategoryChange(cat.class, 'checked', e.target.checked)} className="w-5 h-5 rounded border-red-900 text-red-500 bg-[#141414] focus:ring-red-500" />
+                      <div className="ml-4 flex items-center">
+                        <span className={`w-10 h-10 rounded-xl flex items-center justify-center border ${isChecked ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-[#141414] text-slate-400 border-red-900/30'}`}>{cat.icon}</span>
+                        <div className="ml-3"><span className={`font-black text-lg ${isChecked ? 'text-white' : 'text-slate-300'}`}>{cat.class}</span><span className="block text-[11px] text-slate-400">{cat.desc}</span></div>
+                      </div>
+                    </label>
+                    {isChecked && (
+                      <select value={catData.transmission || 'Manual'} onChange={(e) => handleCategoryChange(cat.class, 'transmission', e.target.value)} className="bg-[#141414] border border-red-900/50 text-red-400 text-xs rounded-lg px-2 py-1.5 outline-none">
+                        <option value="Manual">Manual</option><option value="Auto">Auto</option>
+                      </select>
+                    )}
+                  </div>
+                  {isChecked && (
+                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-red-900/30">
+                      <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Issue Date</label><input required type="date" value={catData.issue || ''} onChange={(e) => handleCategoryChange(cat.class, 'issue', e.target.value)} className="w-full bg-[#0a0a0a] border border-red-900/50 rounded-lg px-2 py-1.5 text-xs text-slate-200 outline-none [color-scheme:dark]" /></div>
+                      <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Expiry Date</label><input required type="date" value={catData.expiry || ''} onChange={(e) => handleCategoryChange(cat.class, 'expiry', e.target.value)} className="w-full bg-[#0a0a0a] border border-red-900/50 rounded-lg px-2 py-1.5 text-xs text-slate-200 outline-none [color-scheme:dark]" /></div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-4 pt-6 mt-6 border-t border-red-900/30">
+          <button type="button" onClick={handleClear} className="px-6 py-3 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-all flex items-center">
+            <RefreshCw size={16} className="mr-2"/> Clear Form
+          </button>
+          <button type="submit" className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl font-bold flex items-center transition-all shadow-lg shadow-red-900/40">
+            <ShieldCheck size={18} className="mr-2" /> {editingId ? 'Save Changes' : 'Issue Digital License'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+</file>
+
+<file path="app/dmt-dashboard/drivers/page.tsx">
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { Users, Search, Eye, X, CreditCard, MapPin, Calendar, Droplet, Car, Bike, Truck, Bus, Tractor, Accessibility, Edit, Save, UploadCloud } from 'lucide-react';
+
+export default function IssuedLicensesPage() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDriver, setSelectedDriver] = useState<any>(null);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  
+  // Edit Mode States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>(null);
+
+  const vehicleCategoriesList = [
+    { class: 'A1', desc: 'Light Motor Cycles', icon: <Bike size={16}/> },
+    { class: 'A', desc: 'Motor Cycles', icon: <Bike size={16}/> },
+    { class: 'B1', desc: 'Motor Tricycles', icon: <Car size={16}/> },
+    { class: 'B', desc: 'Dual Purpose Vehicles', icon: <Car size={16}/> },
+    { class: 'B2', desc: 'Light Motor Vehicles', icon: <Car size={16}/> },
+    { class: 'C1', desc: 'Light Motor Lorry', icon: <Truck size={16}/> },
+    { class: 'C', desc: 'Motor Lorry', icon: <Truck size={16}/> },
+    { class: 'CE', desc: 'Heavy Motor Lorry', icon: <Truck size={16}/> },
+    { class: 'D1', desc: 'Light Motor Coach', icon: <Bus size={16}/> },
+    { class: 'D', desc: 'Motor Coach', icon: <Bus size={16}/> },
+    { class: 'DE', desc: 'Heavy Motor Coach', icon: <Bus size={16}/> },
+    { class: 'G1', desc: 'Land Tractor', icon: <Tractor size={16}/> },
+    { class: 'G', desc: 'Tractor with Trailer', icon: <Tractor size={16}/> },
+    { class: 'J', desc: 'Special Purpose Vehicle', icon: <Truck size={16}/> },
+    { class: 'H', desc: 'Invalid Carriages', icon: <Accessibility size={16}/> },
+  ];
+
+  // Backend eke thiyena widiyata nicNo kiyala key eka update kala
+  const defaultDrivers = [
+    { 
+      id: 1, fullName: 'Nimal Perera', nicNo: '851234567V', dob: '1985-05-12', bloodGroup: 'O+', address: '123 Galle Rd, Colombo 03', licenseNo: 'B5544123', issueDate: '2024-01-10', profilePic: 'https://i.pravatar.cc/150?u=nimal',
+      categories: { 'A1': { checked: true, transmission: 'Manual', issue: '2024-01-10', expiry: '2032-01-10' }, 'B': { checked: true, transmission: 'Auto', issue: '2024-01-10', expiry: '2032-01-10' } }
+    },
+    { 
+      id: 2, fullName: 'Kasun Silva', nicNo: '921234567V', dob: '1992-08-22', bloodGroup: 'A+', address: '45 Kandy Rd, Peradeniya', licenseNo: 'B5544456', issueDate: '2022-05-11', profilePic: 'https://i.pravatar.cc/150?u=kasun',
+      categories: { 'A': { checked: true, transmission: 'Manual', issue: '2022-05-11', expiry: '2030-05-11' } }
+    },
+  ];
+
+  useEffect(() => {
+    const localData = localStorage.getItem('dmtDrivers');
+    if (localData) {
+      setDrivers(JSON.parse(localData));
+    } else {
+      setDrivers(defaultDrivers);
+    }
+  }, []);
+
+  const openModal = (driver: any) => {
+    setSelectedDriver(driver);
+    setEditFormData(JSON.parse(JSON.stringify(driver))); // Deep copy for editing
+    setIsEditing(false);
+  };
+
+  const closeModal = () => {
+    setSelectedDriver(null);
+    setIsEditing(false);
+  };
+
+  // --- EDIT FUNCTIONS ---
+  const handleEditChange = (field: string, value: any) => {
+    setEditFormData({ ...editFormData, [field]: value });
+  };
+
+  const handleCategoryEdit = (catClass: string, field: string, value: any) => {
+    setEditFormData((prev: any) => ({
+      ...prev, categories: { ...prev.categories, [catClass]: { ...prev.categories[catClass], [field]: value } }
+    }));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setEditFormData({ ...editFormData, profilePic: URL.createObjectURL(e.target.files[0]) });
+    }
+  };
+
+  const saveUpdates = () => {
+    // API Call simualtion for PATCH /license/:id/update
+    const updatedDrivers = drivers.map(d => d.id === editFormData.id ? editFormData : d);
+    setDrivers(updatedDrivers);
+    localStorage.setItem('dmtDrivers', JSON.stringify(updatedDrivers));
+    setSelectedDriver(editFormData);
+    setIsEditing(false);
+    alert("License Successfully Updated via PATCH API!");
+  };
+
+  const filteredDrivers = drivers.filter(d => 
+    d.nicNo.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    d.licenseNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.fullName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6 animate-in slide-in-from-right-8 duration-700 pb-10">
+      <div className="bg-[#141414]/80 border border-red-900/20 rounded-3xl p-6 backdrop-blur-xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+          <h3 className="text-xl font-bold text-white flex items-center"><Users className="mr-2 text-red-500" size={24} /> Issued Licenses Directory</h3>
+          <p className="text-sm text-slate-400 mt-1">Search, view and edit driver records directly.</p>
+        </div>
+        <div className="relative w-full md:w-96">
+          <Search className="absolute left-4 top-3 text-slate-400" size={18} />
+          <input type="text" placeholder="Search by NIC, License No or Name..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-[#0a0a0a] border border-red-900/30 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-red-500 outline-none text-white placeholder-slate-500 transition-all"/>
+        </div>
+      </div>
+
+      <div className="bg-[#141414]/80 border border-red-900/20 rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-[#0a0a0a] text-slate-400 text-xs uppercase tracking-widest border-b border-red-900/20">
+            <tr>
+              <th className="p-4">Driver Name</th>
+              <th className="p-4">NIC</th>
+              <th className="p-4">License No</th>
+              <th className="p-4">Allowed Classes</th>
+              <th className="p-4 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-red-900/10">
+            {filteredDrivers.length > 0 ? filteredDrivers.map(driver => (
+              <tr key={driver.id} className="hover:bg-[#1a0505] transition-all">
+                <td className="p-4 font-bold text-white flex items-center">
+                  {driver.profilePic ? (
+                    <img src={driver.profilePic} alt={driver.fullName} className="w-8 h-8 rounded-full mr-3 object-cover border border-red-900/50" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full mr-3 bg-red-900/20 border border-red-500/30 flex items-center justify-center font-bold text-xs text-red-400">{driver.fullName.charAt(0)}</div>
+                  )}
+                  {driver.fullName}
+                </td>
+                <td className="p-4 text-slate-300">{driver.nicNo}</td>
+                <td className="p-4 font-mono font-bold text-red-400">{driver.licenseNo}</td>
+                <td className="p-4">
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(driver.categories || {}).filter(([_, data]: any) => data.checked).map(([catClass]) => (
+                      <span key={catClass} className="bg-red-900/30 text-red-400 px-2 py-0.5 rounded text-[10px] font-bold border border-red-500/20">{catClass}</span>
+                    ))}
+                  </div>
+                </td>
+                <td className="p-4 text-center flex justify-center space-x-2">
+                  {/* Both View and Edit open the same modal, Edit just turns on Edit mode */}
+                  <button onClick={() => openModal(driver)} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/20 hover:border-red-600 px-3 py-2 rounded-lg font-bold transition-all text-xs flex items-center">
+                    <Eye size={14} className="mr-1" /> View / Edit
+                  </button>
+                </td>
+              </tr>
+            )) : (
+              <tr><td colSpan={5} className="p-8 text-center text-slate-500">No records found.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* MODAL: View & Edit Mode */}
+      {selectedDriver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-[#0a0a0a] border border-red-900/50 rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl custom-scrollbar relative">
+            
+            <div className="sticky top-0 bg-[#0a0a0a]/90 backdrop-blur-md p-6 border-b border-red-900/30 flex justify-between items-center z-10">
+              <h3 className="text-xl font-black text-white flex items-center">
+                <CreditCard className="mr-3 text-red-500"/> 
+                {isEditing ? `Edit License: ${editFormData.licenseNo}` : `License Record: ${selectedDriver.licenseNo}`}
+              </h3>
+              <div className="flex items-center space-x-3">
+                {!isEditing ? (
+                  <button onClick={() => setIsEditing(true)} className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-sm transition-colors"><Edit size={16} className="mr-2"/> Edit Profile</button>
+                ) : (
+                  <>
+                    <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-400 hover:text-white text-sm font-bold transition-colors">Cancel</button>
+                    <button onClick={saveUpdates} className="flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-sm transition-colors"><Save size={16} className="mr-2"/> Save Updates</button>
+                  </>
+                )}
+                <button onClick={closeModal} className="p-2 text-slate-400 hover:text-white bg-[#141414] rounded-full hover:bg-red-600 transition-colors ml-4"><X size={20}/></button>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-8">
+              <div className="bg-[#141414] border border-red-900/20 p-6 rounded-2xl flex flex-col md:flex-row gap-8 items-center md:items-start">
+                
+                {/* Profile Photo (Editable) */}
+                <div className="relative group">
+                  {isEditing ? (
+                    <label className="w-36 h-44 border-2 border-dashed border-red-500/50 rounded-xl flex flex-col items-center justify-center bg-[#0a0a0a] hover:bg-red-900/20 transition-colors cursor-pointer overflow-hidden relative">
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                      {editFormData.profilePic ? <img src={editFormData.profilePic} alt="Pic" className="w-full h-full object-cover opacity-50" /> : null}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-red-500 drop-shadow-md">
+                        <UploadCloud size={24} className="mb-1" />
+                        <span className="text-[10px] font-bold uppercase text-center bg-black/50 px-2 py-1 rounded">Change Photo</span>
+                      </div>
+                    </label>
+                  ) : (
+                    selectedDriver.profilePic ? (
+                      <img src={selectedDriver.profilePic} alt={selectedDriver.fullName} className="w-36 h-44 object-cover rounded-xl border border-red-900/50 shadow-lg" />
+                    ) : (
+                      <div className="w-36 h-44 bg-[#0a0a0a] rounded-xl border border-red-900/30 flex flex-col items-center justify-center text-slate-600 overflow-hidden relative">
+                        <Users size={48} className="text-red-900/30" />
+                      </div>
+                    )
+                  )}
+                </div>
+                
+                {/* Details Form (Read/Edit Mode Toggle) */}
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm w-full">
+                  <div className="sm:col-span-2 border-b border-red-900/10 pb-2">
+                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Full Name</p>
+                    {isEditing ? <input value={editFormData.fullName} onChange={e => handleEditChange('fullName', e.target.value)} className="w-full bg-[#0a0a0a] border border-blue-500/50 rounded-lg p-2 mt-1 text-white outline-none focus:border-blue-500"/> : <p className="font-black text-white text-xl">{selectedDriver.fullName}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">NIC Number</p>
+                    {isEditing ? <input value={editFormData.nicNo} onChange={e => handleEditChange('nicNo', e.target.value)} className="w-full bg-[#0a0a0a] border border-blue-500/50 rounded-lg p-2 mt-1 text-slate-200 outline-none"/> : <p className="font-bold text-slate-200 text-base">{selectedDriver.nicNo}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">License Number</p>
+                    {isEditing ? <input value={editFormData.licenseNo} onChange={e => handleEditChange('licenseNo', e.target.value)} className="w-full bg-[#0a0a0a] border border-blue-500/50 rounded-lg p-2 mt-1 font-mono text-red-400 outline-none"/> : <p className="font-mono font-black text-red-400 text-base">{selectedDriver.licenseNo}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center"><Calendar size={12} className="mr-1 text-red-500"/> Date of Birth</p>
+                    {isEditing ? <input type="date" value={editFormData.dob} onChange={e => handleEditChange('dob', e.target.value)} className="w-full bg-[#0a0a0a] border border-blue-500/50 rounded-lg p-2 mt-1 text-slate-200 outline-none [color-scheme:dark]"/> : <p className="font-bold text-slate-200">{selectedDriver.dob}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center"><Droplet size={12} className="mr-1 text-red-500"/> Blood Group</p>
+                    {isEditing ? (
+                      <select value={editFormData.bloodGroup} onChange={e => handleEditChange('bloodGroup', e.target.value)} className="w-full bg-[#0a0a0a] border border-blue-500/50 rounded-lg p-2 mt-1 text-red-400 outline-none">
+                        <option>O+</option><option>O-</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
+                      </select>
+                    ) : <p className="font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20 w-fit text-xs mt-1">{selectedDriver.bloodGroup}</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center"><MapPin size={12} className="mr-1 text-red-500"/> Permanent Address</p>
+                    {isEditing ? <input value={editFormData.address} onChange={e => handleEditChange('address', e.target.value)} className="w-full bg-[#0a0a0a] border border-blue-500/50 rounded-lg p-2 mt-1 text-slate-200 outline-none"/> : <p className="font-bold text-slate-300">{selectedDriver.address}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Categories Grid (Read/Edit Mode) */}
+              <div>
+                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-4 border-b border-red-900/20 pb-2 flex items-center"><Car size={16} className="mr-2 text-red-500"/> Authorized Vehicle Categories</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {vehicleCategoriesList.map((cat) => {
+                    const dataObj = isEditing ? editFormData : selectedDriver;
+                    const catData = (dataObj.categories || {})[cat.class] || {};
+                    const isAuthorized = catData.checked || false;
+
+                    return (
+                      <div key={cat.class} className={`border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 ${isAuthorized ? 'bg-red-900/10 border-red-500/40 shadow-md shadow-red-950/20' : 'bg-[#0a0a0a]/30 border-slate-900/40 opacity-30'} ${isEditing && !isAuthorized ? 'hover:opacity-100 cursor-pointer border-dashed border-slate-600' : ''}`}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center">
+                            {isEditing && (
+                               <input type="checkbox" checked={isAuthorized} onChange={e => handleCategoryEdit(cat.class, 'checked', e.target.checked)} className="mr-3 w-4 h-4 rounded border-slate-600 text-blue-500 bg-[#0a0a0a]" />
+                            )}
+                            <span className={`w-9 h-9 rounded-xl flex items-center justify-center border ${isAuthorized ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-[#141414] text-slate-600 border-transparent'}`}>{cat.icon}</span>
+                            <div className="ml-3">
+                              <span className="font-black text-base text-white block leading-tight">{cat.class}</span>
+                              <span className="text-[10px] text-slate-500 block">{cat.desc}</span>
+                            </div>
+                          </div>
+                          {isEditing && isAuthorized ? (
+                             <select value={catData.transmission || 'Manual'} onChange={e => handleCategoryEdit(cat.class, 'transmission', e.target.value)} className="bg-[#0a0a0a] border border-blue-500/50 text-blue-400 text-[10px] rounded px-1 outline-none"><option>Manual</option><option>Auto</option></select>
+                          ) : (
+                             isAuthorized ? <span className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 font-bold uppercase tracking-wider">{catData.transmission}</span> : <span className="text-[9px] bg-slate-900 text-slate-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">None</span>
+                          )}
+                        </div>
+                        {isAuthorized && (
+                          <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-red-900/20 text-[11px]">
+                            <div>
+                              <span className="text-slate-500 block text-[9px] uppercase font-bold">Issue Date</span>
+                              {isEditing ? <input type="date" value={catData.issue || ''} onChange={e => handleCategoryEdit(cat.class, 'issue', e.target.value)} className="bg-[#0a0a0a] border border-blue-500/50 text-slate-200 rounded p-1 w-full outline-none [color-scheme:dark]"/> : <span className="text-slate-300 font-medium">{catData.issue}</span>}
+                            </div>
+                            <div>
+                              <span className="text-red-400/70 block text-[9px] uppercase font-bold">Expiry Date</span>
+                              {isEditing ? <input type="date" value={catData.expiry || ''} onChange={e => handleCategoryEdit(cat.class, 'expiry', e.target.value)} className="bg-[#0a0a0a] border border-blue-500/50 text-slate-200 rounded p-1 w-full outline-none [color-scheme:dark]"/> : <span className="text-red-400 font-bold">{catData.expiry}</span>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="app/dmt-dashboard/fines/page.tsx">
+// app/dmt-dashboard/fines/page.tsx
+"use client";
+
+import React, { useState } from 'react';
+import { FileWarning, Info, ShieldCheck } from 'lucide-react';
+
+export default function DMTFinesViewPage() {
+  // Real system eke meka API (NestJS Backend) eken Police add karapu details tikama auto fetch wela enawa.
+  const [fines, setFines] = useState([
+    { id: 1, code: 'SPD-01', name: 'Speeding over 70kmph', points: 4, amount: 3000, isCourtCase: false },
+    { id: 2, code: 'DRK-02', name: 'Driving under influence', points: 10, amount: 25000, isCourtCase: true },
+    { id: 3, code: 'LGN-03', name: 'Driving without a valid license', points: 6, amount: 10000, isCourtCase: true },
+  ]);
+
+  return (
+    <div className="space-y-6 animate-in slide-in-from-right-8 duration-700 pb-10">
+      
+      {/* Sync Info Banner */}
+      <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-2xl flex items-start space-x-4 backdrop-blur-md">
+        <Info className="text-blue-400 mt-0.5 flex-shrink-0" size={20} />
+        <div>
+          <h4 className="text-blue-400 font-bold text-sm">Synchronized with Sri Lanka Police</h4>
+          <p className="text-blue-300/70 text-xs mt-1">
+            This is a read-only view. The fines and demerit points listed below are actively managed and updated by the Sri Lanka Police Traffic Administration portal. Any updates made by the Police will automatically reflect here.
+          </p>
+        </div>
+      </div>
+
+      {/* Fines Table */}
+      <div className="bg-[#141414]/80 border border-red-900/20 rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
+        <div className="p-6 border-b border-red-900/20 bg-black/20 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-white flex items-center">
+            <FileWarning className="mr-2 text-red-500" size={18} /> 
+            Active Traffic Offenses & Demerit Points
+          </h3>
+          <span className="flex items-center text-[10px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-900/20 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+            <ShieldCheck size={14} className="mr-1" /> Live Synced
+          </span>
+        </div>
+        
+        <table className="w-full text-left text-sm">
+          <thead className="bg-[#0a0a0a] text-slate-400 text-xs uppercase tracking-widest border-b border-red-900/20">
+            <tr>
+              <th className="p-4">Offense Code</th>
+              <th className="p-4">Description</th>
+              <th className="p-4">Demerit Points</th>
+              <th className="p-4">Fine Amount (LKR)</th>
+              <th className="p-4">Court Appearance</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-red-900/10">
+            {fines.map(fine => (
+              <tr key={fine.id} className="hover:bg-[#1a0505] transition-all">
+                <td className="p-4 font-mono font-bold text-red-400">{fine.code}</td>
+                <td className="p-4 font-bold text-white">{fine.name}</td>
+                <td className="p-4">
+                  <span className="bg-red-500/10 text-red-500 px-2 py-1 rounded border border-red-500/20 font-bold">
+                    {fine.points} pts
+                  </span>
+                </td>
+                <td className="p-4 font-bold text-slate-200">{fine.amount.toLocaleString()}</td>
+                <td className="p-4">
+                  {fine.isCourtCase ? 
+                    <span className="text-rose-500 font-bold">Mandatory</span> : 
+                    <span className="text-slate-400 font-bold">No</span>
+                  }
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  );
+}
+</file>
+
+<file path="app/dmt-dashboard/layout.tsx">
+"use client";
+
+import React from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { LayoutDashboard, Users, UserPlus, LogOut, FileWarning } from 'lucide-react';
+
+export default function DMTLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push('/login');
+  };
+
+  const getHeaderDetails = () => {
+    if (pathname.includes('/add-driver')) return { title: 'Issue New License', icon: <UserPlus className="mr-3 text-red-500" /> };
+    if (pathname.includes('/drivers')) return { title: 'Driver Directory', icon: <Users className="mr-3 text-red-500" /> };
+    if (pathname.includes('/fines')) return { title: 'Police Traffic Fines Database', icon: <FileWarning className="mr-3 text-red-500" /> };
+    return { title: 'DMT Admin Dashboard', icon: <LayoutDashboard className="mr-3 text-red-500" /> };
+  };
+
+  const header = getHeaderDetails();
+
+  return (
+    <div className="flex h-screen bg-[#111111] text-slate-200 overflow-hidden font-sans relative">
+      <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1a0505] via-[#0a0a0a] to-[#1a0505]"></div>
+
+      {/* --- SIDEBAR --- */}
+      <aside className="w-72 bg-[#141414]/90 backdrop-blur-xl border-r border-red-900/30 flex flex-col p-6 m-4 rounded-3xl shadow-2xl z-10">
+        <div className="mb-8 text-center flex flex-col items-center">
+          <div className="w-24 h-24 mb-4 flex items-center justify-center rounded-full bg-white p-1 shadow-lg shadow-red-900/50">
+            <img src="/dmt_logo.png" alt="DMT Logo" className="w-full h-full object-contain rounded-full" />
+          </div>
+          <h1 className="text-xl font-black tracking-tight text-white mt-2">DMT SRI LANKA</h1>
+          <p className="text-[10px] text-red-500 tracking-widest uppercase mt-1 font-bold">License Administration</p>
+        </div>
+
+        <nav className="flex-1 space-y-2">
+          <SidebarBtn to="/dmt-dashboard" icon={<LayoutDashboard size={20} />} label="Overview" currentPath={pathname} />
+          <SidebarBtn to="/dmt-dashboard/add-driver" icon={<UserPlus size={20} />} label="Issue License" currentPath={pathname} />
+          {/* ALUTH LINK EKA METHANA THIYENAWA */}
+          <SidebarBtn to="/dmt-dashboard/drivers" icon={<Users size={20} />} label="Driver Directory" currentPath={pathname} />
+          <SidebarBtn to="/dmt-dashboard/fines" icon={<FileWarning size={20} />} label="Traffic Fines" currentPath={pathname} />
+        </nav>
+
+        <button onClick={handleLogout} className="flex items-center justify-center px-5 py-3 mt-auto bg-red-600/10 text-red-500 hover:bg-red-600/20 rounded-2xl transition-all border border-red-500/20 group">
+          <LogOut size={18} className="mr-3 group-hover:-translate-x-1 transition-transform" /> 
+          <span className="font-bold text-sm">Logout</span>
+        </button>
+      </aside>
+
+      {/* --- MAIN CONTENT --- */}
+      <main className="flex-1 flex flex-col p-8 overflow-y-auto z-10 custom-scrollbar">
+        <header className="flex justify-between items-center mb-8 bg-[#1a1a1a]/60 backdrop-blur-md p-4 px-8 rounded-3xl border border-red-900/20">
+          <div>
+            <h2 className="text-2xl font-bold text-white capitalize flex items-center">
+              {header.icon}
+              {header.title}
+            </h2>
+          </div>
+          <div className="flex items-center space-x-4">
+             <div className="bg-[#241010] p-1.5 pr-5 rounded-full border border-red-500/30 flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-full bg-red-600 flex items-center justify-center font-bold text-white">DA</div>
+                <span className="text-sm font-semibold text-red-400">DMT Admin</span>
+             </div>
+          </div>
+        </header>
+        {children}
+      </main>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(20, 20, 20, 0.5); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(220, 38, 38, 0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(220, 38, 38, 0.6); }
+      `}} />
+    </div>
+  );
+}
+
+function SidebarBtn({ to, icon, label, currentPath }: { to: string, icon: any, label: string, currentPath: string }) {
+  const isActive = currentPath === to;
+  return (
+    <Link href={to} className={`flex items-center w-full px-5 py-3.5 rounded-2xl transition-all duration-300 group text-sm ${isActive ? 'bg-red-600 text-white shadow-lg shadow-red-900/40 border border-red-500' : 'hover:bg-[#1f1f1f] text-slate-400 hover:text-red-400 border border-transparent'}`}>
+      <span className={`mr-4 transition-transform duration-300 ${isActive ? 'text-white scale-110' : 'group-hover:scale-110'}`}>{icon}</span>
+      <span className="font-bold tracking-wide">{label}</span>
+    </Link>
+  );
+}
+</file>
+
+<file path="app/dmt-dashboard/page.tsx">
+"use client";
+
+import React from 'react';
+import Link from 'next/link';
+import { Users, CheckCircle, AlertTriangle, ArrowRight, CreditCard } from 'lucide-react';
+
+export default function DMTDashboard() {
+  return (
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard title="Total Registered" value="12,450" icon={<Users />} color="red" />
+        <StatCard title="Active Licenses" value="11,890" icon={<CheckCircle />} color="rose" />
+        <StatCard title="Suspended" value="560" icon={<AlertTriangle />} color="orange" />
+      </div>
+
+      <div className="bg-[#141414]/80 border border-red-900/20 rounded-3xl p-8 backdrop-blur-md shadow-2xl mt-8">
+        <div className="flex justify-between items-center mb-6 border-b border-red-900/20 pb-4">
+          <h3 className="text-xl font-bold text-white flex items-center">
+            <CreditCard className="mr-2 text-red-500" size={20}/> Recently Issued Licenses
+          </h3>
+          <Link href="/dmt-dashboard/drivers" className="flex items-center text-sm font-bold text-red-400 hover:text-red-300 bg-red-900/20 px-4 py-2 rounded-xl transition-colors">
+            View Full Directory <ArrowRight size={16} className="ml-2"/>
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="text-slate-500 text-xs uppercase tracking-widest border-b border-red-900/30">
+              <tr>
+                <th className="pb-4 px-4">Driver Name</th>
+                <th className="pb-4 px-4">NIC Number</th>
+                <th className="pb-4 px-4">License No</th>
+                <th className="pb-4 px-4">Initial Issue Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-red-900/10 text-sm">
+              {/* Dummy data for recent 2 drivers */}
+              <tr className="hover:bg-white/5 transition-all">
+                <td className="py-4 px-4 font-bold text-white flex items-center">
+                  <img src="https://i.pravatar.cc/150?u=nimal" className="w-8 h-8 rounded-full mr-3 border border-red-900/50" alt="pic"/> Nimal Perera
+                </td>
+                <td className="py-4 px-4 text-slate-400">851234567V</td>
+                <td className="py-4 px-4 font-mono text-red-400 font-bold">B5544123</td>
+                <td className="py-4 px-4 text-slate-400">2024-01-10</td>
+              </tr>
+              <tr className="hover:bg-white/5 transition-all">
+                <td className="py-4 px-4 font-bold text-white flex items-center">
+                  <img src="https://i.pravatar.cc/150?u=kasun" className="w-8 h-8 rounded-full mr-3 border border-red-900/50" alt="pic"/> Kasun Silva
+                </td>
+                <td className="py-4 px-4 text-slate-400">921234567V</td>
+                <td className="py-4 px-4 font-mono text-red-400 font-bold">B5544456</td>
+                <td className="py-4 px-4 text-slate-400">2022-05-11</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ title, value, icon, color }: any) {
+  const colorMap: any = {
+    red: 'from-red-600/20 to-red-900/10 border-red-500/30 text-red-500 bg-red-500/10',
+    rose: 'from-rose-600/20 to-rose-900/10 border-rose-500/30 text-rose-500 bg-rose-500/10',
+    orange: 'from-orange-600/20 to-orange-900/10 border-orange-500/30 text-orange-500 bg-orange-500/10'
+  };
+  return (
+    <div className={`p-6 rounded-[24px] bg-gradient-to-br ${colorMap[color].split(' ')[0]} ${colorMap[color].split(' ')[1]} border ${colorMap[color].split(' ')[2]} backdrop-blur-md shadow-xl group hover:-translate-y-1 transition-all`}>
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${colorMap[color].split(' ')[3]} ${colorMap[color].split(' ')[4]}`}>{icon}</div>
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">{title}</p>
+      <p className="text-3xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">{children}</body>
+    </html>
+  );
+}
+</file>
+
+<file path="app/login/page.tsx">
+"use client";
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Car, ShieldCheck } from 'lucide-react';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [formData, setFormData] = useState({ adminId: '', password: '', type: 'DMT' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:3000/auth/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) throw new Error('Invalid Credentials');
+
+      const data = await response.json();
+      
+      // Token eka localStorage eke save kirima
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('userRole', data.user.role);
+
+      // Role eka anuwa dashboard ekata redirect kirima
+      if (data.user.role === 'DMT_ADMIN') {
+        router.push('/dmt-dashboard');
+      } else {
+        router.push('/police-dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-900 items-center justify-center p-4">
+      <div className="w-full max-w-md bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl">
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center mb-4">
+            <Car size={32} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Auto-Ledger</h1>
+          <p className="text-slate-400 text-sm">Admin Access Portal</p>
+        </div>
+
+        {error && <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-xl mb-4 text-sm text-center">{error}</div>}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="text-xs text-slate-400 font-bold uppercase ml-1">Admin ID</label>
+            <input 
+              type="text" 
+              required
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none"
+              onChange={(e) => setFormData({...formData, adminId: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 font-bold uppercase ml-1">Password</label>
+            <input 
+              type="password" 
+              required
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none"
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 font-bold uppercase ml-1">Admin Department</label>
+            <select 
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none"
+              onChange={(e) => setFormData({...formData, type: e.target.value})}
+            >
+              <option value="DMT">DMT (Motor Traffic)</option>
+              <option value="POLICE">Sri Lanka Police</option>
+            </select>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl transition-all flex justify-center items-center mt-6 disabled:opacity-50"
+          >
+            {loading ? 'Authenticating...' : <><ShieldCheck size={18} className="mr-2" /> Secure Login</>}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/page.tsx">
+import Image from "next/image";
+
+export default function Home() {
+  return (
+    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+        <Image
+          className="dark:invert"
+          src="/next.svg"
+          alt="Next.js logo"
+          width={100}
+          height={20}
+          priority
+        />
+        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
+          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
+            To get started, edit the page.tsx file.
+          </h1>
+          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+            Looking for a starting point or more instructions? Head over to{" "}
+            <a
+              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+              className="font-medium text-zinc-950 dark:text-zinc-50"
+            >
+              Templates
+            </a>{" "}
+            or the{" "}
+            <a
+              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+              className="font-medium text-zinc-950 dark:text-zinc-50"
+            >
+              Learning
+            </a>{" "}
+            center.
+          </p>
+        </div>
+        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+          <a
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
+            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              className="dark:invert"
+              src="/vercel.svg"
+              alt="Vercel logomark"
+              width={16}
+              height={16}
+            />
+            Deploy Now
+          </a>
+          <a
+            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
+            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Documentation
+          </a>
+        </div>
+      </main>
+    </div>
+  );
+}
+</file>
+
+<file path="app/police-dashboard/divisional-heads/page.tsx">
+// app/police-dashboard/divisional-heads/page.tsx
+"use client";
+
+import React, { useState } from 'react';
+import { Users, PlusCircle, Trash2, Edit, Save, MapPin, AlertCircle, CheckCircle2, X, Lock, User } from 'lucide-react';
+
+export default function ManageHeads() {
+  const availableDivisions = [
+    { id: 'DIV-001', name: 'Colombo South' },
+    { id: 'DIV-002', name: 'Galle Division' },
+    { id: 'DIV-003', name: 'Kandy Division' },
+  ];
+
+  const [heads, setHeads] = useState([
+    { id: 1, name: 'Ajith Rohana', username: 'ajith_do', divisionName: 'Colombo South', email: 'ajith@police.lk' },
+  ]);
+
+  // Backend Payload format: { divisionName, username, email, name, passwordStr }
+  const [headForm, setHeadForm] = useState({ name: '', username: '', divisionName: '', email: '', passwordStr: '' });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleHeadSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Duplicate Username check
+    const isDuplicateUser = heads.some(h => h.username.toLowerCase() === headForm.username.toLowerCase() && h.id !== editingId);
+    if (isDuplicateUser) {
+      showToast('error', `Username "${headForm.username}" is already taken!`);
+      return;
+    }
+
+    if (editingId) {
+      setHeads(heads.map(h => h.id === editingId ? { ...h, ...headForm } : h));
+      setEditingId(null);
+      showToast('success', 'Divisional Head updated successfully!');
+    } else {
+      setHeads([...heads, { id: Date.now(), ...headForm }]);
+      showToast('success', 'Divisional Head registered successfully!');
+    }
+    setHeadForm({ name: '', username: '', divisionName: '', email: '', passwordStr: '' });
+  };
+
+  const handleEdit = (head: any) => {
+    setHeadForm({ name: head.name, username: head.username, divisionName: head.divisionName, email: head.email, passwordStr: '' });
+    setEditingId(head.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setHeadForm({ name: '', username: '', divisionName: '', email: '', passwordStr: '' });
+  };
+
+  return (
+    <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 relative">
+      
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-top-6 duration-300 max-w-md ${toast.type === 'error' ? 'bg-red-950/80 border-red-500/50 text-red-200' : 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'}`}>
+          {toast.type === 'error' ? <AlertCircle className="text-red-400 mr-3 flex-shrink-0" size={20} /> : <CheckCircle2 className="text-emerald-400 mr-3 flex-shrink-0" size={20} />}
+          <span className="text-xs font-bold tracking-wide leading-relaxed">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-4 p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"><X size={14}/></button>
+        </div>
+      )}
+
+      <form onSubmit={handleHeadSubmit} className="bg-[#0b1c3b]/60 p-8 rounded-3xl border border-[#1a2f5c] shadow-xl backdrop-blur-sm">
+        <h3 className="text-lg font-bold text-amber-500 mb-6 flex items-center">
+          <Users className="mr-2" size={18} /> {editingId ? 'Update Divisional Head' : 'Register Divisional Head'}
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase">Full Name <span className="text-red-500">*</span></label>
+            <input required value={headForm.name} onChange={(e) => setHeadForm({...headForm, name: e.target.value})} type="text" className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white" />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center">
+              <MapPin size={12} className="mr-1 text-amber-500"/> Assigned Division <span className="text-red-500 ml-1">*</span>
+            </label>
+            <select required value={headForm.divisionName} onChange={(e) => setHeadForm({...headForm, divisionName: e.target.value})} className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white">
+              <option value="" disabled>-- Select a Division --</option>
+              {availableDivisions.map(div => <option key={div.id} value={div.name}>{div.name}</option>)}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center"><User size={12} className="mr-1 text-blue-400"/> System Username <span className="text-red-500 ml-1">*</span></label>
+            <input required value={headForm.username} onChange={(e) => setHeadForm({...headForm, username: e.target.value})} type="text" className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white font-mono" placeholder="e.g. jdoe_head" />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center"><Lock size={12} className="mr-1 text-blue-400"/> Login Password {editingId ? '(Leave blank to keep current)' : '<span className="text-red-500 ml-1">*</span>'}</label>
+            <input required={!editingId} value={headForm.passwordStr} onChange={(e) => setHeadForm({...headForm, passwordStr: e.target.value})} type="password" className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white font-mono" placeholder="Enter secure password" />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase">Official Email <span className="text-red-500">*</span></label>
+            <input required value={headForm.email} onChange={(e) => setHeadForm({...headForm, email: e.target.value})} type="email" className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white" />
+          </div>
+        </div>
+        
+        <div className="flex justify-end space-x-4 border-t border-[#1a2f5c] pt-6">
+          {editingId && <button type="button" onClick={handleCancelEdit} className="px-6 py-3 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-[#132752] transition-all">Cancel</button>}
+          <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center transition-all shadow-lg shadow-amber-900/40">
+            {editingId ? <><Save size={18} className="mr-2" /> Update Head</> : <><PlusCircle size={18} className="mr-2" /> Register Head</>}
+          </button>
+        </div>
+      </form>
+
+      <div className="bg-[#0b1c3b]/60 border border-[#1a2f5c] rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-[#050d1a] text-slate-400 text-xs uppercase tracking-widest">
+            <tr><th className="p-4">Name</th><th className="p-4">Username</th><th className="p-4">Assigned Division</th><th className="p-4">Email</th><th className="p-4 text-right">Actions</th></tr>
+          </thead>
+          <tbody className="divide-y divide-[#1a2f5c]">
+            {heads.map(head => (
+              <tr key={head.id} className="hover:bg-[#132752]/50 transition-all">
+                <td className="p-4 font-bold text-white">{head.name}</td>
+                <td className="p-4 font-mono font-bold text-blue-400">{head.username}</td>
+                <td className="p-4"><span className="bg-[#1a2f5c] px-2 py-1 rounded text-amber-400 text-xs border border-amber-500/20">{head.divisionName}</span></td>
+                <td className="p-4 text-slate-400">{head.email}</td>
+                <td className="p-4 text-right space-x-2">
+                  <button onClick={() => handleEdit(head)} className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg"><Edit size={16} /></button>
+                  <button onClick={() => { setHeads(heads.filter(h => h.id !== head.id)); showToast('success', 'Deleted successfully'); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><Trash2 size={16} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/police-dashboard/divisions/page.tsx">
+// app/police-dashboard/divisions/page.tsx
+"use client";
+
+import React, { useState } from 'react';
+import { Map, PlusCircle, Trash2, Edit, Save, AlertCircle, CheckCircle2, X } from 'lucide-react';
+
+export default function ManageDivisions() {
+  const [divisions, setDivisions] = useState([
+    { id: 1, divisionId: 'DIV-001', divisionName: 'Galle Division' },
+    { id: 2, divisionId: 'DIV-002', divisionName: 'Colombo South' },
+  ]);
+
+  // Backend payload eke thiyena widiyata divisionId saha divisionName damma
+  const [divisionForm, setDivisionForm] = useState({ divisionId: 'DIV-', divisionName: '' });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  
+  // Toast Alert System State (Backend Error Handling custom component)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000); // Auto hide after 4 seconds
+  };
+
+  // Handle Division ID input to ensure "DIV-" prefix is locked and cannot be deleted
+  const handleIdChange = (val: string) => {
+    if (!val.startsWith('DIV-')) {
+      setDivisionForm({ ...divisionForm, divisionId: 'DIV-' });
+    } else {
+      setDivisionForm({ ...divisionForm, divisionId: val.toUpperCase() });
+    }
+  };
+
+  const handleDivisionSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // --- STRICT VALIDATION: Must contain "DIV-" followed by at least 3 digits ---
+    const idPattern = /^DIV-\d{3,}$/;
+    if (!idPattern.test(divisionForm.divisionId)) {
+      showToast('error', 'Bad Request: Division ID format is invalid! Must contain "DIV-" followed by at least 3 numbers (e.g., DIV-001).');
+      return;
+    }
+
+    // --- DUPLICATE CHECK (Simulating Backend 400 BadRequestException) ---
+    const isDuplicateId = divisions.some(d => d.divisionId === divisionForm.divisionId && d.id !== editingId);
+    const isDuplicateName = divisions.some(d => d.divisionName.toLowerCase() === divisionForm.divisionName.toLowerCase() && d.id !== editingId);
+
+    if (isDuplicateId) {
+      showToast('error', `BadRequestException: Division ID "${divisionForm.divisionId}" already exists in the system.`);
+      return;
+    }
+    if (isDuplicateName) {
+      showToast('error', `BadRequestException: Division Name "${divisionForm.divisionName}" already exists.`);
+      return;
+    }
+
+    // If validations pass, save or update data
+    if (editingId) {
+      setDivisions(divisions.map(d => d.id === editingId ? { ...d, ...divisionForm } : d));
+      setEditingId(null);
+      showToast('success', 'Division successfully updated!');
+    } else {
+      setDivisions([...divisions, { id: Date.now(), ...divisionForm }]);
+      showToast('success', 'New Police Division created successfully!');
+    }
+    setDivisionForm({ divisionId: 'DIV-', divisionName: '' });
+  };
+
+  const handleEdit = (division: any) => {
+    setDivisionForm({ divisionId: division.divisionId, divisionName: division.divisionName });
+    setEditingId(division.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setDivisionForm({ divisionId: 'DIV-', divisionName: '' });
+  };
+
+  return (
+    <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 relative">
+      
+      {/* --- LIVE TOAST NOTIFICATION WINDOW (CATCHES 400 ERRORS) --- */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-top-6 duration-300 max-w-md ${
+          toast.type === 'error' 
+            ? 'bg-red-950/80 border-red-500/50 text-red-200' 
+            : 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'
+        }`}>
+          {toast.type === 'error' ? <AlertCircle className="text-red-400 mr-3 flex-shrink-0" size={20} /> : <CheckCircle2 className="text-emerald-400 mr-3 flex-shrink-0" size={20} />}
+          <span className="text-xs font-bold tracking-wide leading-relaxed">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-4 p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"><X size={14}/></button>
+        </div>
+      )}
+
+      {/* FORM LAYOUT */}
+      <form onSubmit={handleDivisionSubmit} className="bg-[#0b1c3b]/60 p-8 rounded-3xl border border-[#1a2f5c] shadow-xl backdrop-blur-sm">
+        <h3 className="text-lg font-bold text-amber-500 mb-6 flex items-center">
+          <Map className="mr-2" size={18} /> {editingId ? 'Update Police Division' : 'Register New Police Division'}
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Division ID <span className="text-red-500">*</span></label>
+            <input 
+              required 
+              value={divisionForm.divisionId} 
+              onChange={(e) => handleIdChange(e.target.value)} 
+              type="text" 
+              placeholder="DIV-001"
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white font-mono transition-all focus:ring-1 focus:ring-amber-500/30" 
+            />
+            <span className="text-[10px] text-slate-500 block font-medium">Must follow "DIV-" prefix with 3 or more digits.</span>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Division Name <span className="text-red-500">*</span></label>
+            <input 
+              required 
+              value={divisionForm.divisionName} 
+              onChange={(e) => setDivisionForm({...divisionForm, divisionName: e.target.value})} 
+              type="text" 
+              placeholder="e.g. Galle Division"
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white transition-all focus:ring-1 focus:ring-amber-500/30" 
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-4 border-t border-[#1a2f5c] pt-6">
+          {editingId && (
+            <button type="button" onClick={handleCancelEdit} className="px-6 py-3 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-[#132752] transition-all">Cancel</button>
+          )}
+          <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center transition-all shadow-lg shadow-amber-900/40">
+            {editingId ? <><Save size={18} className="mr-2" /> Update Division</> : <><PlusCircle size={18} className="mr-2" /> Register Division</>}
+          </button>
+        </div>
+      </form>
+
+      {/* DATA TABLE */}
+      <div className="bg-[#0b1c3b]/60 border border-[#1a2f5c] rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-[#050d1a] text-slate-400 text-xs uppercase tracking-widest">
+            <tr>
+              <th className="p-4">Division ID</th>
+              <th className="p-4">Division Name</th>
+              <th className="p-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#1a2f5c]">
+            {divisions.map(division => (
+              <tr key={division.id} className="hover:bg-[#132752]/50 transition-all">
+                <td className="p-4 font-mono font-bold text-amber-500">{division.divisionId}</td>
+                <td className="p-4 font-bold text-white">{division.divisionName}</td>
+                <td className="p-4 text-right space-x-2">
+                  <button onClick={() => handleEdit(division)} className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors"><Edit size={16} /></button>
+                  <button onClick={() => setDivisions(divisions.filter(d => d.id !== division.id))} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/police-dashboard/fines/page.tsx">
+// app/police-dashboard/fines/page.tsx
+"use client";
+
+import React, { useState } from 'react';
+import { Gavel, PlusCircle, Trash2, Edit, Save, AlertCircle, CheckCircle2, X } from 'lucide-react';
+
+export default function ManageFines() {
+  const [fines, setFines] = useState([
+    { id: 1, code: 'SPD-01', name: 'Speeding over 70kmph', points: 4, amount: 3000, isCourtCase: false },
+    { id: 2, code: 'DRK-02', name: 'Driving under influence', points: 10, amount: 25000, isCourtCase: true },
+  ]);
+
+  // Exact keys matched for Backend API POST /fines/offenses
+  const [fineForm, setFineForm] = useState({ code: '', name: '', points: '', amount: '', isCourtCase: false });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleFineSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Duplicate Code check
+    const isDuplicate = fines.some(f => f.code.toLowerCase() === fineForm.code.toLowerCase() && f.id !== editingId);
+    if (isDuplicate) {
+      showToast('error', `BadRequest: Offense Code "${fineForm.code}" already exists!`);
+      return;
+    }
+
+    if (editingId) {
+      setFines(fines.map(f => f.id === editingId ? { ...f, ...fineForm, points: Number(fineForm.points), amount: Number(fineForm.amount) } : f));
+      setEditingId(null);
+      showToast('success', 'Traffic Offense Updated Successfully!');
+    } else {
+      const newFine = { id: Date.now(), ...fineForm, points: Number(fineForm.points), amount: Number(fineForm.amount) };
+      setFines([...fines, newFine]);
+      showToast('success', 'New Traffic Offense Added Successfully!');
+    }
+    setFineForm({ code: '', name: '', points: '', amount: '', isCourtCase: false });
+  };
+
+  const handleEdit = (fine: any) => {
+    setFineForm({ code: fine.code, name: fine.name, points: fine.points.toString(), amount: fine.amount.toString(), isCourtCase: fine.isCourtCase });
+    setEditingId(fine.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setFineForm({ code: '', name: '', points: '', amount: '', isCourtCase: false });
+  };
+
+  return (
+    <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 relative">
+      
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-top-6 duration-300 max-w-md ${toast.type === 'error' ? 'bg-red-950/80 border-red-500/50 text-red-200' : 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'}`}>
+          {toast.type === 'error' ? <AlertCircle className="text-red-400 mr-3 flex-shrink-0" size={20} /> : <CheckCircle2 className="text-emerald-400 mr-3 flex-shrink-0" size={20} />}
+          <span className="text-xs font-bold tracking-wide leading-relaxed">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-4 p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"><X size={14}/></button>
+        </div>
+      )}
+
+      <form onSubmit={handleFineSubmit} className="bg-[#0b1c3b]/60 p-8 rounded-3xl border border-[#1a2f5c] shadow-xl backdrop-blur-sm">
+        <h3 className="text-lg font-bold text-amber-500 mb-6 flex items-center">
+          <Gavel className="mr-2" size={18} /> {editingId ? 'Update Traffic Offense' : 'Add New Traffic Offense (Fine)'}
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase">Offense Code <span className="text-red-500">*</span></label>
+            <input required value={fineForm.code} onChange={(e) => setFineForm({...fineForm, code: e.target.value})} type="text" placeholder="O-001" className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white font-mono" />
+          </div>
+          <div className="space-y-2 col-span-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase">Offense Description <span className="text-red-500">*</span></label>
+            <input required value={fineForm.name} onChange={(e) => setFineForm({...fineForm, name: e.target.value})} type="text" placeholder="e.g. Speeding over 70kmph" className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase">Demerit Points <span className="text-red-500">*</span></label>
+            <input required min="0" value={fineForm.points} onChange={(e) => setFineForm({...fineForm, points: e.target.value})} type="number" placeholder="0" className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase">Fine Amount (LKR) <span className="text-red-500">*</span></label>
+            <input required min="0" value={fineForm.amount} onChange={(e) => setFineForm({...fineForm, amount: e.target.value})} type="number" placeholder="3000" className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white" />
+          </div>
+          <div className="space-y-2 flex items-center md:col-span-2 mt-6">
+            <label className="flex items-center cursor-pointer group">
+              <input type="checkbox" checked={fineForm.isCourtCase} onChange={(e) => setFineForm({...fineForm, isCourtCase: e.target.checked})} className="w-5 h-5 rounded border-slate-600 text-amber-500 bg-[#050d1a] focus:ring-amber-500" />
+              <span className="ml-3 text-sm font-bold text-slate-300 group-hover:text-white transition-colors">Requires Court Appearance?</span>
+            </label>
+          </div>
+        </div>
+        <div className="flex justify-end space-x-4 border-t border-[#1a2f5c] pt-6">
+          {editingId && <button type="button" onClick={handleCancelEdit} className="px-6 py-3 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-[#132752] transition-all">Cancel</button>}
+          <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center transition-all shadow-lg shadow-amber-900/40">
+            {editingId ? <><Save size={18} className="mr-2" /> Update Offense</> : <><PlusCircle size={18} className="mr-2" /> Save Offense</>}
+          </button>
+        </div>
+      </form>
+
+      <div className="bg-[#0b1c3b]/60 border border-[#1a2f5c] rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-[#050d1a] text-slate-400 text-xs uppercase tracking-widest">
+            <tr><th className="p-4">Code</th><th className="p-4">Description</th><th className="p-4">Points</th><th className="p-4">Amount (LKR)</th><th className="p-4">Court</th><th className="p-4 text-right">Actions</th></tr>
+          </thead>
+          <tbody className="divide-y divide-[#1a2f5c]">
+            {fines.map(fine => (
+              <tr key={fine.id} className="hover:bg-[#132752]/50 transition-all">
+                <td className="p-4 font-mono font-bold text-amber-500">{fine.code}</td>
+                <td className="p-4 font-bold text-white">{fine.name}</td>
+                <td className="p-4"><span className="bg-red-500/10 text-red-500 px-2 py-1 rounded border border-red-500/20 font-bold">{fine.points} pts</span></td>
+                <td className="p-4 font-bold text-slate-200">{fine.amount.toLocaleString()}</td>
+                <td className="p-4">{fine.isCourtCase ? <span className="text-red-500 font-bold">Yes</span> : <span className="text-slate-400 font-bold">No</span>}</td>
+                <td className="p-4 text-right space-x-2">
+                  <button onClick={() => handleEdit(fine)} className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg"><Edit size={16} /></button>
+                  <button onClick={() => { setFines(fines.filter(f => f.id !== fine.id)); showToast('success', 'Deleted successfully'); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><Trash2 size={16} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/police-dashboard/layout.tsx">
+// app/police-dashboard/layout.tsx
+"use client";
+
+import React from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { Shield, Gavel, Users, LogOut, Map } from 'lucide-react';
+
+export default function PoliceLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push('/login');
+  };
+
+  const getHeaderDetails = () => {
+    if (pathname.includes('/fines')) return { title: 'Manage Fines', icon: <Gavel className="mr-3 text-amber-500" /> };
+    if (pathname.includes('/divisional-heads')) return { title: 'Divisional Heads', icon: <Users className="mr-3 text-amber-500" /> };
+    if (pathname.includes('/divisions')) return { title: 'Police Divisions', icon: <Map className="mr-3 text-amber-500" /> };
+    return { title: 'Police Admin Dashboard', icon: <Shield className="mr-3 text-amber-500" /> };
+  };
+
+  const header = getHeaderDetails();
+
+  return (
+    <div className="flex h-screen bg-[#061022] text-slate-200 overflow-hidden font-sans relative">
+      <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#040b17] via-[#091730] to-[#040b17]"></div>
+
+      {/* --- SIDEBAR --- */}
+      <aside className="w-72 bg-[#091730]/90 backdrop-blur-xl border-r border-[#1a2f5c] flex flex-col p-6 m-4 rounded-3xl shadow-2xl z-10">
+        <div className="mb-8 text-center flex flex-col items-center">
+          <div className="w-24 h-28 mb-4 flex items-center justify-center drop-shadow-xl">
+            <img src="/Sri_Lanka_Police_logo.png" alt="SL Police Logo" className="w-full h-full object-contain mix-blend-screen" />
+          </div>
+          <h1 className="text-xl font-black tracking-tight text-white">SRI LANKA POLICE</h1>
+          <p className="text-[10px] text-amber-500 tracking-widest uppercase mt-1 font-bold">Traffic Administration</p>
+        </div>
+
+        <nav className="flex-1 space-y-2">
+          <SidebarBtn to="/police-dashboard" icon={<Shield size={20} />} label="Overview" currentPath={pathname} />
+          <SidebarBtn to="/police-dashboard/fines" icon={<Gavel size={20} />} label="Manage Fines" currentPath={pathname} />
+          {/* New Divisions Menu */}
+          <SidebarBtn to="/police-dashboard/divisions" icon={<Map size={20} />} label="Police Divisions" currentPath={pathname} />
+          <SidebarBtn to="/police-dashboard/divisional-heads" icon={<Users size={20} />} label="Divisional Heads" currentPath={pathname} />
+        </nav>
+
+        <button onClick={handleLogout} className="flex items-center justify-center px-5 py-3 mt-auto bg-red-600/10 text-red-500 hover:bg-red-600/20 rounded-2xl transition-all border border-red-500/20 group">
+          <LogOut size={18} className="mr-3 group-hover:-translate-x-1 transition-transform" /> 
+          <span className="font-bold text-sm">Logout</span>
+        </button>
+      </aside>
+
+      {/* --- MAIN CONTENT --- */}
+      <main className="flex-1 flex flex-col p-8 overflow-y-auto z-10 custom-scrollbar">
+        <header className="flex justify-between items-center mb-8 bg-[#0b1c3b]/60 backdrop-blur-md p-4 px-8 rounded-3xl border border-[#1a2f5c]">
+          <div>
+            <h2 className="text-2xl font-bold text-white capitalize flex items-center">
+              {header.icon}
+              {header.title}
+            </h2>
+          </div>
+          <div className="flex items-center space-x-4">
+             <div className="bg-[#132752] p-1.5 pr-5 rounded-full border border-amber-500/30 flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-full bg-amber-600 flex items-center justify-center font-bold text-white">PA</div>
+                <span className="text-sm font-semibold text-amber-500">Police Admin</span>
+             </div>
+          </div>
+        </header>
+        {children}
+      </main>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(11, 28, 59, 0.5); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.6); }
+      `}} />
+    </div>
+  );
+}
+
+function SidebarBtn({ to, icon, label, currentPath }: { to: string, icon: any, label: string, currentPath: string }) {
+  const isActive = currentPath === to;
+  return (
+    <Link href={to} className={`flex items-center w-full px-5 py-3.5 rounded-2xl transition-all duration-300 group text-sm ${isActive ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40 border border-amber-500' : 'hover:bg-[#132752] text-slate-300 hover:text-amber-400 border border-transparent'}`}>
+      <span className={`mr-4 transition-transform duration-300 ${isActive ? 'text-white scale-110' : 'group-hover:scale-110'}`}>{icon}</span>
+      <span className="font-bold tracking-wide">{label}</span>
+    </Link>
+  );
+}
+</file>
+
+<file path="app/police-dashboard/page.tsx">
+"use client";
+
+import React from 'react';
+import { Gavel, Building, UserCheck } from 'lucide-react';
+
+export default function PoliceOverview() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-500">
+      <StatCard title="Total Offenses" value={24} icon={<Gavel />} color="amber" />
+      <StatCard title="Divisional Heads" value={12} icon={<Building />} color="blue" />
+      <StatCard title="Active Officers" value={156} icon={<UserCheck />} color="emerald" />
+    </div>
+  );
+}
+
+function StatCard({ title, value, icon, color }: any) {
+  const colorMap: any = {
+    amber: 'from-amber-600/20 to-orange-600/10 border-amber-500/30 text-amber-400 bg-amber-500/20',
+    blue: 'from-blue-600/20 to-indigo-600/10 border-blue-500/30 text-blue-400 bg-blue-500/20',
+    emerald: 'from-emerald-600/20 to-teal-600/10 border-emerald-500/30 text-emerald-400 bg-emerald-500/20'
+  };
+  return (
+    <div className={`p-6 rounded-[24px] bg-gradient-to-br ${colorMap[color].split(' ')[0]} ${colorMap[color].split(' ')[1]} border ${colorMap[color].split(' ')[2]} backdrop-blur-md relative overflow-hidden group hover:-translate-y-1 transition-transform shadow-xl`}>
+      <div className="flex justify-between items-start mb-4">
+        <div className={`p-3 rounded-xl shadow-inner ${colorMap[color].split(' ')[4]} ${colorMap[color].split(' ')[3]}`}>{icon}</div>
+      </div>
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">{title}</p>
+      <p className="text-3xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+</file>
+
+<file path="CLAUDE.md">
+@AGENTS.md
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="package.json">
+{
+  "name": "auto-ledger-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "lucide-react": "^1.17.0",
+    "next": "16.2.9",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+</files>

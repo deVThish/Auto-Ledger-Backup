@@ -18,6 +18,7 @@ enum Fine_Status {
   PENDING
   PAID
   OVERDUE
+  COURT_CASE
 }
 
 enum Payment_Status {
@@ -35,11 +36,13 @@ model QR_Scan_History {
   scan_Id              String          @id @default(uuid())
   qr_Token             String
   scan_Time            DateTime        @default(now())
+  traffic_Officer_Id   String
   traffic_Officer_Name String
   driver_Name          String
   location             String?
   license_Id           String
   license              Driving_License @relation(fields: [license_Id], references: [license_Id])
+  officer              Traffic_Officer @relation(fields: [traffic_Officer_Id], references: [traffic_Officer_Id])
 }
 
 model DMT_Admin {
@@ -77,11 +80,12 @@ model Driving_License {
   nic_No            String                     @unique
   status            License_Status             @default(ACTIVE)
   image             String?
-  points            Int                        @default(24)
+  points            Int                        @default(0)
+  suspended_Until   DateTime?
   address           String
   date_of_birth     DateTime
   blood_Group       String
-  issue_Date        DateTime 
+  issue_Date        DateTime
   user_Id           String                     @unique
   user              User                       @relation(fields: [user_Id], references: [user_Id])
   dmt_Admin_Id      String
@@ -94,10 +98,10 @@ model Driving_License {
 
 model License_Vehicle_Category {
   category_Id   String          @id @default(uuid())
-  vehicle_Class String 
+  vehicle_Class String
   issue_Date    DateTime
   expiry_Date   DateTime
-  restriction   String? 
+  restriction   String?
   license_Id    String
   license       Driving_License @relation(fields: [license_Id], references: [license_Id], onDelete: Cascade)
 }
@@ -108,39 +112,48 @@ model Temporary_License {
   expiry_Date          DateTime
   license_Id           String
   license              Driving_License @relation(fields: [license_Id], references: [license_Id])
+  issued_By            String
+  officer              Traffic_Officer @relation(fields: [issued_By], references: [traffic_Officer_Id])
 }
 
 model Division {
-  division_Id     String           @id
-  division_Name   String           @unique
+  division_Id     String            @id
+  division_Name   String            @unique
   police_Admin_Id String
-  policeAdmin     Police_Admin     @relation(fields: [police_Admin_Id], references: [police_Admin_Id])
-  divisionalHead  Divisional_Head?
+  policeAdmin     Police_Admin      @relation(fields: [police_Admin_Id], references: [police_Admin_Id])
+  divisionalHeads Divisional_Head[]
 }
 
 model Divisional_Head {
-  divisional_Head_Id String            @id @default(uuid())
-  username           String            @unique
-  email              String            @unique
-  name               String
-  role               Officer_Role      @default(DIVISIONAL_HEAD)
-  password           String
-  division_Id        String            @unique
-  division           Division          @relation(fields: [division_Id], references: [division_Id])
-  officers           Traffic_Officer[]
+  divisional_Head_Id   String            @id @default(uuid())
+  username             String            @unique
+  email                String            @unique
+  name                 String
+  role                 Officer_Role      @default(DIVISIONAL_HEAD)
+  password             String
+  is_Active            Boolean           @default(true)
+  reset_Otp            String?
+  reset_Otp_Expires_At DateTime?
+  division_Id          String
+  division             Division          @relation(fields: [division_Id], references: [division_Id])
+  officers             Traffic_Officer[]
 }
 
 model Traffic_Officer {
-  traffic_Officer_Id String          @id @default(uuid())
-  badge_No           String          @unique
-  email              String          @unique
-  name               String
-  role               Officer_Role    @default(TRAFFIC_OFFICER)
-  password           String
-  divisional_Head_Id String
-  divisionalHead     Divisional_Head @relation(fields: [divisional_Head_Id], references: [divisional_Head_Id])
-  shifts             Shift[]
-  fines              Fine[]
+  traffic_Officer_Id   String              @id @default(uuid())
+  badge_No             String              @unique
+  email                String              @unique
+  name                 String
+  role                 Officer_Role        @default(TRAFFIC_OFFICER)
+  password             String
+  reset_Otp            String?
+  reset_Otp_Expires_At DateTime?
+  divisional_Head_Id   String
+  divisionalHead       Divisional_Head     @relation(fields: [divisional_Head_Id], references: [divisional_Head_Id])
+  shifts               Shift[]
+  fines                Fine[]
+  qrScans              QR_Scan_History[]
+  temporaryLicenses    Temporary_License[]
 }
 
 model Shift {
@@ -160,6 +173,7 @@ model Offence_Category {
   name            String
   points_Value    Int
   amount          Float
+  is_Active       Boolean        @default(true)
   is_Court_Case   Boolean        @default(false)
   police_Admin_Id String
   policeAdmin     Police_Admin   @relation(fields: [police_Admin_Id], references: [police_Admin_Id])
@@ -185,6 +199,7 @@ model Fine_Offence {
   offense_Id      String
   fine            Fine             @relation(fields: [fine_Id], references: [fine_Id])
   offenceCategory Offence_Category @relation(fields: [offense_Id], references: [offense_Id])
+
   @@id([fine_Id, offense_Id])
 }
 

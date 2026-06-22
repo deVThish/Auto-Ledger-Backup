@@ -65,4 +65,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'auto-ledger-41d16.firebasestorage.app',
     iosBundleId: 'com.example.autoLedger',
   );
+
 }

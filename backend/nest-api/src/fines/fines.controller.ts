@@ -5,7 +5,6 @@ import {
   Body,
   Param,
   Patch,
-  Delete,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -34,14 +33,21 @@ export class FinesController {
   @Post()
   issueFine(
     @Request() req: AuthRequest,
-    @Body() body: { licenseId: string; offenseIds: string[]; comment?: string },
+    @Body() body: { scanToken: string; offenseIds: string[]; comment?: string },
   ) {
     return this.finesService.issueFine({
-      licenseId: body.licenseId,
+      scanToken: body.scanToken,
       officerId: req.user.id,
       offenseIds: body.offenseIds,
       comment: body.comment,
     });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('TRAFFIC_OFFICER')
+  @Get('officer-stats')
+  getTrafficOfficerStats(@Request() req: AuthRequest) {
+    return this.finesService.getTrafficOfficerStats(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -77,6 +83,16 @@ export class FinesController {
     return this.finesService.getAllOffenses();
   }
 
+  @Get('dmt/all-fines')
+  getAllFinesForDMT() {
+    return this.finesService.getAllFinesForDMT();
+  }
+
+  @Get('dmt/problematic-licenses')
+  getProblematicLicensesForDMT() {
+    return this.finesService.getProblematicLicensesForDMT();
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('POLICE_ADMIN')
   @Post('offenses')
@@ -93,9 +109,9 @@ export class FinesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('POLICE_ADMIN')
-  @Delete('offenses/:id')
-  deleteOffense(@Param('id') id: string) {
-    return this.finesService.deleteOffenseCategory(id);
+  @Patch('offenses/:id/toggle')
+  toggleOffenseStatus(@Param('id') id: string) {
+    return this.finesService.toggleOffenseStatus(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

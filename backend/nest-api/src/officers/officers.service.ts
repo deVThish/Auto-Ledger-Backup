@@ -36,6 +36,79 @@ export class OfficersService {
     });
   }
 
+  async activateDivisionalHead(headId: string) {
+    const targetHead = await this.prisma.divisional_Head.findUnique({
+      where: { divisional_Head_Id: headId },
+    });
+
+    if (!targetHead) throw new NotFoundException('Divisional Head not found');
+    if (targetHead.is_Active)
+      throw new BadRequestException('This head is already active');
+
+    return this.prisma.$transaction(async (tx) => {
+      const currentActiveHead = await tx.divisional_Head.findFirst({
+        where: {
+          division_Id: targetHead.division_Id,
+          is_Active: true,
+        },
+      });
+
+      if (currentActiveHead) {
+        await tx.divisional_Head.update({
+          where: { divisional_Head_Id: currentActiveHead.divisional_Head_Id },
+          data: { is_Active: false },
+        });
+      }
+
+      const activatedHead = await tx.divisional_Head.update({
+        where: { divisional_Head_Id: headId },
+        data: { is_Active: true },
+      });
+
+      await tx.traffic_Officer.updateMany({
+        where: {
+          divisionalHead: {
+            division_Id: targetHead.division_Id,
+          },
+        },
+        data: {
+          divisional_Head_Id: headId,
+        },
+      });
+
+      return {
+        message: 'Head activated successfully, and officers reassigned.',
+        activatedHead,
+      };
+    });
+  }
+
+  async disableDivisionalHead(headId: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { divisional_Head_Id: headId },
+    });
+    if (!head) throw new NotFoundException('Divisional Head not found');
+
+    return this.prisma.divisional_Head.update({
+      where: { divisional_Head_Id: headId },
+      data: { is_Active: false },
+    });
+  }
+
+  async getDivisionWithAllHeads(divisionId: string) {
+    const division = await this.prisma.division.findUnique({
+      where: { division_Id: divisionId },
+      include: {
+        divisionalHeads: {
+          orderBy: { is_Active: 'desc' },
+        },
+      },
+    });
+
+    if (!division) throw new NotFoundException('Division not found');
+    return division;
+  }
+
   async createDivisionalHead(data: {
     divisionName: string;
     username: string;
@@ -43,27 +116,32 @@ export class OfficersService {
     name: string;
     passwordStr: string;
   }) {
-    const existingDivision = await this.prisma.division.findUnique({
-      where: { division_Name: data.divisionName },
-      include: { divisionalHead: true },
+    const existingDivision = await this.prisma.division.findFirst({
+      where: {
+        OR: [
+          { division_Name: data.divisionName },
+          { division_Id: data.divisionName },
+        ],
+      },
     });
+
     if (!existingDivision) throw new NotFoundException('Division not found');
-    if (existingDivision.divisionalHead)
-      throw new BadRequestException(
-        'This Division already has a Head assigned',
-      );
+
     const existingUsername = await this.prisma.divisional_Head.findUnique({
       where: { username: data.username },
     });
     if (existingUsername)
       throw new BadRequestException('Head username already exists');
+
     const existingEmail = await this.prisma.divisional_Head.findUnique({
       where: { email: data.email },
     });
     if (existingEmail)
       throw new BadRequestException('Head email already exists');
+
     const hashedPassword = await bcrypt.hash(data.passwordStr, 10);
-    return this.prisma.divisional_Head.create({
+
+    const newHead = await this.prisma.divisional_Head.create({
       data: {
         username: data.username,
         email: data.email,
@@ -71,8 +149,11 @@ export class OfficersService {
         division_Id: existingDivision.division_Id,
         password: hashedPassword,
         role: 'DIVISIONAL_HEAD',
+        is_Active: false,
       },
     });
+
+    return this.activateDivisionalHead(newHead.divisional_Head_Id);
   }
 
   async createTrafficOfficer(data: {
@@ -87,11 +168,13 @@ export class OfficersService {
     });
     if (existingBadge)
       throw new BadRequestException('Badge number already exists');
+
     const existingEmail = await this.prisma.traffic_Officer.findUnique({
       where: { email: data.email },
     });
     if (existingEmail)
       throw new BadRequestException('Officer email already exists');
+
     const hashedPassword = await bcrypt.hash(data.passwordStr, 10);
     return this.prisma.traffic_Officer.create({
       data: {
@@ -199,5 +282,26 @@ export class OfficersService {
       status: off.shifts.length > 0 ? 'ON_DUTY' : 'OFF_DUTY',
       currentShift: off.shifts.length > 0 ? off.shifts[0] : null,
     }));
+  }
+
+  async getAllDivisions() {
+    return this.prisma.division.findMany({
+      include: {
+        divisionalHeads: {
+          where: { is_Active: true },
+        },
+      },
+    });
+  }
+
+  async getAllDivisionalHeads() {
+    return this.prisma.divisional_Head.findMany({
+      include: {
+        division: true,
+      },
+      orderBy: {
+        is_Active: 'desc',
+      },
+    });
   }
 }

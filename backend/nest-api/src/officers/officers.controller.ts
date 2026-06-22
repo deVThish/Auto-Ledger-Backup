@@ -104,6 +104,24 @@ export class OfficersController {
     return this.officersService.createDivisionalHead(data);
   }
 
+  @Roles('POLICE_ADMIN')
+  @Patch('head/:id/activate')
+  async activateDivisionalHead(@Param('id') id: string) {
+    return this.officersService.activateDivisionalHead(id);
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Patch('head/:id/disable')
+  async disableDivisionalHead(@Param('id') id: string) {
+    return this.officersService.disableDivisionalHead(id);
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Get('division/:id/heads')
+  async getDivisionAllHeads(@Param('id') id: string) {
+    return this.officersService.getDivisionWithAllHeads(id);
+  }
+
   @Roles('DIVISIONAL_HEAD')
   @Post('officer')
   async createOfficer(
@@ -144,5 +162,17 @@ export class OfficersController {
   @Get(':id/shifts')
   async getOfficerShifts(@Param('id') id: string) {
     return this.officersService.getOfficerShifts(id);
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Get('divisions')
+  async getAllDivisions() {
+    return this.officersService.getAllDivisions();
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Get('divisional-heads')
+  async getAllDivisionalHeads() {
+    return this.officersService.getAllDivisionalHeads();
   }
 }
