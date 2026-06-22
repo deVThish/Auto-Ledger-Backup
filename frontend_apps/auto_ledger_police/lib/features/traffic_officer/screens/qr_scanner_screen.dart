@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
-import '../../../shared/widgets/app_button.dart';
 import '../services/traffic_fine_service.dart';
 import 'license_preview_screen.dart';
 
@@ -15,43 +15,49 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _qrTokenController = TextEditingController();
-  final _locationController = TextEditingController();
   final _trafficFineService = TrafficFineService();
+  final MobileScannerController _controller = MobileScannerController();
+  final TextEditingController _locationController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isScanning = false;
 
   @override
   void dispose() {
-    _qrTokenController.dispose();
+    _controller.dispose();
     _locationController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleVerify() async {
-    FocusScope.of(context).unfocus();
+  void _handleScan(BarcodeCapture capture) {
+    if (_isScanning || _isLoading) return;
 
-    if (!_formKey.currentState!.validate()) {
+    final qrToken = capture.barcodes.first.rawValue;
+    if (qrToken == null || qrToken.isEmpty) {
       AppErrorHandler.showPopup(
         context,
-        message: 'Please enter the driver QR token.',
+        message: 'Invalid QR code. Please try again.',
       );
       return;
     }
 
-    final qrToken = _qrTokenController.text.trim();
-    final location = _locationController.text.trim();
+    _isScanning = true;
+    _verifyLicense(qrToken);
+  }
 
+  Future<void> _verifyLicense(String qrToken) async {
     setState(() => _isLoading = true);
 
     try {
+      final location = _locationController.text.trim();
       final license = await _trafficFineService.scanQr(
         qrToken: qrToken,
-        location: location,
+        location: location.isEmpty ? 'Current Location' : location,
       );
 
       if (!mounted) return;
+
+      await _controller.stop();
 
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -60,26 +66,46 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             license: license,
           ),
         ),
-      );
+      ).then((_) {
+        if (mounted) {
+          _controller.start();
+          setState(() {
+            _isLoading = false;
+            _isScanning = false;
+          });
+        }
+      });
     } on ApiException catch (error) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: error.message,
       );
+      setState(() {
+        _isLoading = false;
+        _isScanning = false;
+      });
+      _controller.start();
     } catch (_) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: 'Unable to verify license. Please try again.',
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _isLoading = false;
+        _isScanning = false;
+      });
+      _controller.start();
     }
+  }
+
+  void _toggleFlash() {
+    _controller.toggleTorch();
+  }
+
+  void _toggleCamera() {
+    _controller.switchCamera();
   }
 
   @override
@@ -88,147 +114,199 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       backgroundColor: AppTheme.backgroundWhite,
       appBar: AppBar(
         title: const Text(
-          'Driver QR Verification',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          'Scan Driver QR',
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: [
+          IconButton(
+            onPressed: _toggleFlash,
+            icon: const Icon(Icons.flash_on_rounded),
+          ),
+          IconButton(
+            onPressed: _toggleCamera,
+            icon: const Icon(Icons.cameraswitch_rounded),
+          ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding =
-                constraints.maxWidth < 380 ? 20.0 : 26.0;
-
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppTheme.primaryBlack,
-                            Color(0xFF31363F),
-                          ],
+            return Column(
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
                         ),
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.qr_code_scanner_rounded,
-                            color: Colors.white,
-                            size: 34,
-                          ),
-                          SizedBox(height: 18),
-                          Text(
-                            'Verify Driver License',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 23,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Paste or scan the driver QR token, then continue to the license and offense selection flow.',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                              height: 1.45,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    Form(
-                      key: _formKey,
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: AppTheme.borderGray),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 24,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
+                    margin: const EdgeInsets.all(16),
+                    clipBehavior: Clip.hardEdge,
+                    child: Stack(
+                      children: [
+                        MobileScanner(
+                          controller: _controller,
+                          onDetect: _handleScan,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextFormField(
-                              controller: _qrTokenController,
-                              minLines: 4,
-                              maxLines: 6,
-                              textInputAction: TextInputAction.newline,
-                              decoration: const InputDecoration(
-                                labelText: 'Driver QR Token',
-                                hintText: 'Paste scanned QR token',
-                                prefixIcon: Icon(Icons.qr_code_2_rounded),
-                                alignLabelWithHint: true,
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'QR token is required';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _locationController,
-                              textInputAction: TextInputAction.done,
-                              decoration: const InputDecoration(
-                                labelText: 'Location',
-                                hintText: 'Current GPS or typed location',
-                                prefixIcon: Icon(Icons.place_outlined),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            const Text(
-                              'If the QR expires, ask the driver to generate a fresh QR code before scanning again.',
-                              style: TextStyle(
-                                color: AppTheme.textGray,
-                                fontSize: 12,
-                                height: 1.4,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            AppButton(
-                              text: 'Scan QR',
-                              icon: Icons.verified_user_outlined,
-                              isLoading: _isLoading,
-                              onPressed: _handleVerify,
-                            ),
-                          ],
+                        CustomPaint(
+                          painter: _QrOverlayPainter(),
+                          size: Size.infinite,
                         ),
-                      ),
+                        if (_isLoading)
+                          Container(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            child: const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  CircularProgressIndicator(
+                                    color: Colors.white,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Verifying license...',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          bottom: 24,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            margin: const EdgeInsets.symmetric(horizontal: 24),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.white70,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Position QR code inside the frame',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 28),
-                  ],
+                  ),
                 ),
-              ),
+                Expanded(
+                  flex: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.lightGray,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppTheme.borderGray.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _locationController,
+                            textInputAction: TextInputAction.done,
+                            decoration: const InputDecoration(
+                              hintText: 'Enter location (optional)',
+                              prefixIcon: Icon(
+                                Icons.place_outlined,
+                                color: AppTheme.textGray,
+                                size: 20,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Scan the QR code displayed on the driver\'s app',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.textGray,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),
       ),
     );
   }
+}
+
+class _QrOverlayPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+
+    final cutOutSize = size.width * 0.65;
+    final left = (size.width - cutOutSize) / 2;
+    final top = (size.height - cutOutSize) / 2;
+    final right = left + cutOutSize;
+    final bottom = top + cutOutSize;
+
+    final cornerLength = 30.0;
+
+    // Top-left corner
+    canvas.drawLine(Offset(left, top + cornerLength), Offset(left, top), paint);
+    canvas.drawLine(Offset(left, top), Offset(left + cornerLength, top), paint);
+
+    // Top-right corner
+    canvas.drawLine(Offset(right, top + cornerLength), Offset(right, top), paint);
+    canvas.drawLine(Offset(right, top), Offset(right - cornerLength, top), paint);
+
+    // Bottom-left corner
+    canvas.drawLine(Offset(left, bottom - cornerLength), Offset(left, bottom), paint);
+    canvas.drawLine(Offset(left, bottom), Offset(left + cornerLength, bottom), paint);
+
+    // Bottom-right corner
+    canvas.drawLine(Offset(right, bottom - cornerLength), Offset(right, bottom), paint);
+    canvas.drawLine(Offset(right, bottom), Offset(right - cornerLength, bottom), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

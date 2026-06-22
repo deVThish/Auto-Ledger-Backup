@@ -18,7 +18,6 @@ class FineResultScreen extends StatelessWidget {
 
   String _formatDate(DateTime? dateTime) {
     if (dateTime == null) return '-';
-
     return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
   }
 
@@ -62,9 +61,7 @@ class FineResultScreen extends StatelessWidget {
         automaticallyImplyLeading: false,
         title: const Text(
           'Fine Result',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       body: SafeArea(
@@ -81,53 +78,8 @@ class FineResultScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppTheme.primaryBlack,
-                            Color(0xFF31363F),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.check_circle_outline_rounded,
-                            color: Colors.white,
-                            size: 34,
-                          ),
-                          const SizedBox(height: 18),
-                          const Text(
-                            'Fine Issued Successfully',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 23,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            licenseNumber.isEmpty
-                                ? 'The fine has been recorded.'
-                                : licenseNumber,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                              height: 1.45,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                    _SuccessHeader(
+                      licenseNumber: licenseNumber,
                     ),
                     const SizedBox(height: 24),
                     _ResultSummaryCard(
@@ -169,7 +121,7 @@ class FineResultScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       height: 52,
-                      child: OutlinedButton.icon(
+                      child: OutlinedButton(
                         onPressed: () => _goToDashboard(context),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryBlack,
@@ -180,8 +132,7 @@ class FineResultScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(25),
                           ),
                         ),
-                        icon: const Icon(Icons.dashboard_outlined),
-                        label: const Text(
+                        child: const Text(
                           'Back to Dashboard',
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
@@ -196,6 +147,62 @@ class FineResultScreen extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _SuccessHeader extends StatelessWidget {
+  const _SuccessHeader({required this.licenseNumber});
+
+  final String licenseNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryBlack,
+            Color(0xFF31363F),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.check_circle_outline_rounded,
+            color: Colors.white,
+            size: 34,
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Fine Issued Successfully',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 23,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            licenseNumber.isEmpty ? 'The fine has been recorded.' : licenseNumber,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

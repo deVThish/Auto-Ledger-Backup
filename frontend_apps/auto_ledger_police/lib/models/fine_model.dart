@@ -223,68 +223,37 @@ class DistrictStatisticsModel {
 
 class FineIssueResultModel {
   const FineIssueResultModel({
-    required this.fineDetails,
-    required this.licenseStatus,
-    required this.accumulatedPoints,
+    required this.fineId,
+    required this.licenseId,
+    required this.status,
+    this.licenseStatus = '',
+    this.accumulatedPoints = 0,
     this.temporaryLicenseExpiry,
+    this.fineDetails = const [],
   });
 
-  final List<FineModel> fineDetails;
+  final String fineId;
+  final String licenseId;
+  final String status;
   final String licenseStatus;
   final int accumulatedPoints;
   final DateTime? temporaryLicenseExpiry;
+  final List<FineModel> fineDetails;
 
-  factory FineIssueResultModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final rawFineDetails =
-        json['fineDetails'] ?? json['fines'] ?? json['results'] ?? json['data'];
-
-    final nestedLicense = json['license'];
-    String resolvedLicenseStatus = (json['licenseStatus'] ??
-            json['status'] ??
-            '')
-        .toString();
-
-    if (resolvedLicenseStatus.trim().isEmpty &&
-        nestedLicense is Map<String, dynamic>) {
-      resolvedLicenseStatus = nestedLicense['status']?.toString() ?? '';
-    }
+  factory FineIssueResultModel.fromJson(Map<String, dynamic> json) {
+    final fineDetails = json['offenses'] as List? ?? [];
+    final licenseData = json['license'] as Map<String, dynamic>? ?? {};
 
     return FineIssueResultModel(
-      fineDetails: rawFineDetails is List
-          ? rawFineDetails
-              .whereType<Map<String, dynamic>>()
-              .map(FineModel.fromJson)
-              .toList()
-          : <FineModel>[],
-      licenseStatus: resolvedLicenseStatus,
-      accumulatedPoints:
-          _readInt(json['accumulatedPoints'] ?? json['points'] ?? 0),
-      temporaryLicenseExpiry: _readDate(
-        json,
-        const ['temporaryLicenseExpiry', 'temporaryExpiry', 'tempExpiry'],
-      ),
+      fineId: json['fine_Id']?.toString() ?? json['id']?.toString() ?? '',
+      licenseId: json['license_Id']?.toString() ?? json['licenseId']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'PENDING',
+      licenseStatus: licenseData['status']?.toString() ?? 'ACTIVE',
+      accumulatedPoints: licenseData['points'] as int? ?? 24,
+      temporaryLicenseExpiry: json['temporaryLicenseExpiry'] != null
+          ? DateTime.tryParse(json['temporaryLicenseExpiry'].toString())
+          : null,
+      fineDetails: fineDetails.map((e) => FineModel.fromJson(e as Map<String, dynamic>)).toList(),
     );
-  }
-
-  static int _readInt(dynamic value) {
-    if (value is num) {
-      return value.toInt();
-    }
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  static DateTime? _readDate(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
-    for (final key in keys) {
-      final raw = json[key]?.toString() ?? '';
-      if (raw.trim().isEmpty) continue;
-      final parsed = DateTime.tryParse(raw);
-      if (parsed != null) return parsed;
-    }
-    return null;
   }
 }

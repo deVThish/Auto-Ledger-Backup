@@ -40,6 +40,8 @@ class TrafficFineService {
     required String licenseId,
     required List<String> offenseIds,
     required String comment,
+    required LicenseModel license,
+    required List<OffenseModel> selectedOffenses,
   }) async {
     final response = await _apiClient.post(
       ApiConstants.issueFine,
@@ -52,8 +54,35 @@ class TrafficFineService {
         'comment': comment.trim(),
       },
     );
+
     final payload = _unwrapMap(response);
-    return FineIssueResultModel.fromJson(payload);
+
+    // ── Fix: Build FineModel correctly with all required fields ──
+    final fineDetails = selectedOffenses.map((offense) {
+      return FineModel(
+        id: offense.id,
+        status: 'PENDING',
+        issuedAt: DateTime.now(),
+        dueDate: null,
+        licenseNumber: license.licenseNumber,
+        driverName: license.driverName,
+        offenses: [offense],
+        officerName: '', // Will be updated from session if needed
+        officerBadgeNumber: '', // Will be updated from session if needed
+      );
+    }).toList();
+
+    return FineIssueResultModel(
+      fineId: payload['fine_Id']?.toString() ?? payload['id']?.toString() ?? '',
+      licenseId: licenseId,
+      status: payload['status']?.toString() ?? 'PENDING',
+      licenseStatus: license.status,
+      accumulatedPoints: license.points,
+      temporaryLicenseExpiry: payload['temporaryLicenseExpiry'] != null
+          ? DateTime.tryParse(payload['temporaryLicenseExpiry'].toString())
+          : null,
+      fineDetails: fineDetails,
+    );
   }
 
   Future<List<FineModel>> getFineHistory() async {

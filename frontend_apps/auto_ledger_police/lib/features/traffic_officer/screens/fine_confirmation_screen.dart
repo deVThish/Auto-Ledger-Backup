@@ -201,6 +201,8 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
             .where((id) => id.isNotEmpty)
             .toList(),
         comment: _commentController.text.trim(),
+        license: widget.license,
+        selectedOffenses: widget.selectedOffenses,
       );
 
       if (!mounted) return;
