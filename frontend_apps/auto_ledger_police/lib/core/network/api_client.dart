@@ -29,9 +29,9 @@ class ApiClient {
   final TokenStorage _tokenStorage;
 
   Future<dynamic> get(
-      String path, {
-        bool requiresAuth = true,
-      }) async {
+    String path, {
+    bool requiresAuth = true,
+  }) async {
     final response = await _client.get(
       _buildUri(path),
       headers: await _buildHeaders(requiresAuth: requiresAuth),
@@ -41,10 +41,10 @@ class ApiClient {
   }
 
   Future<dynamic> post(
-      String path, {
-        Map<String, dynamic>? body,
-        bool requiresAuth = true,
-      }) async {
+    String path, {
+    Map<String, dynamic>? body,
+    bool requiresAuth = true,
+  }) async {
     final response = await _client.post(
       _buildUri(path),
       headers: await _buildHeaders(requiresAuth: requiresAuth),
@@ -55,10 +55,10 @@ class ApiClient {
   }
 
   Future<dynamic> patch(
-      String path, {
-        Map<String, dynamic>? body,
-        bool requiresAuth = true,
-      }) async {
+    String path, {
+    Map<String, dynamic>? body,
+    bool requiresAuth = true,
+  }) async {
     final response = await _client.patch(
       _buildUri(path),
       headers: await _buildHeaders(requiresAuth: requiresAuth),
@@ -92,10 +92,15 @@ class ApiClient {
   }
 
   dynamic _handleResponse(http.Response response) {
+    // ignore: avoid_print
     print('====================');
+    // ignore: avoid_print
     print('STATUS CODE: ${response.statusCode}');
+    // ignore: avoid_print
     print('RESPONSE BODY: ${response.body}');
+    // ignore: avoid_print
     print('====================');
+    
     final decodedBody = _decodeBody(response.body);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

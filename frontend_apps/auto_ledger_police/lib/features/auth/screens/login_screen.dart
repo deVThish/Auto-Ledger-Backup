@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../../core/constants/app_routes.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
@@ -120,14 +119,12 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: error.message,
       );
     } catch (_) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: 'Unable to login. Please check your connection.',

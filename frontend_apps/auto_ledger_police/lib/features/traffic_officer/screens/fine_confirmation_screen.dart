@@ -183,6 +183,7 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
 
     final licenseId = widget.license.id.trim();
     if (licenseId.isEmpty) {
+      if (!mounted) return;
       AppErrorHandler.showPopup(
         context,
         message: 'License id is missing. Please scan the QR again.',
@@ -214,14 +215,12 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: error.message,
       );
     } catch (_) {
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: 'Unable to issue fine. Please try again.',

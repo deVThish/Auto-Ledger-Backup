@@ -1,16 +1,76 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
-
 import '../../../core/constants/app_routes.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/network/api_client.dart';
 import '../../auth/services/auth_service.dart';
-import 'fine_history_screen.dart';
+import '../widgets/shift_status_card.dart';
+import '../widgets/dashboard_stats_card.dart';
+import '../widgets/recent_fine_card.dart';
 import 'qr_scanner_screen.dart';
+import 'fine_history_screen.dart';
+import 'license_search_screen.dart';
+import 'profile_screen.dart';
+import '../services/traffic_fine_service.dart';
 
-class ToDashboardScreen extends StatelessWidget {
+class ToDashboardScreen extends StatefulWidget {
   const ToDashboardScreen({super.key});
+
+  @override
+  State<ToDashboardScreen> createState() => _ToDashboardScreenState();
+}
+
+class _ToDashboardScreenState extends State<ToDashboardScreen> {
+  final _fineService = TrafficFineService();
+  final _tokenStorage = const TokenStorage();
+
+  bool _isLoading = true;
+  String _officerName = 'Officer';
+  String _badgeNumber = 'Traffic Officer';
+  int _todayFines = 0;
+  int _totalFines = 0;
+  List<dynamic> _recentFines = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final session = await _tokenStorage.getSession();
+      if (session != null) {
+        _officerName = session.officerName;
+        _badgeNumber = session.officerBadgeNumber;
+      }
+
+      final allFines = await _fineService.getFineHistory();
+      _totalFines = allFines.length;
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      _todayFines = allFines.where((fine) {
+        final issuedAt = fine.issuedAt;
+        if (issuedAt == null) return false;
+        final fineDate = DateTime(issuedAt.year, issuedAt.month, issuedAt.day);
+        return fineDate == today;
+      }).length;
+
+      _recentFines = allFines.take(5).toList();
+    } on ApiException catch (_) {
+      // Silent fail - show empty data
+    } catch (_) {
+      // Silent fail
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   Future<bool> _confirmLogout(BuildContext context) async {
     final result = await showDialog<bool>(
@@ -153,10 +213,26 @@ class ToDashboardScreen extends StatelessWidget {
     );
   }
 
-  void _openFineHistory(BuildContext context) {
+  void _openSearch(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const LicenseSearchScreen(),
+      ),
+    );
+  }
+
+  void _openHistory(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const FineHistoryScreen(),
+      ),
+    );
+  }
+
+  void _openProfile(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ProfileScreen(),
       ),
     );
   }
@@ -171,52 +247,110 @@ class ToDashboardScreen extends StatelessWidget {
             final horizontalPadding =
                 constraints.maxWidth < 380 ? 20.0 : 26.0;
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 18),
-                    _DashboardHeader(
-                      onLogout: () => _handleLogout(context),
-                    ),
-                    const SizedBox(height: 24),
-                    const _WelcomeCard(),
-                    const SizedBox(height: 22),
-                    const Text(
-                      'Traffic Officer Actions',
-                      style: TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+            return RefreshIndicator(
+              color: AppTheme.primaryBlack,
+              onRefresh: _loadDashboardData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 18),
+                      _DashboardHeader(
+                        onLogout: () => _handleLogout(context),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _ToActionCard(
-                      icon: Icons.qr_code_scanner_rounded,
-                      title: 'Scan Driver QR',
-                      subtitle: 'Scan a driver QR and review license details.',
-                      onTap: () => _openScanner(context),
-                    ),
-                    const SizedBox(height: 14),
-                    _ToActionCard(
-                      icon: Icons.receipt_long_outlined,
-                      title: 'Issue Fine',
-                      subtitle:
-                          'Start from license verification and offense selection.',
-                      onTap: () => _openScanner(context),
-                    ),
-                    const SizedBox(height: 14),
-                    _ToActionCard(
-                      icon: Icons.history_rounded,
-                      title: 'Fine History',
-                      subtitle: 'View previously issued fines and activity.',
-                      onTap: () => _openFineHistory(context),
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+                      const SizedBox(height: 18),
+                      _WelcomeCard(
+                        officerName: _officerName,
+                        badgeNumber: _badgeNumber,
+                      ),
+                      const SizedBox(height: 22),
+                      const Text(
+                        'Current Shift',
+                        style: TextStyle(
+                          color: AppTheme.primaryBlack,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const ShiftStatusCard(),
+                      const SizedBox(height: 22),
+                      const Text(
+                        'Today\'s Overview',
+                        style: TextStyle(
+                          color: AppTheme.primaryBlack,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DashboardStatsCard(
+                        todayFines: _todayFines,
+                        totalFines: _totalFines,
+                        isLoading: _isLoading,
+                      ),
+                      const SizedBox(height: 22),
+                      const Text(
+                        'Quick Actions',
+                        style: TextStyle(
+                          color: AppTheme.primaryBlack,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _ToActionCard(
+                        icon: Icons.qr_code_scanner_rounded,
+                        title: 'Scan Driver QR',
+                        subtitle: 'Scan and verify driver license.',
+                        onTap: () => _openScanner(context),
+                      ),
+                      const SizedBox(height: 10),
+                      _ToActionCard(
+                        icon: Icons.search_rounded,
+                        title: 'Search License',
+                        subtitle: 'Search by NIC or License Number.',
+                        onTap: () => _openSearch(context),
+                      ),
+                      const SizedBox(height: 10),
+                      _ToActionCard(
+                        icon: Icons.history_rounded,
+                        title: 'Fine History',
+                        subtitle: 'View issued fines and activity.',
+                        onTap: () => _openHistory(context),
+                      ),
+                      const SizedBox(height: 10),
+                      _ToActionCard(
+                        icon: Icons.person_outline_rounded,
+                        title: 'My Profile',
+                        subtitle: 'View profile and change password.',
+                        onTap: () => _openProfile(context),
+                      ),
+                      const SizedBox(height: 22),
+                      if (_recentFines.isNotEmpty) ...[
+                        const Text(
+                          'Recent Fines',
+                          style: TextStyle(
+                            color: AppTheme.primaryBlack,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ..._recentFines.map(
+                          (fine) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: RecentFineCard(fine: fine),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 28),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -299,97 +433,90 @@ class _DashboardHeader extends StatelessWidget {
 }
 
 class _WelcomeCard extends StatelessWidget {
-  const _WelcomeCard();
+  const _WelcomeCard({
+    required this.officerName,
+    required this.badgeNumber,
+  });
+
+  final String officerName;
+  final String badgeNumber;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<PoliceSession?>(
-      future: const TokenStorage().getSession(),
-      builder: (context, snapshot) {
-        final session = snapshot.data;
-        final officerName = session?.officerName.trim().isNotEmpty == true
-            ? session!.officerName
-            : 'Officer';
-        final badgeNumber = session?.officerBadgeNumber.trim().isNotEmpty == true
-            ? session!.officerBadgeNumber
-            : 'Traffic Officer';
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.primaryBlack,
-                AppTheme.primaryBlack.withValues(alpha: 0.92),
-              ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryBlack,
+            AppTheme.primaryBlack.withValues(alpha: 0.92),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+              ),
             ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.14),
-                blurRadius: 28,
-                offset: const Offset(0, 14),
-              ),
-            ],
+            child: const Icon(
+              Icons.verified_user_outlined,
+              color: Colors.white,
+              size: 30,
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.verified_user_outlined,
-                  color: Colors.white,
-                  size: 30,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Welcome, $officerName',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 23,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                badgeNumber,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Verify driver licenses, select traffic offenses, issue fines, and review fine history.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  height: 1.45,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          const SizedBox(height: 18),
+          Text(
+            'Welcome, $officerName',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 23,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 6),
+          Text(
+            badgeNumber,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Verify driver licenses, issue fines, and review history.',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -410,16 +537,18 @@ class _ToActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: Colors.white.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(26),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(26),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: AppTheme.borderGray),
+            border: Border.all(
+              color: AppTheme.primaryBlack.withValues(alpha: 0.10),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -431,19 +560,19 @@ class _ToActionCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 50,
-                height: 50,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.lightGray,
-                  borderRadius: BorderRadius.circular(18),
+                  color: AppTheme.primaryBlack.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   icon,
                   color: AppTheme.primaryBlack,
-                  size: 26,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,28 +581,28 @@ class _ToActionCard extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         color: AppTheme.primaryBlack,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: const TextStyle(
                         color: AppTheme.textGray,
-                        fontSize: 13,
-                        height: 1.35,
+                        fontSize: 12,
+                        height: 1.3,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               const Icon(
                 Icons.arrow_forward_ios_rounded,
                 color: AppTheme.textGray,
-                size: 16,
+                size: 14,
               ),
             ],
           ),

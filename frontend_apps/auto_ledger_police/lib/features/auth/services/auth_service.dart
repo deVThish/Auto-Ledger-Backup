@@ -62,6 +62,73 @@ class AuthService {
     return authResponse;
   }
 
+  // ── TO: Forgot Password ──
+  Future<void> requestForgotPasswordOtp({
+    required String badgeNo,
+    required String email,
+  }) async {
+    await _apiClient.post(
+      ApiConstants.officerForgotPasswordRequest,
+      requiresAuth: false,
+      body: {
+        'badgeNo': badgeNo.trim(),
+        'email': email.trim(),
+      },
+    );
+  }
+
+  Future<void> resetForgottenPassword({
+    required String badgeNo,
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    await _apiClient.post(
+      ApiConstants.officerResetPassword,
+      requiresAuth: false,
+      body: {
+        'badgeNo': badgeNo.trim(),
+        'email': email.trim(),
+        'otp': otp.trim(),
+        'newPasswordStr': newPassword.trim(),
+      },
+    );
+  }
+
+  // ── DO: Forgot Password ──
+  Future<void> requestHeadForgotPasswordOtp({
+    required String username,
+    required String email,
+  }) async {
+    await _apiClient.post(
+      ApiConstants.headForgotPasswordRequest,
+      requiresAuth: false,
+      body: {
+        'username': username.trim(),
+        'email': email.trim(),
+      },
+    );
+  }
+
+  Future<void> resetHeadForgottenPassword({
+    required String username,
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    await _apiClient.post(
+      ApiConstants.headResetPassword,
+      requiresAuth: false,
+      body: {
+        'username': username.trim(),
+        'email': email.trim(),
+        'otp': otp.trim(),
+        'newPasswordStr': newPassword.trim(),
+      },
+    );
+  }
+
+  // ── Authenticated Password Change ──
   Future<void> changePassword({
     required String oldPassword,
     required String newPassword,

@@ -13,12 +13,8 @@ class TrafficFineService {
 
   Future<List<OffenseModel>> getOffenses() async {
     final response = await _apiClient.get(ApiConstants.offenses);
-
     final items = _unwrapList(response);
-    if (items.isEmpty) {
-      return <OffenseModel>[];
-    }
-
+    if (items.isEmpty) return <OffenseModel>[];
     return items
         .whereType<Map<String, dynamic>>()
         .map(OffenseModel.fromJson)
@@ -33,11 +29,9 @@ class TrafficFineService {
       ApiConstants.scanQr,
       body: {
         'qrToken': qrToken.trim(),
-        'location':
-            location.trim().isEmpty ? 'Current Location' : location.trim(),
+        'location': location.trim().isEmpty ? 'Current Location' : location.trim(),
       },
     );
-
     final payload = _unwrapMap(response);
     return LicenseModel.fromJson(payload);
   }
@@ -58,19 +52,14 @@ class TrafficFineService {
         'comment': comment.trim(),
       },
     );
-
     final payload = _unwrapMap(response);
     return FineIssueResultModel.fromJson(payload);
   }
 
   Future<List<FineModel>> getFineHistory() async {
     final response = await _apiClient.get(ApiConstants.fineHistory);
-
     final items = _unwrapList(response);
-    if (items.isEmpty) {
-      return <FineModel>[];
-    }
-
+    if (items.isEmpty) return <FineModel>[];
     return items
         .whereType<Map<String, dynamic>>()
         .map(FineModel.fromJson)
@@ -81,33 +70,25 @@ class TrafficFineService {
     if (response is Map<String, dynamic>) {
       final data = response['data'];
       if (data is Map<String, dynamic>) return data;
-
       final result = response['result'];
       if (result is Map<String, dynamic>) return result;
-
       return response;
     }
-
     return <String, dynamic>{};
   }
 
   List<dynamic> _unwrapList(dynamic response) {
     if (response is List) return response;
-
     if (response is Map<String, dynamic>) {
       final items = response['items'];
       if (items is List) return items;
-
       final data = response['data'];
       if (data is List) return data;
-
       final fines = response['fines'];
       if (fines is List) return fines;
-
       final results = response['results'];
       if (results is List) return results;
     }
-
     return <dynamic>[];
   }
 }
