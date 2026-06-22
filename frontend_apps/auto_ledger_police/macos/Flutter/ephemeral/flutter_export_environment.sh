@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=C:\Flutter\flutter_windows_3.32.7-stable\flutter"
-export "FLUTTER_APPLICATION_PATH=D:\HDSE NIBM\HDSE-Final-Prj\Auto-Ledger\frontend_apps\auto_ledger_police"
+export "FLUTTER_ROOT=D:\Campus Software\flutter"
+export "FLUTTER_APPLICATION_PATH=C:\Users\USER\Desktop\FinalProject\Auto-Ledger\frontend_apps\auto_ledger_police"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=1.0.0"
