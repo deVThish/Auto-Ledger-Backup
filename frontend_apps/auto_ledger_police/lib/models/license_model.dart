@@ -24,86 +24,77 @@ class LicenseModel {
   final DateTime? temporaryLicenseExpiry;
 
   factory LicenseModel.fromJson(Map<String, dynamic> json) {
-    final user = json['user'];
-    final rawFines =
-        json['recentFines'] ?? json['fines'] ?? json['fineDetails'];
+    final licenseData = json['license'] as Map<String, dynamic>? ?? json;
+    final user = licenseData['user'];
+    final rawFines = licenseData['fines'] ?? licenseData['recentFines'] ?? [];
+
+    // Get issue date from vehicle categories
+    DateTime? issueDate;
+    if (licenseData['issue_Date'] != null) {
+      issueDate = DateTime.tryParse(licenseData['issue_Date'].toString());
+    } else if (licenseData['vehicleCategories'] is List) {
+      final categories = licenseData['vehicleCategories'] as List;
+      if (categories.isNotEmpty) {
+        final firstCategory = categories.first as Map<String, dynamic>;
+        if (firstCategory['issue_Date'] != null) {
+          issueDate = DateTime.tryParse(firstCategory['issue_Date'].toString());
+        }
+      }
+    }
+
+    // Get expiry date from vehicle categories
+    DateTime? expiryDate;
+    if (licenseData['vehicleCategories'] is List) {
+      final categories = licenseData['vehicleCategories'] as List;
+      if (categories.isNotEmpty) {
+        final firstCategory = categories.first as Map<String, dynamic>;
+        if (firstCategory['expiry_Date'] != null) {
+          expiryDate = DateTime.tryParse(firstCategory['expiry_Date'].toString());
+        }
+      }
+    }
+
+    // Get temporary license expiry
+    DateTime? tempExpiry;
+    if (licenseData['temporaryLicenses'] is List) {
+      final temps = licenseData['temporaryLicenses'] as List;
+      if (temps.isNotEmpty) {
+        final firstTemp = temps.first as Map<String, dynamic>;
+        if (firstTemp['expiry_Date'] != null) {
+          tempExpiry = DateTime.tryParse(firstTemp['expiry_Date'].toString());
+        }
+      }
+    }
+
+    // Get recent fines
+    final recentFines = rawFines is List
+        ? rawFines
+            .whereType<Map<String, dynamic>>()
+            .map((f) => FineModel.fromJson(f))
+            .take(5)
+            .toList()
+        : <FineModel>[];
 
     return LicenseModel(
-      id: _readString(
-        json,
-        const ['id', 'licenseId', 'license_id', 'licenseID'],
-      ),
-      licenseNumber: _readString(
-        json,
-        const ['licenseNumber', 'licenseNo', 'license_no', 'licenseNumberNo'],
-      ),
-      status: _readString(
-        json,
-        const ['status', 'licenseStatus'],
-        fallback: 'UNKNOWN',
-      ),
-      points: _readInt(json['points'] ?? json['currentPoints'] ?? json['demeritPoints']),
+      id: licenseData['license_Id']?.toString() ??
+          licenseData['id']?.toString() ??
+          '',
+      licenseNumber: licenseData['license_No']?.toString() ??
+          licenseData['licenseNumber']?.toString() ??
+          '',
+      status: licenseData['status']?.toString() ?? 'ACTIVE',
+      points: licenseData['points'] as int? ?? 24,
       driverName: user is Map<String, dynamic>
-          ? _readString(
-              user,
-              const ['name', 'fullName', 'driverName'],
-            )
-          : _readString(
-              json,
-              const ['driverName', 'name', 'fullName'],
-            ),
-      recentFines: rawFines is List
-          ? rawFines
-              .whereType<Map<String, dynamic>>()
-              .map(FineModel.fromJson)
-              .toList()
-          : <FineModel>[],
-      issueDate: _readDate(
-        json,
-        const ['issueDate', 'issuedAt', 'createdAt'],
-      ),
-      expiryDate: _readDate(
-        json,
-        const ['expiryDate', 'expiresAt', 'expiryAt'],
-      ),
-      temporaryLicenseExpiry: _readDate(
-        json,
-        const ['temporaryLicenseExpiry', 'temporaryExpiry'],
-      ),
+          ? user['name']?.toString() ??
+              user['fullName']?.toString() ??
+              ''
+          : licenseData['full_Name']?.toString() ??
+              licenseData['driverName']?.toString() ??
+              '',
+      recentFines: recentFines,
+      issueDate: issueDate,
+      expiryDate: expiryDate,
+      temporaryLicenseExpiry: tempExpiry,
     );
-  }
-
-  static String _readString(
-    Map<String, dynamic> json,
-    List<String> keys, {
-    String fallback = '',
-  }) {
-    for (final key in keys) {
-      final value = json[key];
-      if (value == null) continue;
-      final text = value.toString().trim();
-      if (text.isNotEmpty) return text;
-    }
-    return fallback;
-  }
-
-  static int _readInt(dynamic value) {
-    if (value is num) {
-      return value.toInt();
-    }
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  static DateTime? _readDate(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
-    for (final key in keys) {
-      final raw = json[key]?.toString() ?? '';
-      if (raw.trim().isEmpty) continue;
-      final parsed = DateTime.tryParse(raw);
-      if (parsed != null) return parsed;
-    }
-    return null;
   }
 }

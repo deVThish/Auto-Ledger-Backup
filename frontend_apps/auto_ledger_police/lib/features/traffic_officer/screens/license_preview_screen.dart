@@ -21,21 +21,17 @@ class LicensePreviewScreen extends StatelessWidget {
 
   String _formatDate(DateTime? dateTime) {
     if (dateTime == null) return '-';
-
     return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
   }
 
   Color _statusColor() {
     final status = license.status.toUpperCase();
-
     if (status == 'ACTIVE') {
       return AppTheme.successGreen;
     }
-
     if (status == 'SUSPENDED' || status == 'REVOKED') {
       return AppTheme.errorRed;
     }
-
     return AppTheme.primaryBlack;
   }
 
@@ -72,9 +68,7 @@ class LicensePreviewScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text(
           'License Preview',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       body: SafeArea(
@@ -190,8 +184,7 @@ class LicensePreviewScreen extends StatelessWidget {
                     _LicenseInfoCard(
                       issueDate: _formatDate(license.issueDate),
                       expiryDate: _formatDate(license.expiryDate),
-                      temporaryExpiry:
-                          _formatDate(license.temporaryLicenseExpiry),
+                      temporaryExpiry: _formatDate(license.temporaryLicenseExpiry),
                     ),
                     const SizedBox(height: 24),
                     const Text(

@@ -15,8 +15,13 @@ class AuthService {
   })  : _apiClient = apiClient ?? ApiClient(),
         _tokenStorage = tokenStorage ?? const TokenStorage();
 
-  final ApiClient _apiClient;
+  ApiClient _apiClient; // <-- Changed from 'final' to allow reset
   final TokenStorage _tokenStorage;
+
+  // ── Reset ApiClient to force fresh connection ──
+  void _resetApiClient() {
+    _apiClient = ApiClient();
+  }
 
   Future<AuthResponseModel> login({
     String? username,
@@ -24,6 +29,9 @@ class AuthService {
     required String password,
     LoginRole loginRole = LoginRole.trafficOfficer,
   }) async {
+    // Reset ApiClient before each login attempt to avoid stale connection issues
+    _resetApiClient();
+
     final resolvedLoginId = (loginId ?? username ?? '').trim();
 
     final endpoint = loginRole == LoginRole.divisionalHead
@@ -67,6 +75,7 @@ class AuthService {
     required String badgeNo,
     required String email,
   }) async {
+    _resetApiClient();
     await _apiClient.post(
       ApiConstants.officerForgotPasswordRequest,
       requiresAuth: false,
@@ -83,6 +92,7 @@ class AuthService {
     required String otp,
     required String newPassword,
   }) async {
+    _resetApiClient();
     await _apiClient.post(
       ApiConstants.officerResetPassword,
       requiresAuth: false,
@@ -100,6 +110,7 @@ class AuthService {
     required String username,
     required String email,
   }) async {
+    _resetApiClient();
     await _apiClient.post(
       ApiConstants.headForgotPasswordRequest,
       requiresAuth: false,
@@ -116,6 +127,7 @@ class AuthService {
     required String otp,
     required String newPassword,
   }) async {
+    _resetApiClient();
     await _apiClient.post(
       ApiConstants.headResetPassword,
       requiresAuth: false,
