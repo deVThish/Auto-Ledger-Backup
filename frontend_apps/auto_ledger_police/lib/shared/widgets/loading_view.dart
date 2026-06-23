@@ -34,7 +34,7 @@ class LoadingView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(color: AppTheme.primaryBlack),
+              CircularProgressIndicator(color: AppTheme.primaryBlack),
               const SizedBox(height: 14),
               Text(
                 message,
