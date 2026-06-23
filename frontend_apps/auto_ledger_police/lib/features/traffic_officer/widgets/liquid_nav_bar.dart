@@ -16,11 +16,11 @@ class LiquidNavBar extends StatelessWidget {
     final items = [
       _NavBarItemData(Icons.person_rounded, "Profile"),
       _NavBarItemData(Icons.home_rounded, "Home"),
-      _NavBarItemData(Icons.history_rounded, "History"),
+      _NavBarItemData(Icons.settings_rounded, "Settings"),
     ];
 
     return Container(
-      padding: const EdgeInsets.only(left: 50, right: 50, bottom: 28),
+      padding: const EdgeInsets.only(left: 45, right: 45, bottom: 28),
       color: Colors.transparent,
       child: Container(
         width: double.infinity,
@@ -33,10 +33,11 @@ class LiquidNavBar extends StatelessWidget {
             return Stack(
               clipBehavior: Clip.none,
               children: [
+                // ── Background Liquid Painter ──
                 TweenAnimationBuilder<double>(
                   tween: Tween<double>(end: selectedIndex.toDouble()),
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeInOutCubic,
+                  duration: const Duration(milliseconds: 500), // Slower = Smoother
+                  curve: Curves.fastOutSlowIn, // Soft, natural motion
                   builder: (context, animValue, child) {
                     return CustomPaint(
                       size: Size(barWidth, 72),
@@ -44,10 +45,11 @@ class LiquidNavBar extends StatelessWidget {
                     );
                   },
                 ),
+                // ── Bubble Indicator ──
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeOutBack,
-                  top: -12,
+                  curve: Curves.fastOutSlowIn,
+                  top: -14, // Slightly lower for better visual
                   left: (selectedIndex * itemWidth) + (itemWidth / 2) - 26,
                   child: Container(
                     width: 52,
@@ -65,6 +67,7 @@ class LiquidNavBar extends StatelessWidget {
                     ),
                   ),
                 ),
+                // ── Nav Items ──
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: List.generate(items.length, (index) {
@@ -80,8 +83,8 @@ class LiquidNavBar extends StatelessWidget {
                           alignment: Alignment.center,
                           children: [
                             AnimatedContainer(
-                              duration: const Duration(milliseconds: 400),
-                              curve: Curves.easeOutBack,
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.fastOutSlowIn,
                               transform: Matrix4.translationValues(
                                 0,
                                 isActive ? -24 : 0,
@@ -89,7 +92,7 @@ class LiquidNavBar extends StatelessWidget {
                               ),
                               child: Icon(
                                 items[index].icon,
-                                color: isActive ? Colors.white : const Color.fromARGB(255, 8, 90, 172),
+                                color: isActive ? Colors.white : AppTheme.textGray,
                                 size: 24,
                               ),
                             ),
@@ -139,7 +142,7 @@ class _LiquidNavPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color.fromARGB(255, 255, 253, 253).withOpacity(0.78)
+      ..color = Colors.white.withValues(alpha: 0.85)
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -164,13 +167,13 @@ class _LiquidNavPainter extends CustomPainter {
 
     final finalPath = Path.combine(PathOperation.intersect, path, cutoutPath);
 
-    canvas.drawShadow(finalPath, Colors.black.withOpacity(0.06), 8.0, true);
+    canvas.drawShadow(finalPath, Colors.black.withValues(alpha: 0.06), 8.0, true);
     canvas.drawPath(finalPath, paint);
 
     final borderPaint = Paint()
-      ..color = Colors.grey.shade200
+      ..color = Colors.grey.shade200.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
+      ..strokeWidth = 1.2;
 
     canvas.drawPath(finalPath, borderPaint);
   }
