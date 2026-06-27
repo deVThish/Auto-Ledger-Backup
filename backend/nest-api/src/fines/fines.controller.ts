@@ -33,14 +33,28 @@ export class FinesController {
   @Post()
   issueFine(
     @Request() req: AuthRequest,
-    @Body() body: { licenseId: string; offenseIds: string[]; comment?: string },
+    @Body() body: { scanToken: string; offenseIds: string[]; comment?: string },
   ) {
     return this.finesService.issueFine({
-      licenseId: body.licenseId,
+      scanToken: body.scanToken,
       officerId: req.user.id,
       offenseIds: body.offenseIds,
       comment: body.comment,
     });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('TRAFFIC_OFFICER')
+  @Get('officer-stats')
+  getTrafficOfficerStats(@Request() req: AuthRequest) {
+    return this.finesService.getTrafficOfficerStats(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('TRAFFIC_OFFICER')
+  @Get('officer-fines')
+  async getOfficerFines(@Request() req: AuthRequest) {
+    return this.finesService.getOfficerFines(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
