@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'REVOKED_AND_REMOVED',
-    appId: '1:663237094439:android:acdc387c864d6c0703b202',
+    appId: '1:663237094439:android:5e6899719d6ca9b203b202',
     messagingSenderId: '663237094439',
     projectId: 'auto-ledger-41d16',
     storageBucket: 'auto-ledger-41d16.firebasestorage.app',
@@ -59,11 +59,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'REVOKED_AND_REMOVED',
-    appId: '1:663237094439:ios:675897db564987f003b202',
+    appId: '1:663237094439:ios:add1d5276050008103b202',
     messagingSenderId: '663237094439',
     projectId: 'auto-ledger-41d16',
     storageBucket: 'auto-ledger-41d16.firebasestorage.app',
     iosBundleId: 'com.example.autoLedger',
   );
-
 }
