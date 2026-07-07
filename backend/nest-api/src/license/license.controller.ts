@@ -8,7 +8,10 @@ import {
   UseGuards,
   Param,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { LicenseService } from './license.service';
 import {
   ApiTags,
@@ -34,6 +37,13 @@ import { Type } from 'class-transformer';
 
 export interface AuthRequest {
   user: { id: string };
+}
+
+// Define a simple interface for uploaded file
+interface UploadedFileType {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
 }
 
 export class VehicleCategoryDto {
@@ -227,5 +237,13 @@ export class LicenseController {
   @Get('with-fines')
   async getLicensesWithFines(@Query('nic') nic?: string) {
     return this.licenseService.getLicensesWithFines(nic);
+  }
+
+  @Roles('DMT_ADMIN')
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload license image via backend (No CORS)' })
+  uploadImage(@UploadedFile() file: UploadedFileType) {
+    return this.licenseService.uploadImageToS3(file);
   }
 }

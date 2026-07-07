@@ -41,6 +41,13 @@ export interface UpdateLicenseData {
   categories?: VehicleCategoryData[];
 }
 
+// Define local file type to avoid external dependency
+interface MulterFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+}
+
 @Injectable()
 export class LicenseService {
   private s3Client: S3Client;
@@ -114,6 +121,31 @@ export class LicenseService {
     return {
       uploadUrl,
       fileUrl: publicFileUrl,
+    };
+  }
+
+  async uploadImageToS3(file: MulterFile) {
+    const bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME') ||
+      'auto-ledger-images-handling';
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
+
+    const cleanFileName = file.originalname.replace(/\s+/g, '-');
+    const uniqueFileName = `licenses/${Date.now()}-${cleanFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: uniqueFileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    });
+
+    await this.s3Client.send(command);
+
+    const publicFileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${uniqueFileName}`;
+    return {
+      fileUrl: publicFileUrl,
+      message: 'Image uploaded successfully',
     };
   }
 

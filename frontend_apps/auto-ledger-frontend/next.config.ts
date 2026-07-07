@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "auto-ledger-images.s3.ap-southeast-1.amazonaws.com",
+        hostname: process.env.NEXT_PUBLIC_S3_HOSTNAME || "localhost",
         port: "",
         pathname: "/**",
       },
