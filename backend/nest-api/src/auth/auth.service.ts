@@ -33,7 +33,11 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  private async sendOtpEmail(email: string, otp: string) {
+  private async sendOtpEmail(
+    email: string,
+    otp: string,
+    type: 'registration' | 'reset',
+  ) {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -42,11 +46,52 @@ export class AuthService {
       },
     });
 
+    let subject = '';
+    let text = '';
+    let html = '';
+
+    if (type === 'registration') {
+      subject = '✅ Auto-Ledger: Verify Your Email Address';
+      text = `Welcome to Auto-Ledger!\n\nYour verification OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nPlease enter this OTP in the app to complete your registration.\n\nIf you didn't register, please ignore this email.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #00bcd4; text-align: center;">✅ Auto-Ledger</h2>
+          <h3 style="text-align: center;">Verify Your Email Address</h3>
+          <p style="text-align: center; color: #cccccc;">Welcome to Auto-Ledger! Please verify your email address to complete registration.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #00bcd4; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    } else {
+      subject = '🔑 Auto-Ledger: Password Reset OTP';
+      text = `You requested to reset your Auto-Ledger password.\n\nYour password reset OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf you didn't request a password reset, please ignore this email.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #ff6f00; text-align: center;">🔑 Auto-Ledger</h2>
+          <h3 style="text-align: center;">Password Reset Request</h3>
+          <p style="text-align: center; color: #cccccc;">You requested to reset your Auto-Ledger password.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #ff6f00; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    }
+
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: `"Auto-Ledger" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Auto-Ledger: Password Reset OTP',
-      text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
+      subject: subject,
+      text: text,
+      html: html,
     };
 
     await transporter.sendMail(mailOptions);
@@ -219,14 +264,14 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.divisional_Head.update({
       where: { username: username },
       data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
     });
 
-    await this.sendOtpEmail(email, otp);
+    await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
   }
 
@@ -272,14 +317,14 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.traffic_Officer.update({
       where: { badge_No: badgeNo },
       data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
     });
 
-    await this.sendOtpEmail(email, otp);
+    await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
   }
 
@@ -355,7 +400,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const otp = this.generateOtp();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.user.update({
       where: { nic_No: data.nicNo },
@@ -370,7 +415,7 @@ export class AuthService {
       },
     });
 
-    await this.sendOtpEmail(data.email, otp);
+    await this.sendOtpEmail(data.email, otp, 'registration');
 
     return {
       message: 'OTP sent to your email. Please verify.',
@@ -497,14 +542,14 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.user.update({
       where: { nic_No: nicNo },
       data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
     });
 
-    await this.sendOtpEmail(email, otp);
+    await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
   }
 
@@ -540,6 +585,91 @@ export class AuthService {
 
     return {
       message: 'Password has been reset successfully. You can now login.',
+    };
+  }
+
+  async resendRegistrationOtp(nicNo: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found.');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email already verified.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(user.email, otp, 'registration');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+
+  async resendResetOtp(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+
+  async resendDeviceOtp(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
     };
   }
 }
