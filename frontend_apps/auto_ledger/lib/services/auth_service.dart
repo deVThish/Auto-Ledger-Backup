@@ -3,20 +3,23 @@ import 'api_service.dart';
 import '../utils/secure_storage.dart';
 
 class AuthService {
+  // Register user - OTP sent to email by backend
   static Future<bool> registerUser(Map<String, dynamic> data) async {
     try {
-      final response = await ApiService.dio.post('/auth/user/register', data: data);
+      final response =
+          await ApiService.dio.post('/auth/user/register', data: data);
       return response.statusCode == 201 || response.statusCode == 200;
     } on DioException {
       rethrow;
     }
   }
 
-  static Future<bool> verifyRegistration(String nicNo) async {
+  // Verify registration with OTP received in email
+  static Future<bool> verifyRegistration(String nicNo, String otp) async {
     try {
       final response = await ApiService.dio.post(
         '/auth/user/verify-registration',
-        data: {'nicNo': nicNo},
+        data: {'nicNo': nicNo, 'otp': otp},
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         final token = response.data['accessToken'];
@@ -29,7 +32,9 @@ class AuthService {
     }
   }
 
-  static Future<Map<String, dynamic>> loginUser(String nicNo, String password, String deviceId) async {
+  // Login user - returns DEVICE_MISMATCH if new device detected
+  static Future<Map<String, dynamic>> loginUser(
+      String nicNo, String password, String deviceId) async {
     try {
       final response = await ApiService.dio.post(
         '/auth/user/login',
@@ -46,44 +51,27 @@ class AuthService {
       }
       return {'success': false};
     } on DioException catch (e) {
-      if (e.response?.statusCode == 403 && e.response?.data['code'] == 'DEVICE_MISMATCH') {
+      // Backend returns DEVICE_MISMATCH with email for OTP verification
+      if (e.response?.statusCode == 403 &&
+          e.response?.data['code'] == 'DEVICE_MISMATCH') {
         return {
           'success': false,
           'isDeviceMismatch': true,
-          'phone': e.response?.data['phone']
+          'email': e.response?.data['email'] ?? '',
         };
       }
       rethrow;
     }
   }
 
-  static Future<bool> verifyNewDevice(String nicNo, String deviceId) async {
-    try {
-      final response = await ApiService.dio.post(
-        '/auth/user/verify-device',
-        data: {
-          'nicNo': nicNo,
-          'deviceId': deviceId,
-        },
-      );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final token = response.data['accessToken'];
-        await SecureStorage.saveToken(token);
-        return true;
-      }
-      return false;
-    } on DioException {
-      rethrow;
-    }
-  }
-
-  static Future<bool> forgotPasswordCheck(String nicNo, String phone) async {
+  // Forgot password - Send OTP to email
+  static Future<bool> forgotPasswordCheck(String nicNo, String email) async {
     try {
       final response = await ApiService.dio.post(
         '/auth/user/forgot-password-check',
         data: {
           'nicNo': nicNo,
-          'mobilePhoneNo': phone,
+          'email': email,
         },
       );
       return response.statusCode == 200 || response.statusCode == 201;
@@ -92,13 +80,16 @@ class AuthService {
     }
   }
 
-  static Future<bool> resetPassword(String nicNo, String phone, String newPassword) async {
+  // Reset password with OTP
+  static Future<bool> resetPassword(
+      String nicNo, String email, String otp, String newPassword) async {
     try {
       final response = await ApiService.dio.post(
         '/auth/user/reset-password',
         data: {
           'nicNo': nicNo,
-          'mobilePhoneNo': phone,
+          'email': email,
+          'otp': otp,
           'newPassword': newPassword,
         },
       );
@@ -108,7 +99,9 @@ class AuthService {
     }
   }
 
-  static Future<Map<String, dynamic>> biometricLogin(String nicNo, String deviceId) async {
+  // Biometric login - returns DEVICE_MISMATCH if new device detected
+  static Future<Map<String, dynamic>> biometricLogin(
+      String nicNo, String deviceId) async {
     try {
       final response = await ApiService.dio.post(
         '/auth/user/biometric-login',
@@ -123,8 +116,48 @@ class AuthService {
         return {'success': true};
       }
       return {'success': false};
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 403 &&
+          e.response?.data['code'] == 'DEVICE_MISMATCH') {
+        return {
+          'success': false,
+          'isDeviceMismatch': true,
+          'email': e.response?.data['email'] ?? '',
+        };
+      }
+      rethrow;
+    }
+  }
+
+  // Verify new device with OTP - updates device ID and returns new token
+  static Future<Map<String, dynamic>> verifyNewDevice(
+      String nicNo, String deviceId, String otp) async {
+    try {
+      // Backend expects OTP verification before device update
+      // First verify OTP, then update device
+      final response = await ApiService.dio.post(
+        '/auth/user/verify-device',
+        data: {
+          'nicNo': nicNo,
+          'deviceId': deviceId,
+          'otp': otp, // OTP sent to email for device verification
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final token = response.data['accessToken'];
+        await SecureStorage.saveToken(token);
+        await SecureStorage.saveNic(nicNo);
+        return {'success': true};
+      }
+      return {'success': false};
     } on DioException {
       rethrow;
     }
+  }
+
+  // Logout - clear local storage
+  static Future<void> logout() async {
+    await SecureStorage.deleteToken();
+    // Keep NIC for biometric if enabled
   }
 }

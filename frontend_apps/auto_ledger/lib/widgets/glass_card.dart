@@ -7,11 +7,11 @@ class GlassCard extends StatelessWidget {
   final Color backgroundColor;
 
   const GlassCard({
-    Key? key,
+    super.key,
     required this.child,
     this.borderColor = Colors.white30,
     this.backgroundColor = const Color(0x26FFFFFF),
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +28,7 @@ class GlassCard extends StatelessWidget {
             border: Border.all(color: borderColor, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withAlpha(25), // 0.1 opacity = 25 alpha
                 blurRadius: 20,
                 spreadRadius: -5,
               )

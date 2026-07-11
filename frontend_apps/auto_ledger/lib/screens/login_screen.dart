@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
 import '../utils/device_info.dart';
@@ -23,7 +22,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final _otpController = TextEditingController();
 
   final _forgotNicController = TextEditingController();
-  final _forgotPhoneController = TextEditingController();
+  final _forgotEmailController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmNewPasswordController = TextEditingController();
 
@@ -35,10 +34,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool _obscurePassword = true;
   bool _obscureResetPassword = true;
   bool _obscureConfirmResetPassword = true;
-
-  String _verificationId = '';
-  String? _registeredPhone;
-  bool _isDeviceVerification = false;
 
   OverlayEntry? _overlayEntry;
 
@@ -58,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     _passwordController.dispose();
     _otpController.dispose();
     _forgotNicController.dispose();
-    _forgotPhoneController.dispose();
+    _forgotEmailController.dispose();
     _newPasswordController.dispose();
     _confirmNewPasswordController.dispose();
     super.dispose();
@@ -121,23 +116,34 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   decoration: BoxDecoration(
-                    color: isError ? Colors.redAccent.withAlpha(100) : Colors.black.withAlpha(80),
+                    color: isError
+                        ? Colors.redAccent.withAlpha(100)
+                        : Colors.black.withAlpha(80),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: Colors.white.withAlpha(70),
                       width: 1.0,
                     ),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 10, spreadRadius: 1)
+                      BoxShadow(
+                          color: Colors.black.withAlpha(20),
+                          blurRadius: 10,
+                          spreadRadius: 1)
                     ],
                   ),
                   child: Row(
                     children: [
-                      Icon(isError ? Icons.error_outline : Icons.info_outline, color: Colors.white),
+                      Icon(isError ? Icons.error_outline : Icons.info_outline,
+                          color: Colors.white),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                      Expanded(
+                          child: Text(message,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold))),
                     ],
                   ),
                 ),
@@ -185,7 +191,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                   decoration: BoxDecoration(
                     color: Colors.green.shade600.withAlpha(40),
                     borderRadius: BorderRadius.circular(20),
@@ -194,17 +201,24 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       width: 1.0,
                     ),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 20, offset: const Offset(0, 10))
+                      BoxShadow(
+                          color: Colors.black.withAlpha(20),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10))
                     ],
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 28),
+                      const Icon(Icons.check_circle_outline_rounded,
+                          color: Colors.white, size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           message,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15),
                         ),
                       ),
                     ],
@@ -226,6 +240,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     });
   }
 
+  // ---------- BIOMETRIC LOGIN ----------
   Future<void> _handleBiometricLogin() async {
     if (!mounted) return;
 
@@ -240,11 +255,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       return;
     }
 
-    String? savedNic = await SecureStorage.getNic();
-    String nic = savedNic ?? _nicController.text.trim();
+    final String? savedNic = await SecureStorage.getNic();
+    final String nic = savedNic ?? _nicController.text.trim();
 
     if (nic.isEmpty) {
-      _showToast('Please enter your NIC first to save for biometric login.', isError: true);
+      _showToast('Please enter your NIC first to save for biometric login.',
+          isError: true);
       return;
     }
 
@@ -258,11 +274,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     try {
       final deviceId = await DeviceInfoUtil.getDeviceId();
       final result = await AuthService.biometricLogin(nic, deviceId);
+
       if (!mounted) return;
 
       if (result['success'] == true) {
         await SecureStorage.saveNic(nic);
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -270,16 +288,27 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         if (overlay != null) {
           _showGlassySuccessToast(overlay, 'Biometric Login Successful!');
         }
+      } else if (result['isDeviceMismatch'] == true) {
+        final String email = result['email'] ?? '';
+        if (email.isNotEmpty) {
+          if (!mounted) return;
+          _showDeviceVerificationDialog(email, nic);
+        } else {
+          _showToast('Device verification required. Check your email.',
+              isError: true);
+        }
       } else {
         _showToast('Biometric login failed. Check NIC.', isError: true);
       }
     } catch (e) {
-      if (mounted) _showToast('An error occurred during biometric login.', isError: true);
+      if (mounted)
+        _showToast('An error occurred during biometric login.', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // ---------- NORMAL LOGIN ----------
   Future<void> _handleLogin() async {
     if (!mounted) return;
 
@@ -308,6 +337,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       if (result['success'] == true) {
         await SecureStorage.saveNic(_nicController.text.trim());
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -316,103 +346,181 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           _showGlassySuccessToast(overlay, 'Login Successful!');
         }
       } else if (result['isDeviceMismatch'] == true) {
-        _showToast('New device detected. Verification required.', isError: true);
-        _registeredPhone = result['phone'];
-        await _sendOTP(_registeredPhone!, isDeviceVerification: true);
+        final String email = result['email'] ?? '';
+        final String nic = _nicController.text.trim();
+        if (email.isNotEmpty) {
+          if (!mounted) return;
+          _showDeviceVerificationDialog(email, nic);
+        } else {
+          _showToast('Device verification required. Check your email.',
+              isError: true);
+        }
+        setState(() => _isLoading = false);
       } else {
         _showToast('Login Failed. Check credentials.', isError: true);
         setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
-        _showToast('Login Failed. Check credentials or connection.', isError: true);
+        _showToast('Login Failed. Check credentials or connection.',
+            isError: true);
         setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _sendOTP(String phone, {required bool isDeviceVerification}) async {
-    if (!mounted) return;
+  // ---------- DEVICE VERIFICATION DIALOG ----------
+  void _showDeviceVerificationDialog(String email, String nic) {
+    _otpController.clear();
 
-    _isDeviceVerification = isDeviceVerification;
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: phone,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        if (isDeviceVerification) {
-          await _verifyNewDeviceBackend();
-        }
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (mounted) {
-          _showToast(e.message ?? 'Verification Failed', isError: true);
-          setState(() => _isLoading = false);
-        }
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        if (mounted) {
-          setState(() {
-            _verificationId = verificationId;
-            _isLoading = false;
-          });
-          _showOTPDialog(phoneNumber: phone);
-        }
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+    // Close any existing dialogs first
+    Navigator.of(context, rootNavigator: true)
+        .popUntil((route) => route.isFirst);
+
+    // Show OTP dialog after a short delay
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black.withAlpha(200),
+        builder: (BuildContext dialogContext) {
+          return BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(25),
+                  borderRadius: BorderRadius.circular(24),
+                  border:
+                      Border.all(color: Colors.white.withAlpha(50), width: 1.5),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.phonelink_lock,
+                        color: Colors.white, size: 40),
+                    const SizedBox(height: 15),
+                    const Text(
+                      'Device Verification',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 15),
+                    Text(
+                      'A new device is detected. Enter the OTP sent to your email:',
+                      textAlign: TextAlign.center,
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      email,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _otpController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 20, letterSpacing: 8),
+                      textAlign: TextAlign.center,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withAlpha(20),
+                        hintText: '••••••',
+                        hintStyle: const TextStyle(
+                            color: Colors.white54, letterSpacing: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                    color: Colors.white.withAlpha(100),
+                                    width: 1.5),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(dialogContext);
+                              setState(() => _isLoading = false);
+                            },
+                            child: const Text('Cancel',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white.withAlpha(50),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                    color: Colors.white.withAlpha(150),
+                                    width: 1.5),
+                              ),
+                            ),
+                            onPressed: () => _verifyDeviceOTP(nic),
+                            child: const Text('Verify Device',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    });
   }
 
-  Future<void> _verifyOTP() async {
-    if (!mounted) return;
+  Future<void> _verifyDeviceOTP(String nic) async {
+    final String otp = _otpController.text.trim();
 
-    FocusScope.of(context).unfocus();
-
-    if (_otpController.text.trim().isEmpty) {
+    if (otp.isEmpty) {
       _showToast('Please enter the OTP', isError: true);
       return;
     }
 
     setState(() => _isLoading = true);
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId,
-        smsCode: _otpController.text.trim(),
-      );
-      await FirebaseAuth.instance.signInWithCredential(credential);
-      if (!mounted) return;
-
-      Navigator.pop(context);
-
-      if (_isDeviceVerification) {
-        await _verifyNewDeviceBackend();
-      } else {
-        setState(() => _isLoading = false);
-        _showResetPasswordDialog();
-      }
-    } catch (e) {
-      if (mounted) {
-        _showToast('Invalid OTP', isError: true);
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _verifyNewDeviceBackend() async {
-    if (!mounted) return;
 
     try {
       final deviceId = await DeviceInfoUtil.getDeviceId();
-      final isVerified = await AuthService.verifyNewDevice(
-          _nicController.text.trim(),
-          deviceId
-      );
+      final result = await AuthService.verifyNewDevice(nic, deviceId, otp);
+
       if (!mounted) return;
 
-      if (isVerified) {
-        await SecureStorage.saveNic(_nicController.text.trim());
+      if (result['success'] == true) {
+        // Close OTP dialog
+        Navigator.of(context, rootNavigator: true).pop();
+
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -420,66 +528,193 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         if (overlay != null) {
           _showGlassySuccessToast(overlay, 'Device verified successfully!');
         }
+      } else {
+        _showToast('Invalid OTP. Please try again.', isError: true);
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
-        _showToast('Backend Verification Failed', isError: true);
+        _showToast('Device verification failed. Please try again.',
+            isError: true);
         setState(() => _isLoading = false);
       }
     }
   }
 
+  // ---------- FORGOT PASSWORD ----------
   Future<void> _handleForgotPasswordCheck() async {
     if (!mounted) return;
 
     FocusScope.of(context).unfocus();
 
     final nic = _forgotNicController.text.trim();
-    final phoneDigits = _forgotPhoneController.text.trim();
+    final email = _forgotEmailController.text.trim();
 
     if (nic.isEmpty) {
       _showToast('NIC Number is required', isError: true);
       return;
     }
-    if (phoneDigits.isEmpty || phoneDigits.length != 9) {
-      _showToast('Please enter exactly 9 digits for the phone number.', isError: true);
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      _showToast('Please enter a valid email address.', isError: true);
       return;
     }
-    final phone = '+94$phoneDigits';
 
     setState(() => _isLoading = true);
     try {
-      final isValid = await AuthService.forgotPasswordCheck(nic, phone);
+      final isValid = await AuthService.forgotPasswordCheck(nic, email);
       if (!mounted) return;
 
       if (isValid) {
-        Navigator.pop(context);
-        _isDeviceVerification = false;
-        await _sendOTP(phone, isDeviceVerification: false);
+        // Close forgot password dialog
+        if (mounted) Navigator.pop(context);
+        // Show OTP dialog for password reset
+        _showForgotPasswordOTPDialog(email, nic);
+        setState(() => _isLoading = false);
+      } else {
+        _showToast('Verification failed. Check NIC and Email.', isError: true);
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
-        _showToast('Verification failed. Check NIC and Phone.', isError: true);
+        _showToast('Verification failed. Check NIC and Email.', isError: true);
         setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _handlePasswordReset() async {
+  void _showForgotPasswordOTPDialog(String email, String nic) {
+    _otpController.clear();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withAlpha(200),
+      builder: (BuildContext dialogContext) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(25),
+                borderRadius: BorderRadius.circular(24),
+                border:
+                    Border.all(color: Colors.white.withAlpha(50), width: 1.5),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.message, color: Colors.white, size: 40),
+                  const SizedBox(height: 15),
+                  const Text('Enter OTP',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 15),
+                  Text(
+                    'Enter the OTP sent to your email: $email',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _otpController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 20, letterSpacing: 8),
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white.withAlpha(20),
+                      hintText: '••••••',
+                      hintStyle: const TextStyle(
+                          color: Colors.white54, letterSpacing: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                  color: Colors.white.withAlpha(100),
+                                  width: 1.5),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            setState(() => _isLoading = false);
+                          },
+                          child: const Text('Cancel',
+                              style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withAlpha(50),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                  color: Colors.white.withAlpha(150),
+                                  width: 1.5),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _showResetPasswordDialog(nic, email);
+                          },
+                          child: const Text('Verify',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handlePasswordReset(String nic, String email) async {
     if (!mounted) return;
 
     FocusScope.of(context).unfocus();
 
     final newPassword = _newPasswordController.text.trim();
     final confirmPassword = _confirmNewPasswordController.text.trim();
+    final otp = _otpController.text.trim();
 
+    if (otp.isEmpty) {
+      _showToast('OTP is required', isError: true);
+      return;
+    }
     if (newPassword.isEmpty) {
       _showToast('New Password is required', isError: true);
       return;
     }
-    final passwordRegex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+    final passwordRegex = RegExp(
+        r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
     if (!passwordRegex.hasMatch(newPassword)) {
-      _showToast('Password must be at least 8 characters, contain uppercase, lowercase, number, and special character.', isError: true);
+      _showToast(
+          'Password must be at least 8 characters, contain uppercase, lowercase, number, and special character.',
+          isError: true);
       return;
     }
     if (confirmPassword.isEmpty) {
@@ -487,32 +722,39 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       return;
     }
     if (newPassword != confirmPassword) {
-      _showToast('New password and confirm password do not match.', isError: true);
+      _showToast('New password and confirm password do not match.',
+          isError: true);
       return;
     }
 
     setState(() => _isLoading = true);
     try {
       final success = await AuthService.resetPassword(
-        _forgotNicController.text.trim(),
-        '+94${_forgotPhoneController.text.trim()}',
+        nic,
+        email,
+        otp,
         newPassword,
       );
 
       if (!mounted) return;
 
       if (success) {
-        Navigator.pop(context);
+        // Close reset password dialog
+        if (mounted) Navigator.pop(context);
 
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
         if (overlay != null) {
-          _showGlassySuccessToast(overlay, 'Password reset successfully! Please login.');
+          _showGlassySuccessToast(
+              overlay, 'Password reset successfully! Please login.');
         }
 
         _forgotNicController.clear();
-        _forgotPhoneController.clear();
+        _forgotEmailController.clear();
         _newPasswordController.clear();
         _confirmNewPasswordController.clear();
+        setState(() => _isLoading = false);
+      } else {
+        _showToast('Invalid OTP. Please try again.', isError: true);
         setState(() => _isLoading = false);
       }
     } catch (e) {
@@ -524,7 +766,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _showForgotPasswordInitialDialog() {
-    _forgotPhoneController.clear();
+    _forgotEmailController.clear();
     showDialog(
       context: context,
       barrierColor: Colors.black.withAlpha(200),
@@ -539,16 +781,23 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               decoration: BoxDecoration(
                 color: Colors.white.withAlpha(25),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withAlpha(50), width: 1.5),
+                border:
+                    Border.all(color: Colors.white.withAlpha(50), width: 1.5),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.lock_reset, color: Colors.white, size: 40),
                   const SizedBox(height: 16),
-                  const Text('Reset Password', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  const Text('Reset Password',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  const Text('Enter your details to receive an OTP', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const Text('Enter your details to receive an OTP via email',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 14)),
                   const SizedBox(height: 24),
                   TextField(
                     controller: _forgotNicController,
@@ -558,144 +807,34 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       labelStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: Colors.white.withAlpha(20),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.cyanAccent),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withAlpha(20),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
-                          border: Border.all(color: Colors.white.withAlpha(40)),
-                        ),
-                        child: const Text('+94', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _forgotPhoneController,
-                          keyboardType: TextInputType.phone,
-                          maxLength: 9,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Phone Number (9 digits)',
-                            labelStyle: const TextStyle(color: Colors.white54),
-                            counterText: '',
-                            filled: true,
-                            fillColor: Colors.white.withAlpha(20),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide.none,
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: const BorderSide(color: Colors.cyanAccent),
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(100), width: 1.5),
-                            ),
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withAlpha(50),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(150), width: 1.5),
-                            ),
-                          ),
-                          onPressed: _handleForgotPasswordCheck,
-                          child: const Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showOTPDialog({required String phoneNumber}) {
-    _otpController.clear();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withAlpha(200),
-      builder: (BuildContext context) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(25),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withAlpha(50), width: 1.5),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(_isDeviceVerification ? Icons.phonelink_lock : Icons.message, color: Colors.white, size: 40),
-                  const SizedBox(height: 15),
-                  Text(_isDeviceVerification ? 'Device Verification' : 'Enter OTP',
-                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 15),
-                  Text(
-                    _isDeviceVerification
-                        ? 'A new device was detected. Enter the OTP sent to $phoneNumber.'
-                        : 'Enter the OTP sent to $phoneNumber to reset your password.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 20),
                   TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 8),
-                    textAlign: TextAlign.center,
+                    controller: _forgotEmailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
+                      labelText: 'Email Address',
+                      labelStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: Colors.white.withAlpha(20),
-                      hintText: '••••••',
-                      hintStyle: const TextStyle(color: Colors.white54, letterSpacing: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.cyanAccent),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -706,14 +845,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           style: TextButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(100), width: 1.5),
+                              side: BorderSide(
+                                  color: Colors.white.withAlpha(100),
+                                  width: 1.5),
                             ),
                           ),
-                          onPressed: () {
-                            Navigator.pop(context);
-                            setState(() => _isLoading = false);
-                          },
-                          child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel',
+                              style: TextStyle(color: Colors.white)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -725,11 +864,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(150), width: 1.5),
+                              side: BorderSide(
+                                  color: Colors.white.withAlpha(150),
+                                  width: 1.5),
                             ),
                           ),
-                          onPressed: _verifyOTP,
-                          child: const Text('Verify', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: _handleForgotPasswordCheck,
+                          child: const Text('Next',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -743,9 +885,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _showResetPasswordDialog() {
+  void _showResetPasswordDialog(String nic, String email) {
     _newPasswordController.clear();
     _confirmNewPasswordController.clear();
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -763,14 +906,19 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(25),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withAlpha(50), width: 1.5),
+                    border: Border.all(
+                        color: Colors.white.withAlpha(50), width: 1.5),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.password, color: Colors.white, size: 40),
                       const SizedBox(height: 16),
-                      const Text('New Password', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                      const Text('New Password',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold)),
                       const SizedBox(height: 24),
                       TextField(
                         controller: _newPasswordController,
@@ -781,11 +929,20 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           labelStyle: const TextStyle(color: Colors.white54),
                           filled: true,
                           fillColor: Colors.white.withAlpha(20),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Colors.cyanAccent),
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureResetPassword ? Icons.visibility_off : Icons.visibility,
+                              _obscureResetPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                               color: Colors.white70,
                             ),
                             onPressed: () {
@@ -806,16 +963,26 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           labelStyle: const TextStyle(color: Colors.white54),
                           filled: true,
                           fillColor: Colors.white.withAlpha(20),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Colors.cyanAccent),
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureConfirmResetPassword ? Icons.visibility_off : Icons.visibility,
+                              _obscureConfirmResetPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                               color: Colors.white70,
                             ),
                             onPressed: () {
                               setModalState(() {
-                                _obscureConfirmResetPassword = !_obscureConfirmResetPassword;
+                                _obscureConfirmResetPassword =
+                                    !_obscureConfirmResetPassword;
                               });
                             },
                           ),
@@ -832,11 +999,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(150), width: 1.5),
+                              side: BorderSide(
+                                  color: Colors.white.withAlpha(150),
+                                  width: 1.5),
                             ),
                           ),
-                          onPressed: _handlePasswordReset,
-                          child: const Text('Save Password', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () => _handlePasswordReset(nic, email),
+                          child: const Text('Save Password',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -866,7 +1036,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.directions_car, size: 60, color: Colors.white),
+                    const Icon(Icons.directions_car,
+                        size: 60, color: Colors.white),
                     const SizedBox(height: 16),
                     const Text(
                       'Auto-Ledger',
@@ -880,19 +1051,23 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     const SizedBox(height: 40),
                     TextField(
                       controller: _nicController,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w500),
                       decoration: InputDecoration(
                         labelText: 'NIC Number',
                         labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: const Icon(Icons.badge, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.badge, color: Colors.white70),
                         filled: true,
                         fillColor: Colors.white.withAlpha(20),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white.withAlpha(40)),
+                          borderSide:
+                              BorderSide(color: Colors.white.withAlpha(40)),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: Colors.cyanAccent, width: 1.5),
+                          borderSide: const BorderSide(
+                              color: Colors.cyanAccent, width: 1.5),
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -901,16 +1076,20 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w500),
                       decoration: InputDecoration(
                         labelText: 'Password',
                         labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.lock, color: Colors.white70),
                         filled: true,
                         fillColor: Colors.white.withAlpha(20),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                             color: Colors.white70,
                           ),
                           onPressed: () {
@@ -920,11 +1099,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           },
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white.withAlpha(40)),
+                          borderSide:
+                              BorderSide(color: Colors.white.withAlpha(40)),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: Colors.cyanAccent, width: 1.5),
+                          borderSide: const BorderSide(
+                              color: Colors.cyanAccent, width: 1.5),
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -935,7 +1116,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         onPressed: _showForgotPasswordInitialDialog,
                         child: const Text(
                           'Forgot Password?',
-                          style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: Colors.cyanAccent,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -958,14 +1141,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           onPressed: _handleLogin,
                           child: const Text(
                             'LOGIN',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.5),
                           ),
                         ),
                       ),
                     const SizedBox(height: 24),
                     if (_isBiometricEnabled && _isBiometricAvailable) ...[
                       IconButton(
-                        icon: const Icon(Icons.fingerprint, color: Colors.white, size: 45),
+                        icon: const Icon(Icons.fingerprint,
+                            color: Colors.white, size: 45),
                         onPressed: _isLoading ? null : _handleBiometricLogin,
                       ),
                       const SizedBox(height: 16),
@@ -974,7 +1161,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                          MaterialPageRoute(
+                              builder: (_) => const RegisterScreen()),
                         );
                       },
                       child: RichText(
@@ -984,7 +1172,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           children: [
                             TextSpan(
                               text: 'Register Here',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  fontSize: 13),
                             ),
                           ],
                         ),
@@ -1012,7 +1203,11 @@ class _LoginBackground extends StatelessWidget {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+                colors: [
+                  Color(0xFF0F2027),
+                  Color(0xFF203A43),
+                  Color(0xFF2C5364)
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),

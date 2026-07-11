@@ -82,23 +82,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   decoration: BoxDecoration(
-                    color: isError ? Colors.redAccent.withAlpha(50) : Colors.green.shade600.withAlpha(50),
+                    color: isError
+                        ? Colors.redAccent.withAlpha(50)
+                        : Colors.green.shade600.withAlpha(50),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withAlpha(100), width: 1.0),
+                    border: Border.all(
+                        color: Colors.white.withAlpha(100), width: 1.0),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 20, offset: const Offset(0, 5))
+                      BoxShadow(
+                          color: Colors.black.withAlpha(20),
+                          blurRadius: 20,
+                          offset: const Offset(0, 5))
                     ],
                   ),
                   child: Row(
                     children: [
-                      Icon(isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, color: Colors.white, size: 28),
+                      Icon(
+                          isError
+                              ? Icons.error_outline_rounded
+                              : Icons.check_circle_outline_rounded,
+                          color: Colors.white,
+                          size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           message,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14),
                         ),
                       ),
                     ],
@@ -151,7 +166,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } on DioException catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.response?.data['message'] ?? 'Failed to load profile.';
+          _errorMessage =
+              e.response?.data['message'] ?? 'Failed to load profile.';
           _isLoading = false;
         });
       }
@@ -165,7 +181,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _changePassword(BuildContext dialogContext, StateSetter setModalState) async {
+  Future<void> _changePassword(
+      BuildContext dialogContext, StateSetter setModalState) async {
     final oldPw = _oldPwController.text.trim();
     final newPw = _newPwController.text.trim();
     final confirmPw = _confirmPwController.text.trim();
@@ -178,13 +195,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _showGlassToast('Please enter a new password.', isError: true);
       return;
     }
-    final passwordRegex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+    final passwordRegex = RegExp(
+        r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
     if (!passwordRegex.hasMatch(newPw)) {
-      _showGlassToast('Password must be at least 8 characters, contain uppercase, lowercase, number, and special character.', isError: true);
+      _showGlassToast(
+          'Password must be at least 8 characters, contain uppercase, lowercase, number, and special character.',
+          isError: true);
       return;
     }
     if (newPw == oldPw) {
-      _showGlassToast('New password cannot be the same as your current password.', isError: true);
+      _showGlassToast(
+          'New password cannot be the same as your current password.',
+          isError: true);
       return;
     }
     if (confirmPw.isEmpty) {
@@ -192,7 +214,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
     if (newPw != confirmPw) {
-      _showGlassToast('New password and confirm password do not match.', isError: true);
+      _showGlassToast('New password and confirm password do not match.',
+          isError: true);
       return;
     }
 
@@ -222,21 +245,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _confirmPwController.clear();
 
         _showGlassToast('Password updated successfully!');
-        widget.onLogActivity('Password Changed Successfully', Icons.password_rounded);
+        widget.onLogActivity(
+            'Password Changed Successfully', Icons.password_rounded);
       }
     } on DioException catch (e) {
       if (mounted) {
         setModalState(() {
           _isChangingPassword = false;
         });
-        _showGlassToast(e.response?.data['message'] ?? 'Failed to change password. Check your current password.', isError: true);
+        _showGlassToast(
+            e.response?.data['message'] ??
+                'Failed to change password. Check your current password.',
+            isError: true);
       }
     } catch (e) {
       if (mounted) {
         setModalState(() {
           _isChangingPassword = false;
         });
-        _showGlassToast('An unexpected error occurred. Try again.', isError: true);
+        _showGlassToast('An unexpected error occurred. Try again.',
+            isError: true);
       }
     }
   }
@@ -244,7 +272,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showBiometricPasswordDialog() {
     final TextEditingController pwController = TextEditingController();
     bool isObscured = true;
-    bool _isVerifying = false;
+    bool isVerifying = false;
 
     showDialog(
       context: context,
@@ -262,16 +290,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.white.withAlpha(50), Colors.white.withAlpha(20)],
+                        colors: [
+                          Colors.white.withAlpha(50),
+                          Colors.white.withAlpha(20)
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.white.withAlpha(80), width: 1.0),
+                      border: Border.all(
+                          color: Colors.white.withAlpha(80), width: 1.0),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 40, offset: const Offset(0, 10))
-                      ]
-                  ),
+                        BoxShadow(
+                            color: Colors.black.withAlpha(30),
+                            blurRadius: 40,
+                            offset: const Offset(0, 10))
+                      ]),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -281,34 +315,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: Colors.white.withAlpha(30),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.fingerprint_rounded, color: Colors.white, size: 50),
+                        child: const Icon(Icons.fingerprint_rounded,
+                            color: Colors.white, size: 50),
                       ),
                       const SizedBox(height: 16),
-                      const Text('Security Verification', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                      const Text('Security Verification',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900)),
                       const SizedBox(height: 10),
                       const Text(
                         'Please enter your current password to enable Biometric Authentication.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 20),
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withAlpha(20),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white.withAlpha(50), width: 1.0),
+                          border: Border.all(
+                              color: Colors.white.withAlpha(50), width: 1.0),
                         ),
                         child: TextField(
                           controller: pwController,
                           obscureText: isObscured,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
                           decoration: InputDecoration(
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 16),
                             hintText: 'Current Password',
-                            hintStyle: const TextStyle(color: Colors.white38, fontWeight: FontWeight.w500),
+                            hintStyle: const TextStyle(
+                                color: Colors.white38,
+                                fontWeight: FontWeight.w500),
                             suffixIcon: IconButton(
-                              icon: Icon(isObscured ? Icons.visibility_off : Icons.visibility, color: Colors.white70),
+                              icon: Icon(
+                                  isObscured
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white70),
                               onPressed: () {
                                 setModalState(() {
                                   isObscured = !isObscured;
@@ -324,85 +375,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: TextButton(
                               style: TextButton.styleFrom(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
                               ),
                               onPressed: () {
                                 Navigator.pop(context);
                                 setState(() => _isBiometricEnabled = false);
                               },
-                              child: const Text('Cancel', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                              child: const Text('Cancel',
+                                  style: TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.bold)),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                                 backgroundColor: Colors.white.withAlpha(40),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
-                                    side: BorderSide(color: Colors.white.withAlpha(80), width: 1)
-                                ),
+                                    side: BorderSide(
+                                        color: Colors.white.withAlpha(80),
+                                        width: 1)),
                               ),
-                              onPressed: _isVerifying
+                              onPressed: isVerifying
                                   ? null
                                   : () async {
-                                final enteredPassword = pwController.text.trim();
-                                if (enteredPassword.isEmpty) {
-                                  _showGlassToast('Password is required!', isError: true);
-                                  return;
-                                }
+                                      final enteredPassword =
+                                          pwController.text.trim();
+                                      if (enteredPassword.isEmpty) {
+                                        _showGlassToast('Password is required!',
+                                            isError: true);
+                                        return;
+                                      }
 
-                                setModalState(() => _isVerifying = true);
+                                      setModalState(() => isVerifying = true);
 
-                                try {
-                                  final tempPassword = enteredPassword + '_verify_temp';
+                                      try {
+                                        final tempPassword =
+                                            enteredPassword + '_verify_temp';
 
-                                  await ApiService.dio.patch('/auth/user/change-password', data: {
-                                    'oldPassword': enteredPassword,
-                                    'newPassword': tempPassword,
-                                  });
+                                        await ApiService.dio.patch(
+                                            '/auth/user/change-password',
+                                            data: {
+                                              'oldPassword': enteredPassword,
+                                              'newPassword': tempPassword,
+                                            });
 
-                                  await ApiService.dio.patch('/auth/user/change-password', data: {
-                                    'oldPassword': tempPassword,
-                                    'newPassword': enteredPassword,
-                                  });
+                                        await ApiService.dio.patch(
+                                            '/auth/user/change-password',
+                                            data: {
+                                              'oldPassword': tempPassword,
+                                              'newPassword': enteredPassword,
+                                            });
 
-                                  if (mounted) {
-                                    Navigator.pop(context);
-                                    SettingsUtil.setBiometricEnabled(true);
-                                    setState(() => _isBiometricEnabled = true);
-                                    SecureStorage.saveNic(_nic);
-                                    _showGlassToast('Biometrics Enabled Successfully!');
-                                    widget.onLogActivity('Enabled Biometric Login', Icons.fingerprint_rounded);
-                                  }
-                                } on DioException catch (e) {
-                                  setModalState(() => _isVerifying = false);
-                                  final errorMsg = e.response?.data['message'] ?? 'Invalid password. Please try again.';
-                                  _showGlassToast(errorMsg, isError: true);
-                                } catch (e) {
-                                  setModalState(() => _isVerifying = false);
-                                  _showGlassToast('An error occurred. Please try again.', isError: true);
-                                }
-                              },
-                              child: _isVerifying
+                                        if (mounted) {
+                                          Navigator.pop(context);
+                                          SettingsUtil.setBiometricEnabled(
+                                              true);
+                                          setState(
+                                              () => _isBiometricEnabled = true);
+                                          SecureStorage.saveNic(_nic);
+                                          _showGlassToast(
+                                              'Biometrics Enabled Successfully!');
+                                          widget.onLogActivity(
+                                              'Enabled Biometric Login',
+                                              Icons.fingerprint_rounded);
+                                        }
+                                      } on DioException catch (e) {
+                                        setModalState(
+                                            () => isVerifying = false);
+                                        final errorMsg = e
+                                                .response?.data['message'] ??
+                                            'Invalid password. Please try again.';
+                                        _showGlassToast(errorMsg,
+                                            isError: true);
+                                      } catch (e) {
+                                        setModalState(
+                                            () => isVerifying = false);
+                                        _showGlassToast(
+                                            'An error occurred. Please try again.',
+                                            isError: true);
+                                      }
+                                    },
+                              child: isVerifying
                                   ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
                                   : const Text(
-                                'Enable',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
+                                      'Enable',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
                             ),
                           ),
                         ],
@@ -444,16 +520,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.white.withAlpha(40), Colors.white.withAlpha(15)],
+                        colors: [
+                          Colors.white.withAlpha(40),
+                          Colors.white.withAlpha(15)
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.white.withAlpha(80), width: 1.0),
+                      border: Border.all(
+                          color: Colors.white.withAlpha(80), width: 1.0),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 40, offset: const Offset(0, 10))
-                      ]
-                  ),
+                        BoxShadow(
+                            color: Colors.black.withAlpha(30),
+                            blurRadius: 40,
+                            offset: const Offset(0, 10))
+                      ]),
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -464,16 +546,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             color: Colors.white.withAlpha(30),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.password_rounded, color: Colors.white, size: 40),
+                          child: const Icon(Icons.password_rounded,
+                              color: Colors.white, size: 40),
                         ),
                         const SizedBox(height: 16),
-                        const Text('Change Password', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
+                        const Text('Change Password',
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white)),
                         const SizedBox(height: 24),
-
-                        _buildDialogPasswordField('Current Password', _oldPwController, oldPwVis, () => setModalState(() => oldPwVis = !oldPwVis)),
-                        _buildDialogPasswordField('New Password', _newPwController, newPwVis, () => setModalState(() => newPwVis = !newPwVis)),
-                        _buildDialogPasswordField('Confirm New Password', _confirmPwController, confPwVis, () => setModalState(() => confPwVis = !confPwVis)),
-
+                        _buildDialogPasswordField(
+                            'Current Password',
+                            _oldPwController,
+                            oldPwVis,
+                            () => setModalState(() => oldPwVis = !oldPwVis)),
+                        _buildDialogPasswordField(
+                            'New Password',
+                            _newPwController,
+                            newPwVis,
+                            () => setModalState(() => newPwVis = !newPwVis)),
+                        _buildDialogPasswordField(
+                            'Confirm New Password',
+                            _confirmPwController,
+                            confPwVis,
+                            () => setModalState(() => confPwVis = !confPwVis)),
                         const SizedBox(height: 10),
                         Row(
                           children: [
@@ -482,7 +579,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 onPressed: () {
                                   Navigator.pop(dialogContext);
                                 },
-                                child: const Text('Cancel', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                                child: const Text('Cancel',
+                                    style: TextStyle(
+                                        color: Colors.white70,
+                                        fontWeight: FontWeight.bold)),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -490,18 +590,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               flex: 2,
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
                                   backgroundColor: Colors.white.withAlpha(40),
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
-                                      side: BorderSide(color: Colors.white.withAlpha(80), width: 1)
-                                  ),
+                                      side: BorderSide(
+                                          color: Colors.white.withAlpha(80),
+                                          width: 1)),
                                   elevation: 0,
                                 ),
-                                onPressed: _isChangingPassword ? null : () => _changePassword(dialogContext, setModalState),
+                                onPressed: _isChangingPassword
+                                    ? null
+                                    : () => _changePassword(
+                                        dialogContext, setModalState),
                                 child: _isChangingPassword
-                                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                    : const Text('Save Password', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2))
+                                    : const Text('Save Password',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14)),
                               ),
                             ),
                           ],
@@ -532,25 +646,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.white.withAlpha(40), Colors.white.withAlpha(15)],
+                  colors: [
+                    Colors.white.withAlpha(40),
+                    Colors.white.withAlpha(15)
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.white.withAlpha(80), width: 1.0),
+                border:
+                    Border.all(color: Colors.white.withAlpha(80), width: 1.0),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.red.withAlpha(30), shape: BoxShape.circle),
-                    child: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 45),
+                    decoration: BoxDecoration(
+                        color: Colors.red.withAlpha(30),
+                        shape: BoxShape.circle),
+                    child: const Icon(Icons.logout_rounded,
+                        color: Colors.redAccent, size: 45),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Logout', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                  const Text('Logout',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900)),
                   const SizedBox(height: 10),
-                  const Text('Are you sure you want to logout from your account?', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+                  const Text(
+                      'Are you sure you want to logout from your account?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: Colors.white70, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 24),
                   Row(
                     children: [
@@ -562,11 +691,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(color: Colors.white.withAlpha(40), width: 1)
-                            ),
+                                side: BorderSide(
+                                    color: Colors.white.withAlpha(40),
+                                    width: 1)),
                           ),
                           onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Cancel',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -578,22 +709,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(color: Colors.red.shade400.withAlpha(100), width: 1)
-                            ),
+                                side: BorderSide(
+                                    color: Colors.red.shade400.withAlpha(100),
+                                    width: 1)),
                           ),
                           onPressed: () async {
                             HapticFeedback.heavyImpact();
-                            widget.onLogActivity('Logged Out', Icons.logout_rounded);
+                            widget.onLogActivity(
+                                'Logged Out', Icons.logout_rounded);
                             await SecureStorage.deleteToken();
-                            final isBiometricEnabled = await SettingsUtil.isBiometricEnabled();
+                            final isBiometricEnabled =
+                                await SettingsUtil.isBiometricEnabled();
                             if (!isBiometricEnabled) {
                               await SecureStorage.deleteNic();
                             }
                             if (mounted) {
-                              Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+                              Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const LoginScreen()),
+                                  (route) => false);
                             }
                           },
-                          child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Logout',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -619,10 +758,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Stack(
         children: [
           Container(color: const Color(0xFF0B0F19)),
-          Positioned(top: -40, left: -60, child: Container(width: 280, height: 280, decoration: BoxDecoration(color: const Color(0xFF1E3A8A).withAlpha(140), shape: BoxShape.circle))),
-          Positioned(top: 250, right: -80, child: Container(width: 240, height: 240, decoration: BoxDecoration(color: Colors.purple.shade900.withAlpha(120), shape: BoxShape.circle))),
-          Positioned(bottom: 80, left: -40, child: Container(width: 320, height: 320, decoration: BoxDecoration(color: Colors.teal.shade900.withAlpha(120), shape: BoxShape.circle))),
-          Positioned.fill(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 75, sigmaY: 75), child: Container(color: Colors.transparent))),
+          Positioned(
+              top: -40,
+              left: -60,
+              child: Container(
+                  width: 280,
+                  height: 280,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF1E3A8A).withAlpha(140),
+                      shape: BoxShape.circle))),
+          Positioned(
+              top: 250,
+              right: -80,
+              child: Container(
+                  width: 240,
+                  height: 240,
+                  decoration: BoxDecoration(
+                      color: Colors.purple.shade900.withAlpha(120),
+                      shape: BoxShape.circle))),
+          Positioned(
+              bottom: 80,
+              left: -40,
+              child: Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                      color: Colors.teal.shade900.withAlpha(120),
+                      shape: BoxShape.circle))),
+          Positioned.fill(
+              child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 75, sigmaY: 75),
+                  child: Container(color: Colors.transparent))),
         ],
       ),
     );
@@ -644,7 +810,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: Colors.white.withAlpha(40), width: 1.0),
             boxShadow: [
-              BoxShadow(color: Colors.black.withAlpha(25), blurRadius: 25, offset: const Offset(0, 8))
+              BoxShadow(
+                  color: Colors.black.withAlpha(25),
+                  blurRadius: 25,
+                  offset: const Offset(0, 8))
             ],
           ),
           child: child,
@@ -654,7 +823,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader() {
-    String initials = _fullName.isNotEmpty ? _fullName.substring(0, 1).toUpperCase() : '?';
+    String initials =
+        _fullName.isNotEmpty ? _fullName.substring(0, 1).toUpperCase() : '?';
     if (_fullName.contains(' ')) {
       final parts = _fullName.split(' ');
       if (parts.length > 1 && parts[1].isNotEmpty) {
@@ -673,19 +843,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withAlpha(15),
-              border: Border.all(color: Colors.white.withAlpha(120), width: 2.0),
-              boxShadow: [BoxShadow(color: Colors.black.withAlpha(35), blurRadius: 15, offset: const Offset(0, 4))],
+              border:
+                  Border.all(color: Colors.white.withAlpha(120), width: 2.0),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withAlpha(35),
+                    blurRadius: 15,
+                    offset: const Offset(0, 4))
+              ],
               image: _imageUrl != null && _imageUrl!.isNotEmpty
                   ? DecorationImage(
-                image: NetworkImage(_imageUrl!),
-                fit: BoxFit.cover,
-              )
+                      image: NetworkImage(_imageUrl!),
+                      fit: BoxFit.cover,
+                    )
                   : null,
             ),
             child: _imageUrl == null || _imageUrl!.isEmpty
                 ? Center(
-              child: Text(initials, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white)),
-            )
+                    child: Text(initials,
+                        style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white)),
+                  )
                 : null,
           ),
           const SizedBox(width: 18),
@@ -696,19 +876,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   _fullName,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white, height: 1.2, letterSpacing: 0.3),
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1.2,
+                      letterSpacing: 0.3),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                       color: Colors.white.withAlpha(15),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withAlpha(50), width: 1.0)
-                  ),
-                  child: Text('NIC: $_nic', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70, letterSpacing: 0.5)),
+                      border: Border.all(
+                          color: Colors.white.withAlpha(50), width: 1.0)),
+                  child: Text('NIC: $_nic',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white70,
+                          letterSpacing: 0.5)),
                 ),
               ],
             ),
@@ -729,9 +920,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Demerit Points', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+                const Text('Demerit Points',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white)),
                 const SizedBox(height: 4),
-                const Text('Accumulated penalty points', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white60)),
+                const Text('Accumulated penalty points',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white60)),
               ],
             ),
           ),
@@ -744,14 +943,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               border: Border.all(color: color.withAlpha(180), width: 2.5),
               boxShadow: [
                 BoxShadow(
-                    color: color.withAlpha(50),
-                    blurRadius: 12,
-                    spreadRadius: 2
-                )
+                    color: color.withAlpha(50), blurRadius: 12, spreadRadius: 2)
               ],
             ),
             child: Center(
-              child: Text(_points.toString(), style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
+              child: Text(_points.toString(),
+                  style: TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w900, color: color)),
             ),
           ),
         ],
@@ -767,8 +965,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Row(
             children: [
               Icon(Icons.fingerprint, color: Colors.white, size: 26),
-              SizedBox(width: 12),
-              Text('Biometric Login', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+              const SizedBox(width: 12),
+              Text('Biometric Login',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white)),
             ],
           ),
           Switch(
@@ -791,7 +993,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 setState(() => _isBiometricEnabled = false);
                 SecureStorage.deleteNic();
                 _showGlassToast('Biometric login disabled.', isError: true);
-                widget.onLogActivity('Disabled Biometric Login', Icons.fingerprint_rounded);
+                widget.onLogActivity(
+                    'Disabled Biometric Login', Icons.fingerprint_rounded);
               }
             },
           ),
@@ -800,7 +1003,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildDialogPasswordField(String label, TextEditingController controller, bool isVisible, VoidCallback onVisibilityToggle) {
+  Widget _buildDialogPasswordField(
+      String label,
+      TextEditingController controller,
+      bool isVisible,
+      VoidCallback onVisibilityToggle) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Container(
@@ -812,18 +1019,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: TextField(
           controller: controller,
           obscureText: !isVisible,
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15),
+          style: const TextStyle(
+              fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
             isDense: true,
             labelText: label,
-            labelStyle: const TextStyle(color: Colors.white60, fontWeight: FontWeight.w600, fontSize: 13),
-            prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.white70, size: 18),
+            labelStyle: const TextStyle(
+                color: Colors.white60,
+                fontWeight: FontWeight.w600,
+                fontSize: 13),
+            prefixIcon: const Icon(Icons.lock_outline_rounded,
+                color: Colors.white70, size: 18),
             suffixIcon: IconButton(
-              icon: Icon(isVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white70, size: 18),
+              icon: Icon(
+                  isVisible
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  color: Colors.white70,
+                  size: 18),
               onPressed: onVisibilityToggle,
             ),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           ),
         ),
       ),
@@ -846,7 +1064,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                 child: Container(
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Colors.white.withAlpha(40), width: 1.0)),
+                    border: Border(
+                        bottom: BorderSide(
+                            color: Colors.white.withAlpha(40), width: 1.0)),
                   ),
                 ),
               ),
@@ -854,118 +1074,162 @@ class _ProfileScreenState extends State<ProfileScreen> {
             foregroundColor: Colors.white,
             elevation: 0,
             centerTitle: true,
-            title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5)),
+            title: const Text('My Profile',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    letterSpacing: 0.5)),
           ),
           body: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white))
               : _errorMessage.isNotEmpty
-              ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, color: Colors.red.shade400, size: 50),
-                const SizedBox(height: 16),
-                Text(_errorMessage, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withAlpha(30), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                    onPressed: _fetchUserProfile,
-                    child: const Text('Retry', style: TextStyle(color: Colors.white))
-                )
-              ],
-            ),
-          )
-              : SafeArea(
-            bottom: false,
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
-              child: Column(
-                children: [
-                  _buildProfileHeader(),
-                  const SizedBox(height: 20),
-                  _buildPointsWidget(),
-                  const SizedBox(height: 20),
-
-                  _buildGlassCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline,
+                              color: Colors.red.shade400, size: 50),
+                          const SizedBox(height: 16),
+                          Text(_errorMessage,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white.withAlpha(30),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12))),
+                              onPressed: _fetchUserProfile,
+                              child: const Text('Retry',
+                                  style: TextStyle(color: Colors.white)))
+                        ],
+                      ),
+                    )
+                  : SafeArea(
+                      bottom: false,
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.only(
+                            left: 20, right: 20, top: 20, bottom: 120),
+                        child: Column(
                           children: [
-                            Icon(Icons.location_on_rounded, color: Colors.white.withAlpha(200), size: 20),
-                            const SizedBox(width: 8),
-                            const Text('Registered Address', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                            _buildProfileHeader(),
+                            const SizedBox(height: 20),
+                            _buildPointsWidget(),
+                            const SizedBox(height: 20),
+
+                            _buildGlassCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.location_on_rounded,
+                                          color: Colors.white.withAlpha(200),
+                                          size: 20),
+                                      const SizedBox(width: 8),
+                                      const Text('Registered Address',
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 14)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(_address,
+                                      style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                          height: 1.4)),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // Biometric Toggle
+                            _buildBiometricToggle(),
+
+                            const SizedBox(height: 20),
+
+                            // Change Password
+                            _buildGlassCard(
+                              padding: const EdgeInsets.all(4),
+                              child: ListTile(
+                                onTap: _showChangePasswordDialog,
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                      color: Colors.white.withAlpha(15),
+                                      shape: BoxShape.circle),
+                                  child: const Icon(Icons.password_rounded,
+                                      color: Colors.white),
+                                ),
+                                title: const Text('Change Password',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        fontSize: 15)),
+                                trailing: const Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    color: Colors.white70,
+                                    size: 16),
+                              ),
+                            ),
+
+                            const SizedBox(height: 30),
+
+                            // Logout Button
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: BackdropFilter(
+                                filter:
+                                    ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  height: 60,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Colors.red.shade50.withAlpha(15),
+                                      foregroundColor: Colors.red.shade300,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          side: BorderSide(
+                                              color: Colors.redAccent
+                                                  .withAlpha(50),
+                                              width: 1.0)),
+                                    ),
+                                    onPressed: () {
+                                      HapticFeedback.lightImpact();
+                                      _logout();
+                                    },
+                                    child: const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.logout_rounded, size: 22),
+                                        const SizedBox(width: 10),
+                                        Text('Log Out',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        Text(_address, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14, height: 1.4)),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Biometric Toggle
-                  _buildBiometricToggle(),
-
-                  const SizedBox(height: 20),
-
-                  // Change Password
-                  _buildGlassCard(
-                    padding: const EdgeInsets.all(4),
-                    child: ListTile(
-                      onTap: _showChangePasswordDialog,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.white.withAlpha(15), shape: BoxShape.circle),
-                        child: const Icon(Icons.password_rounded, color: Colors.white),
-                      ),
-                      title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 15)),
-                      trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // Logout Button
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 60,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade50.withAlpha(15),
-                            foregroundColor: Colors.red.shade300,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                side: BorderSide(color: Colors.redAccent.withAlpha(50), width: 1.0)
-                            ),
-                          ),
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            _logout();
-                          },
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.logout_rounded, size: 22),
-                              SizedBox(width: 10),
-                              Text('Log Out', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                            ],
-                          ),
-                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ),
       ],
     );
