@@ -31,7 +31,6 @@ class _QRDialogState extends State<QRDialog> {
   bool _isExpired = false;
   int _remainingSeconds = 600;
   DateTime? _currentExpiresAt;
-  Map<String, dynamic>? _licenseData;
 
   @override
   void initState() {
@@ -84,18 +83,6 @@ class _QRDialogState extends State<QRDialog> {
     });
 
     _startCountdown();
-    _fetchLicenseDetails();
-  }
-
-  Future<void> _fetchLicenseDetails() async {
-    try {
-      final response = await ApiService.dio.get('/license/my-license');
-      if (mounted) {
-        setState(() {
-          _licenseData = response.data;
-        });
-      }
-    } catch (_) {}
   }
 
   void _startCountdown() {
@@ -189,6 +176,8 @@ class _QRDialogState extends State<QRDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // "Valid for" - Scan වූ විට පමණක් Countdown පෙන්වයි
                 if (_isScanned && !_isExpired) ...[
                   Text(
                     'Valid for: $_formattedTime',
@@ -202,6 +191,7 @@ class _QRDialogState extends State<QRDialog> {
                   ),
                   const SizedBox(height: 2),
                 ] else if (!_isScanned && !_isExpired) ...[
+                  // Scan නොවන තාක් "10:00" ලෙස ස්ථිරව පෙන්වයි
                   const Text(
                     'Valid for: 10:00',
                     style: TextStyle(
@@ -212,6 +202,8 @@ class _QRDialogState extends State<QRDialog> {
                   ),
                   const SizedBox(height: 2),
                 ],
+
+                // "QR code will expire at" - Backend එකෙන් එන කාලය
                 if (!_isExpired) ...[
                   Text(
                     'QR code will expire at ${_formatTime(displayExpiresAt)}',
@@ -219,6 +211,8 @@ class _QRDialogState extends State<QRDialog> {
                   ),
                   const SizedBox(height: 2),
                 ],
+
+                // Scan නොවන තාක් "Waiting..." පෙන්වයි
                 if (!_isScanned && !_isExpired) ...[
                   const Text(
                     'Waiting for officer to scan...',
@@ -229,6 +223,8 @@ class _QRDialogState extends State<QRDialog> {
                     ),
                   ),
                 ],
+
+                // Scan වූ විට "Scanned" Status එක
                 if (_isScanned && !_isExpired) ...[
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -247,6 +243,8 @@ class _QRDialogState extends State<QRDialog> {
                     ],
                   ),
                 ],
+
+                // Expired State
                 if (_isExpired) ...[
                   const Icon(Icons.timer_off,
                       color: Colors.redAccent, size: 32),
@@ -266,6 +264,7 @@ class _QRDialogState extends State<QRDialog> {
                     textAlign: TextAlign.center,
                   ),
                 ],
+
                 const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,
