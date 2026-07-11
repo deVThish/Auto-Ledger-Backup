@@ -1107,10 +1107,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     )
-                  : SafeArea(
-                      bottom: false,
+                  : RefreshIndicator(
+                      onRefresh: _fetchUserProfile,
+                      color: Colors.cyanAccent,
+                      backgroundColor: Colors.white.withAlpha(20),
                       child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.only(
                             left: 20, right: 20, top: 20, bottom: 120),
                         child: Column(
