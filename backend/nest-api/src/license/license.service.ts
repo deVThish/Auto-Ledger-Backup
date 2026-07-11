@@ -207,10 +207,6 @@ export class LicenseService {
     return license;
   }
 
-  /**
-   * Generate QR Code JWT token with 10 minutes expiry
-   * Returns qrToken (JWT) and expiresAt timestamp for frontend display
-   */
   async generateLicenseQR(userId: string) {
     await this.autoActivateLicenses();
     const license = await this.prisma.driving_License.findUnique({
@@ -253,7 +249,6 @@ export class LicenseService {
       }
     }
 
-    // Generate JWT as QR token with 10 minutes expiry
     const qrToken = this.jwtService.sign(
       { licenseId: license.license_Id },
       { expiresIn: '10m' },
@@ -274,10 +269,6 @@ export class LicenseService {
     return { scanned: !!scan };
   }
 
-  /**
-   * Scan QR Code - verifies JWT token first (checks expiry automatically)
-   * If token expired, throws UnauthorizedException
-   */
   async scanLicenseQR(
     qrToken: string,
     trafficOfficerId: string,
@@ -288,14 +279,17 @@ export class LicenseService {
       const payload = this.jwtService.verify<{ licenseId: string }>(qrToken);
       licenseId = payload.licenseId;
     } catch {
-      // JWT expired or invalid
       throw new UnauthorizedException('Invalid or expired QR code.');
     }
 
     await this.autoActivateLicenses();
+
     const license = await this.prisma.driving_License.findUnique({
       where: { license_Id: licenseId },
-      include: { user: true },
+      include: {
+        user: true,
+        vehicleCategories: true,
+      },
     });
 
     if (!license) throw new NotFoundException('License not found.');
@@ -317,17 +311,39 @@ export class LicenseService {
       },
     });
 
+    const qrExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
     const scanToken = this.jwtService.sign(
       { licenseId: license.license_Id },
-      { expiresIn: '3m' },
+      { expiresIn: '10m' },
     );
 
     return {
-      driverName: license.user.name,
-      licenseNo: license.license_No,
-      status: license.status,
-      points: license.points,
+      license: {
+        licenseNo: license.license_No,
+        fullName: license.full_Name,
+        nicNo: license.nic_No,
+        address: license.address,
+        bloodGroup: license.blood_Group,
+        dateOfBirth: license.date_of_birth,
+        issueDate: license.issue_Date,
+        status: license.status,
+        points: license.points,
+        image: license.image,
+        vehicleCategories: license.vehicleCategories.map((vc) => ({
+          vehicleClass: vc.vehicle_Class,
+          issueDate: vc.issue_Date,
+          expiryDate: vc.expiry_Date,
+          restriction: vc.restriction,
+        })),
+      },
       scanToken: scanToken,
+      qrExpiresAt: qrExpiresAt,
+      driverName: license.user.name,
+      officer: {
+        name: officer.name,
+        badgeNo: officer.badge_No,
+      },
     };
   }
 
