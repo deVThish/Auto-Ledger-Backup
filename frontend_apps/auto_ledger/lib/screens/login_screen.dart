@@ -279,6 +279,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
       if (result['success'] == true) {
         await SecureStorage.saveNic(nic);
+        // ignore: use_build_context_synchronously
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
         if (!mounted) return;
         Navigator.pushReplacement(
@@ -302,15 +303,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (mounted)
+        // ignore: curly_braces_in_flow_control_structures
         _showToast('An error occurred during biometric login.', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ============================================================
   //  NORMAL LOGIN
-  // ============================================================
   Future<void> _handleLogin() async {
     if (!mounted) return;
 
@@ -338,6 +338,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
       if (result['success'] == true) {
         await SecureStorage.saveNic(_nicController.text.trim());
+        // ignore: use_build_context_synchronously
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
         if (!mounted) return;
         Navigator.pushReplacement(
@@ -371,9 +372,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
   }
 
-  // ============================================================
   //  DEVICE VERIFICATION DIALOG
-  // ============================================================
   void _showDeviceVerificationDialog(String email, String nic) {
     _otpController.clear();
     bool isResending = false;
@@ -583,9 +582,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
   }
 
-  // ============================================================
   //  FORGOT PASSWORD
-  // ============================================================
   Future<void> _handleForgotPasswordCheck() async {
     if (!mounted) return;
 

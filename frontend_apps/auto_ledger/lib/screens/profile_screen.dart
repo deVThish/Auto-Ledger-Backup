@@ -82,8 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   decoration: BoxDecoration(
                     color: isError
                         ? Colors.redAccent.withAlpha(50)
@@ -392,8 +391,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
                                 backgroundColor: Colors.white.withAlpha(40),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
@@ -418,6 +416,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                                       try {
                                         final tempPassword =
+                                            // ignore: prefer_interpolation_to_compose_strings
                                             enteredPassword + '_verify_temp';
 
                                         await ApiService.dio.patch(
@@ -435,6 +434,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             });
 
                                         if (mounted) {
+                                          // ignore: use_build_context_synchronously
                                           Navigator.pop(context);
                                           SettingsUtil.setBiometricEnabled(
                                               true);
@@ -589,8 +589,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               flex: 2,
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
                                   backgroundColor: Colors.white.withAlpha(40),
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
@@ -653,8 +652,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(30),
-                border:
-                    Border.all(color: Colors.white.withAlpha(80), width: 1.0),
+                border: Border.all(color: Colors.white.withAlpha(80), width: 1.0),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -842,8 +840,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withAlpha(15),
-              border:
-                  Border.all(color: Colors.white.withAlpha(120), width: 2.0),
+              border: Border.all(color: Colors.white.withAlpha(120), width: 2.0),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withAlpha(35),
@@ -886,8 +883,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 6),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                       color: Colors.white.withAlpha(15),
                       borderRadius: BorderRadius.circular(10),
@@ -964,7 +960,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Row(
             children: [
               Icon(Icons.fingerprint, color: Colors.white, size: 26),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text('Biometric Login',
                   style: TextStyle(
                       fontSize: 16,
@@ -1039,8 +1035,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: onVisibilityToggle,
             ),
             border: InputBorder.none,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           ),
         ),
       ),
@@ -1183,8 +1178,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(20),
                                 child: BackdropFilter(
-                                  filter:
-                                      ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                                  filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                                   child: SizedBox(
                                     width: double.infinity,
                                     height: 60,
@@ -1195,8 +1189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         foregroundColor: Colors.red.shade300,
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(20),
+                                            borderRadius: BorderRadius.circular(20),
                                             side: BorderSide(
                                                 color: Colors.redAccent
                                                     .withAlpha(50),
@@ -1207,11 +1200,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         _logout();
                                       },
                                       child: const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           Icon(Icons.logout_rounded, size: 22),
-                                          const SizedBox(width: 10),
+                                          SizedBox(width: 10),
                                           Text('Log Out',
                                               style: TextStyle(
                                                   fontWeight: FontWeight.w900,
