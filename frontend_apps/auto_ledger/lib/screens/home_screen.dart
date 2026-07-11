@@ -315,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
             barrierDismissible: false,
             builder: (BuildContext context) => QRDialog(
               qrToken: _currentQrToken!,
-              expiresAt: _currentQrExpiry!,
+              initialExpiresAt: _currentQrExpiry!,
               onClose: () {},
               onExpired: () {
                 setState(() {
@@ -355,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
           barrierDismissible: false,
           builder: (BuildContext context) => QRDialog(
             qrToken: token,
-            expiresAt: expiresAt,
+            initialExpiresAt: expiresAt,
             onClose: () {},
             onExpired: () {
               setState(() {

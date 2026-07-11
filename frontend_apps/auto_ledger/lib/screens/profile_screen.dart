@@ -1107,117 +1107,123 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     )
-                  : RefreshIndicator(
-                      onRefresh: _fetchUserProfile,
-                      color: Colors.cyanAccent,
-                      backgroundColor: Colors.white.withAlpha(20),
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(
-                            left: 20, right: 20, top: 20, bottom: 120),
-                        child: Column(
-                          children: [
-                            _buildProfileHeader(),
-                            const SizedBox(height: 20),
-                            _buildPointsWidget(),
-                            const SizedBox(height: 20),
-                            _buildGlassCard(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.location_on_rounded,
-                                          color: Colors.white.withAlpha(200),
-                                          size: 20),
-                                      const SizedBox(width: 8),
-                                      const Text('Registered Address',
-                                          style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 14)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(_address,
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14,
-                                          height: 1.4)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            _buildBiometricToggle(),
-                            const SizedBox(height: 20),
-                            _buildGlassCard(
-                              padding: const EdgeInsets.all(4),
-                              child: ListTile(
-                                onTap: _showChangePasswordDialog,
-                                leading: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                      color: Colors.white.withAlpha(15),
-                                      shape: BoxShape.circle),
-                                  child: const Icon(Icons.password_rounded,
-                                      color: Colors.white),
-                                ),
-                                title: const Text('Change Password',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white,
-                                        fontSize: 15)),
-                                trailing: const Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    color: Colors.white70,
-                                    size: 16),
-                              ),
-                            ),
-                            const SizedBox(height: 30),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: BackdropFilter(
-                                filter:
-                                    ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  height: 60,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          Colors.red.shade50.withAlpha(15),
-                                      foregroundColor: Colors.red.shade300,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                          side: BorderSide(
-                                              color: Colors.redAccent
-                                                  .withAlpha(50),
-                                              width: 1.0)),
-                                    ),
-                                    onPressed: () {
-                                      HapticFeedback.lightImpact();
-                                      _logout();
-                                    },
-                                    child: const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
+                  : SafeArea(
+                      child: RefreshIndicator(
+                        onRefresh: _fetchUserProfile,
+                        color: Colors.cyanAccent,
+                        backgroundColor: Colors.white.withAlpha(20),
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.only(
+                            top: 16,
+                            left: 20,
+                            right: 20,
+                            bottom: 120,
+                          ),
+                          child: Column(
+                            children: [
+                              _buildProfileHeader(),
+                              const SizedBox(height: 20),
+                              _buildPointsWidget(),
+                              const SizedBox(height: 20),
+                              _buildGlassCard(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
                                       children: [
-                                        Icon(Icons.logout_rounded, size: 22),
-                                        const SizedBox(width: 10),
-                                        Text('Log Out',
+                                        Icon(Icons.location_on_rounded,
+                                            color: Colors.white.withAlpha(200),
+                                            size: 20),
+                                        const SizedBox(width: 8),
+                                        const Text('Registered Address',
                                             style: TextStyle(
+                                                color: Colors.white,
                                                 fontWeight: FontWeight.w900,
-                                                fontSize: 16)),
+                                                fontSize: 14)),
                                       ],
                                     ),
+                                    const SizedBox(height: 10),
+                                    Text(_address,
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                            height: 1.4)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              _buildBiometricToggle(),
+                              const SizedBox(height: 20),
+                              _buildGlassCard(
+                                padding: const EdgeInsets.all(4),
+                                child: ListTile(
+                                  onTap: _showChangePasswordDialog,
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                        color: Colors.white.withAlpha(15),
+                                        shape: BoxShape.circle),
+                                    child: const Icon(Icons.password_rounded,
+                                        color: Colors.white),
+                                  ),
+                                  title: const Text('Change Password',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                          fontSize: 15)),
+                                  trailing: const Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      color: Colors.white70,
+                                      size: 16),
+                                ),
+                              ),
+                              const SizedBox(height: 30),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: BackdropFilter(
+                                  filter:
+                                      ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    height: 60,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            Colors.red.shade50.withAlpha(15),
+                                        foregroundColor: Colors.red.shade300,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            side: BorderSide(
+                                                color: Colors.redAccent
+                                                    .withAlpha(50),
+                                                width: 1.0)),
+                                      ),
+                                      onPressed: () {
+                                        HapticFeedback.lightImpact();
+                                        _logout();
+                                      },
+                                      child: const Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.logout_rounded, size: 22),
+                                          const SizedBox(width: 10),
+                                          Text('Log Out',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 16)),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
