@@ -264,12 +264,23 @@ export class LicenseService {
 
     const scan = await this.prisma.qR_Scan_History.findFirst({
       where: { qr_Token: qrToken },
+      orderBy: { scanned_At: 'desc' },
     });
 
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    let expiresAt: Date;
+    let scanned = false;
+
+    if (scan) {
+      scanned = true;
+      const scanTime = scan.scanned_At ?? scan.createdAt;
+      expiresAt = new Date(scanTime.getTime() + 10 * 60 * 1000);
+    } else {
+      scanned = false;
+      expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    }
 
     return {
-      scanned: !!scan,
+      scanned: scanned,
       expiresAt: expiresAt,
     };
   }
@@ -313,6 +324,7 @@ export class LicenseService {
         driver_Name: license.user.name,
         location: location || null,
         license_Id: license.license_Id,
+        scanned_At: new Date(),
       },
     });
 
