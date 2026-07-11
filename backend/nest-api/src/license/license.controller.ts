@@ -39,7 +39,6 @@ export interface AuthRequest {
   user: { id: string };
 }
 
-// Define a simple interface for uploaded file
 interface UploadedFileType {
   buffer: Buffer;
   originalname: string;
@@ -176,9 +175,10 @@ export class LicenseController {
     return this.licenseService.getMyLicense(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Generate QR Code for License' })
+  @ApiOperation({ summary: 'Generate QR Code for License (10min expiry)' })
   @Get('generate-qr')
   async generateQR(@Request() req: AuthRequest) {
+    // Returns { qrToken, expiresAt } - service handles JWT with 10m expiry
     return this.licenseService.generateLicenseQR(req.user.id);
   }
 
@@ -189,7 +189,7 @@ export class LicenseController {
   }
 
   @Roles('TRAFFIC_OFFICER')
-  @ApiOperation({ summary: 'Scan License QR Code' })
+  @ApiOperation({ summary: 'Scan License QR Code (validates JWT expiry)' })
   @Post('scan-qr')
   async scanQR(@Request() req: AuthRequest, @Body() data: ScanQRDto) {
     return this.licenseService.scanLicenseQR(

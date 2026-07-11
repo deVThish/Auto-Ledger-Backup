@@ -587,4 +587,89 @@ export class AuthService {
       message: 'Password has been reset successfully. You can now login.',
     };
   }
+
+  async resendRegistrationOtp(nicNo: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found.');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email already verified.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(user.email, otp, 'registration');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+
+  async resendResetOtp(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+
+  async resendDeviceOtp(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
 }

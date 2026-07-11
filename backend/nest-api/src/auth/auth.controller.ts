@@ -264,6 +264,37 @@ export class OfficerResetPasswordDto {
   newPasswordStr: string;
 }
 
+export class ResendRegistrationOtpDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+}
+
+export class ResendResetOtpDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class ResendDeviceOtpDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
 export interface AuthRequest {
   user: {
     id: string;
@@ -308,6 +339,24 @@ export class AuthController {
   @Post('user/verify-registration')
   async verifyRegistration(@Body() data: VerifyRegistrationDto) {
     return await this.authService.verifyRegistration(data.nicNo, data.otp);
+  }
+
+  @ApiOperation({ summary: 'Resend Registration OTP' })
+  @Post('user/resend-registration-otp')
+  async resendRegistrationOtp(@Body() data: ResendRegistrationOtpDto) {
+    return await this.authService.resendRegistrationOtp(data.nicNo);
+  }
+
+  @ApiOperation({ summary: 'Resend Password Reset OTP' })
+  @Post('user/resend-reset-otp')
+  async resendResetOtp(@Body() data: ResendResetOtpDto) {
+    return await this.authService.resendResetOtp(data.nicNo, data.email);
+  }
+
+  @ApiOperation({ summary: 'Resend Device Verification OTP' })
+  @Post('user/resend-device-otp')
+  async resendDeviceOtp(@Body() data: ResendDeviceOtpDto) {
+    return await this.authService.resendDeviceOtp(data.nicNo, data.email);
   }
 
   @ApiOperation({ summary: 'Login for Drivers' })

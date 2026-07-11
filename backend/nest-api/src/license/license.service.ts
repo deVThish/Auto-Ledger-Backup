@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { JwtService } from '@nestjs/jwt';
@@ -154,15 +153,13 @@ export class LicenseService {
     });
 
     if (!user) {
-      // Create a temporary user with email placeholder (using nicNo to ensure uniqueness)
       user = await this.prisma.user.create({
         data: {
           nic_No: data.nicNo,
           name: 'Pending App Registration',
           password: 'NOT_REGISTERED',
-          email: `pending_${data.nicNo}@example.com`, // Placeholder email
+          email: `pending_${data.nicNo}@example.com`,
           device_Id: 'PENDING',
-          // isEmailVerified defaults to false
         },
       });
     }
@@ -210,6 +207,10 @@ export class LicenseService {
     return license;
   }
 
+  /**
+   * Generate QR Code JWT token with 10 minutes expiry
+   * Returns qrToken (JWT) and expiresAt timestamp for frontend display
+   */
   async generateLicenseQR(userId: string) {
     await this.autoActivateLicenses();
     const license = await this.prisma.driving_License.findUnique({
@@ -222,10 +223,10 @@ export class LicenseService {
       },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found.');
 
     if (license.status === 'REVOKED' || license.status === 'EXPIRED') {
-      throw new BadRequestException();
+      throw new BadRequestException('License is revoked or expired.');
     }
 
     if (license.status === 'SUSPENDED') {
@@ -243,21 +244,28 @@ export class LicenseService {
           await this.prisma.temporary_License.deleteMany({
             where: { license_Id: license.license_Id },
           });
-          throw new BadRequestException();
+          throw new BadRequestException('Temporary license expired.');
         }
       } else {
-        throw new BadRequestException();
+        throw new BadRequestException(
+          'License is suspended without temporary license.',
+        );
       }
     }
 
-    const randomToken = crypto.randomBytes(16).toString('hex');
-    const qrToken = `${license.license_Id}:${randomToken}`;
+    // Generate JWT as QR token with 10 minutes expiry
+    const qrToken = this.jwtService.sign(
+      { licenseId: license.license_Id },
+      { expiresIn: '10m' },
+    );
 
-    return { qrToken };
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    return { qrToken, expiresAt };
   }
 
   async checkScanStatus(qrToken: string) {
-    if (!qrToken) throw new BadRequestException();
+    if (!qrToken) throw new BadRequestException('QR token required.');
 
     const scan = await this.prisma.qR_Scan_History.findFirst({
       where: { qr_Token: qrToken },
@@ -266,15 +274,23 @@ export class LicenseService {
     return { scanned: !!scan };
   }
 
+  /**
+   * Scan QR Code - verifies JWT token first (checks expiry automatically)
+   * If token expired, throws UnauthorizedException
+   */
   async scanLicenseQR(
     qrToken: string,
     trafficOfficerId: string,
     location?: string,
   ) {
-    const parts = qrToken.split(':');
-    if (parts.length !== 2) throw new BadRequestException();
-
-    const licenseId = parts[0];
+    let licenseId: string;
+    try {
+      const payload = this.jwtService.verify<{ licenseId: string }>(qrToken);
+      licenseId = payload.licenseId;
+    } catch {
+      // JWT expired or invalid
+      throw new UnauthorizedException('Invalid or expired QR code.');
+    }
 
     await this.autoActivateLicenses();
     const license = await this.prisma.driving_License.findUnique({
@@ -282,13 +298,13 @@ export class LicenseService {
       include: { user: true },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found.');
 
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { traffic_Officer_Id: trafficOfficerId },
     });
 
-    if (!officer) throw new UnauthorizedException();
+    if (!officer) throw new UnauthorizedException('Officer not found.');
 
     await this.prisma.qR_Scan_History.create({
       data: {
