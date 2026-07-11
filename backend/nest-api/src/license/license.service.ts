@@ -41,7 +41,6 @@ export interface UpdateLicenseData {
   categories?: VehicleCategoryData[];
 }
 
-// Define local file type to avoid external dependency
 interface MulterFile {
   buffer: Buffer;
   originalname: string;
@@ -155,13 +154,15 @@ export class LicenseService {
     });
 
     if (!user) {
+      // Create a temporary user with email placeholder (using nicNo to ensure uniqueness)
       user = await this.prisma.user.create({
         data: {
           nic_No: data.nicNo,
           name: 'Pending App Registration',
           password: 'NOT_REGISTERED',
-          mobile_Phone_No: `PENDING_${data.nicNo}`,
+          email: `pending_${data.nicNo}@example.com`, // Placeholder email
           device_Id: 'PENDING',
+          // isEmailVerified defaults to false
         },
       });
     }

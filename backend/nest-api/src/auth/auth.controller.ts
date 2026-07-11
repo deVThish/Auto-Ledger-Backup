@@ -74,10 +74,10 @@ export class RegisterUserDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: '+94771234567' })
-  @IsString()
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
   @IsNotEmpty()
-  mobilePhoneNo: string;
+  email: string;
 
   @ApiProperty({ example: 'Driver@Pass123!' })
   @IsString()
@@ -98,6 +98,11 @@ export class VerifyRegistrationDto {
   @IsString()
   @IsNotEmpty()
   nicNo: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
 }
 
 export class UserLoginDto {
@@ -160,10 +165,10 @@ export class ForgotPasswordRequestDto {
   @IsNotEmpty()
   nicNo: string;
 
-  @ApiProperty({ example: '+94771234567' })
-  @IsString()
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
   @IsNotEmpty()
-  mobilePhoneNo: string;
+  email: string;
 }
 
 export class ResetPasswordDto {
@@ -172,10 +177,15 @@ export class ResetPasswordDto {
   @IsNotEmpty()
   nicNo: string;
 
-  @ApiProperty({ example: '+94771234567' })
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: '123456' })
   @IsString()
   @IsNotEmpty()
-  mobilePhoneNo: string;
+  otp: string;
 
   @ApiProperty({ example: 'NewDriver@Pass123!' })
   @IsString()
@@ -294,10 +304,10 @@ export class AuthController {
     return await this.authService.registerUser(data);
   }
 
-  @ApiOperation({ summary: 'Step 2: Complete Registration' })
+  @ApiOperation({ summary: 'Step 2: Complete Registration with OTP' })
   @Post('user/verify-registration')
   async verifyRegistration(@Body() data: VerifyRegistrationDto) {
-    return await this.authService.verifyRegistration(data.nicNo);
+    return await this.authService.verifyRegistration(data.nicNo, data.otp);
   }
 
   @ApiOperation({ summary: 'Login for Drivers' })
@@ -322,21 +332,19 @@ export class AuthController {
     return await this.authService.verifyNewDevice(data.nicNo, data.deviceId);
   }
 
-  @ApiOperation({ summary: 'Step 1: Check NIC & Phone' })
+  @ApiOperation({ summary: 'Step 1: Request OTP for password reset' })
   @Post('user/forgot-password-check')
   async forgotPasswordRequest(@Body() data: ForgotPasswordRequestDto) {
-    return await this.authService.requestPasswordReset(
-      data.nicNo,
-      data.mobilePhoneNo,
-    );
+    return await this.authService.requestPasswordReset(data.nicNo, data.email);
   }
 
-  @ApiOperation({ summary: 'Step 2: Reset Password' })
+  @ApiOperation({ summary: 'Step 2: Reset Password with OTP' })
   @Post('user/reset-password')
   async resetPassword(@Body() data: ResetPasswordDto) {
     return await this.authService.resetPassword(
       data.nicNo,
-      data.mobilePhoneNo,
+      data.email,
+      data.otp,
       data.newPassword,
     );
   }

@@ -20,10 +20,10 @@ export class UsersService {
     });
   }
 
-  async verifyPhone(userId: string) {
+  async verifyEmail(userId: string) {
     return this.prisma.user.update({
       where: { user_Id: userId },
-      data: { isPhoneVerified: true },
+      data: { isEmailVerified: true },
     });
   }
 }

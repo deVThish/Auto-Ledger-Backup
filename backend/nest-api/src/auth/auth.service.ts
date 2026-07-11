@@ -21,7 +21,7 @@ import { ChangePasswordDto } from './auth.controller';
 export interface RegisterData {
   nicNo: string;
   name: string;
-  mobilePhoneNo: string;
+  email: string;
   password: string;
   deviceId: string;
 }
@@ -326,8 +326,8 @@ export class AuthService {
         id: user.user_Id,
         name: user.name,
         nic: user.nic_No,
-        phoneNumber: user.mobile_Phone_No,
-        isPhoneVerified: user.isPhoneVerified,
+        email: user.email,
+        isEmailVerified: user.isEmailVerified,
       },
     };
   }
@@ -339,7 +339,7 @@ export class AuthService {
 
     if (!user) {
       throw new BadRequestException(
-        'Registration Failed: No driving license found for this NIC.',
+        'Registration Failed: No user found for this NIC.',
       );
     }
 
@@ -354,31 +354,51 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await this.prisma.user.update({
       where: { nic_No: data.nicNo },
       data: {
         name: data.name,
-        mobile_Phone_No: data.mobilePhoneNo,
+        email: data.email,
         password: hashedPassword,
         device_Id: data.deviceId,
-        isPhoneVerified: false,
+        isEmailVerified: false,
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
       },
     });
 
+    await this.sendOtpEmail(data.email, otp);
+
     return {
-      message: 'User details saved. Please verify phone number.',
+      message: 'OTP sent to your email. Please verify.',
       success: true,
     };
   }
 
-  async verifyRegistration(nicNo: string) {
-    const user = await this.prisma.user.update({
+  async verifyRegistration(nicNo: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
       where: { nic_No: nicNo },
-      data: { isPhoneVerified: true },
     });
 
-    return this.generateUserToken(user);
+    if (!user) throw new BadRequestException('User not found.');
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        isEmailVerified: true,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
+    });
+
+    return this.generateUserToken(updatedUser);
   }
 
   async loginUser(nicNo: string, pass: string, deviceId: string) {
@@ -388,10 +408,8 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Invalid NIC or password.');
 
-    if (!user.isPhoneVerified) {
-      throw new ForbiddenException(
-        'Please verify your phone number using OTP first.',
-      );
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Please verify your email using OTP first.');
     }
 
     const isPasswordValid = await bcrypt.compare(pass, user.password);
@@ -399,11 +417,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid NIC or password.');
 
     if (user.device_Id !== deviceId) {
-      // Return specific error structure for new device matching
       throw new ForbiddenException({
         code: 'DEVICE_MISMATCH',
         message: 'New device detected. OTP verification required.',
-        phone: user.mobile_Phone_No,
+        email: user.email,
       });
     }
 
@@ -415,7 +432,7 @@ export class AuthService {
       where: { nic_No: nicNo },
       data: {
         device_Id: newDeviceId,
-        isPhoneVerified: true,
+        isEmailVerified: true,
       },
     });
 
@@ -429,10 +446,8 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Invalid user.');
 
-    if (!user.isPhoneVerified) {
-      throw new ForbiddenException(
-        'Please verify your phone number using OTP first.',
-      );
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Please verify your email using OTP first.');
     }
 
     if (user.device_Id !== deviceId) {
@@ -472,39 +487,55 @@ export class AuthService {
     return { message: 'User password changed successfully' };
   }
 
-  async requestPasswordReset(nicNo: string, mobilePhoneNo: string) {
+  async requestPasswordReset(nicNo: string, email: string) {
     const user = await this.prisma.user.findUnique({
       where: { nic_No: nicNo },
     });
 
-    if (!user || user.mobile_Phone_No !== mobilePhoneNo) {
-      throw new BadRequestException('Invalid NIC or Mobile Number provided.');
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email provided.');
     }
 
-    return {
-      message: 'NIC and Phone Match.',
-      success: true,
-    };
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+
+    await this.sendOtpEmail(email, otp);
+    return { message: 'OTP sent successfully to your email.' };
   }
 
   async resetPassword(
     nicNo: string,
-    mobilePhoneNo: string,
+    email: string,
+    otp: string,
     newPasswordStr: string,
   ) {
     const user = await this.prisma.user.findUnique({
       where: { nic_No: nicNo },
     });
 
-    if (!user || user.mobile_Phone_No !== mobilePhoneNo) {
-      throw new BadRequestException('Invalid NIC or Mobile Number provided.');
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
     }
 
     const hashedNewPassword = await bcrypt.hash(newPasswordStr, 10);
 
     await this.prisma.user.update({
       where: { nic_No: nicNo },
-      data: { password: hashedNewPassword },
+      data: {
+        password: hashedNewPassword,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
     });
 
     return {
