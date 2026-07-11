@@ -295,6 +295,30 @@ export class ResendDeviceOtpDto {
   email: string;
 }
 
+export class ResendHeadOtpDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class ResendOfficerOtpDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
 export interface AuthRequest {
   user: {
     id: string;
@@ -418,6 +442,14 @@ export class AuthController {
     );
   }
 
+  @ApiOperation({ summary: 'Resend OTP for Divisional Head' })
+  @Post('head/resend-otp')
+  async resendHeadOtp(
+    @Body() data: ResendHeadOtpDto,
+  ): Promise<{ message: string }> {
+    return await this.authService.resendHeadOtp(data.username, data.email);
+  }
+
   @ApiOperation({ summary: 'Step 1: Request OTP for Traffic Officer' })
   @Post('officer/forgot-password-request')
   async officerForgotPasswordRequest(
@@ -438,6 +470,14 @@ export class AuthController {
       data.otp,
       data.newPasswordStr,
     );
+  }
+
+  @ApiOperation({ summary: 'Resend OTP for Traffic Officer' })
+  @Post('officer/resend-otp')
+  async resendOfficerOtp(
+    @Body() data: ResendOfficerOtpDto,
+  ): Promise<{ message: string }> {
+    return await this.authService.resendOfficerOtp(data.badgeNo, data.email);
   }
 
   @ApiBearerAuth()

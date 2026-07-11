@@ -37,7 +37,7 @@ export class AuthService {
     email: string,
     otp: string,
     type: 'registration' | 'reset',
-  ) {
+  ): Promise<void> {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -307,6 +307,26 @@ export class AuthService {
     return { message: 'Divisional Head password reset successfully.' };
   }
 
+  async resendHeadOtp(
+    username: string,
+    email: string,
+  ): Promise<{ message: string }> {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+    if (!head || head.email !== email || !head.is_Active) {
+      throw new BadRequestException('Invalid Username or Email.');
+    }
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.prisma.divisional_Head.update({
+      where: { username: username },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP resent successfully to your email.' };
+  }
+
   async requestOfficerPasswordReset(badgeNo: string, email: string) {
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { badge_No: badgeNo },
@@ -361,6 +381,26 @@ export class AuthService {
     });
 
     return { message: 'Traffic Officer password reset successfully.' };
+  }
+
+  async resendOfficerOtp(
+    badgeNo: string,
+    email: string,
+  ): Promise<{ message: string }> {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email.');
+    }
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.prisma.traffic_Officer.update({
+      where: { badge_No: badgeNo },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP resent successfully to your email.' };
   }
 
   private generateUserToken(user: User) {
