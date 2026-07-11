@@ -262,9 +262,10 @@ export class LicenseService {
   async checkScanStatus(qrToken: string) {
     if (!qrToken) throw new BadRequestException('QR token required.');
 
+    // ✅ scan_Time භාවිතා කරන්න (scanned_At නොවේ)
     const scan = await this.prisma.qR_Scan_History.findFirst({
       where: { qr_Token: qrToken },
-      orderBy: { scanned_At: 'desc' },
+      orderBy: { scan_Time: 'desc' },
     });
 
     let expiresAt: Date;
@@ -272,7 +273,8 @@ export class LicenseService {
 
     if (scan) {
       scanned = true;
-      const scanTime = scan.scanned_At ?? scan.createdAt;
+      // ✅ scan_Time භාවිතා කරන්න
+      const scanTime = scan.scan_Time;
       expiresAt = new Date(scanTime.getTime() + 10 * 60 * 1000);
     } else {
       scanned = false;
@@ -316,6 +318,7 @@ export class LicenseService {
 
     if (!officer) throw new UnauthorizedException('Officer not found.');
 
+    // ✅ scanned_At ඉවත් කරන්න, මොකද scan_Time auto generate වෙනවා
     await this.prisma.qR_Scan_History.create({
       data: {
         qr_Token: qrToken,
@@ -324,7 +327,6 @@ export class LicenseService {
         driver_Name: license.user.name,
         location: location || null,
         license_Id: license.license_Id,
-        scanned_At: new Date(),
       },
     });
 
