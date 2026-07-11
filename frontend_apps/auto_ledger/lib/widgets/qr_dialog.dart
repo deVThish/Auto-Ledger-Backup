@@ -210,7 +210,6 @@ class _QRDialogState extends State<QRDialog> {
                   const SizedBox(height: 2),
                 ],
 
-                // Scan නොවන තාක් "Waiting..." පෙන්වයි
                 if (!_isScanned && !_isExpired) ...[
                   const Text(
                     'Waiting for officer to scan...',
@@ -222,7 +221,6 @@ class _QRDialogState extends State<QRDialog> {
                   ),
                 ],
 
-                // Scan වූ විට "Scanned" Status එක
                 if (_isScanned && !_isExpired) ...[
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
