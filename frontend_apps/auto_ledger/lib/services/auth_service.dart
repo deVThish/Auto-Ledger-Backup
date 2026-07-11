@@ -32,6 +32,19 @@ class AuthService {
     }
   }
 
+  // Resend Registration OTP
+  static Future<bool> resendRegistrationOtp(String nicNo) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/user/resend-registration-otp',
+        data: {'nicNo': nicNo},
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
   // Login user - returns DEVICE_MISMATCH if new device detected
   static Future<Map<String, dynamic>> loginUser(
       String nicNo, String password, String deviceId) async {
@@ -51,7 +64,6 @@ class AuthService {
       }
       return {'success': false};
     } on DioException catch (e) {
-      // Backend returns DEVICE_MISMATCH with email for OTP verification
       if (e.response?.statusCode == 403 &&
           e.response?.data['code'] == 'DEVICE_MISMATCH') {
         return {
@@ -69,6 +81,22 @@ class AuthService {
     try {
       final response = await ApiService.dio.post(
         '/auth/user/forgot-password-check',
+        data: {
+          'nicNo': nicNo,
+          'email': email,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
+  // Resend Password Reset OTP
+  static Future<bool> resendResetOtp(String nicNo, String email) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/user/resend-reset-otp',
         data: {
           'nicNo': nicNo,
           'email': email,
@@ -133,14 +161,12 @@ class AuthService {
   static Future<Map<String, dynamic>> verifyNewDevice(
       String nicNo, String deviceId, String otp) async {
     try {
-      // Backend expects OTP verification before device update
-      // First verify OTP, then update device
       final response = await ApiService.dio.post(
         '/auth/user/verify-device',
         data: {
           'nicNo': nicNo,
           'deviceId': deviceId,
-          'otp': otp, // OTP sent to email for device verification
+          'otp': otp,
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -155,9 +181,24 @@ class AuthService {
     }
   }
 
+  // Resend Device Verification OTP
+  static Future<bool> resendDeviceOtp(String nicNo, String email) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/user/resend-device-otp',
+        data: {
+          'nicNo': nicNo,
+          'email': email,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
   // Logout - clear local storage
   static Future<void> logout() async {
     await SecureStorage.deleteToken();
-    // Keep NIC for biometric if enabled
   }
 }

@@ -16,7 +16,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _nicController = TextEditingController();
   final _nameController = TextEditingController();
-  final _emailController = TextEditingController(); // Replaces mobile
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _otpController = TextEditingController();
@@ -251,12 +251,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "deviceId": deviceId
       };
 
-      // Step 1: Register - Backend sends OTP to email
       final success = await AuthService.registerUser(_registeredData!);
 
       if (success && mounted) {
         setState(() => _isLoading = false);
-        _showOTPDialog(); // Show OTP dialog directly (no Firebase)
+        _showOTPDialog();
       }
     } catch (e) {
       if (mounted) {
@@ -266,7 +265,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // Step 2: Verify OTP from email via backend
   Future<void> _verifyOTP() async {
     FocusScope.of(context).unfocus();
 
@@ -283,7 +281,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       if (isVerified) {
-        if (mounted) Navigator.pop(context); // Close OTP dialog
+        if (mounted) Navigator.pop(context);
 
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
 
@@ -309,104 +307,149 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _showOTPDialog() {
     _otpController.clear();
+    bool isResending = false;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withAlpha(200),
-      builder: (BuildContext context) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(25),
-                borderRadius: BorderRadius.circular(24),
-                border:
-                    Border.all(color: Colors.white.withAlpha(50), width: 1.5),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.message, color: Colors.white, size: 40),
-                  const SizedBox(height: 15),
-                  const Text('Enter OTP',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 15),
-                  Text(
-                    'We sent an OTP to ${_emailController.text.trim()}. Please enter it to complete registration.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(25),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                        color: Colors.white.withAlpha(50), width: 1.5),
                   ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 20, letterSpacing: 8),
-                    textAlign: TextAlign.center,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withAlpha(20),
-                      hintText: '••••••',
-                      hintStyle: const TextStyle(
-                          color: Colors.white54, letterSpacing: 8),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(15),
-                          borderSide: BorderSide.none),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(
-                                  color: Colors.white.withAlpha(100),
-                                  width: 1.5),
-                            ),
-                          ),
-                          onPressed: () {
-                            Navigator.pop(context);
-                            setState(() => _isLoading = false);
-                          },
-                          child: const Text('Cancel',
-                              style: TextStyle(color: Colors.white)),
+                      const Icon(Icons.message, color: Colors.white, size: 40),
+                      const SizedBox(height: 15),
+                      const Text('Enter OTP',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 15),
+                      Text(
+                        'We sent an OTP to ${_emailController.text.trim()}. Please enter it to complete registration.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 14),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: _otpController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            letterSpacing: 8),
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white.withAlpha(20),
+                          hintText: '••••••',
+                          hintStyle: const TextStyle(
+                              color: Colors.white54, letterSpacing: 8),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withAlpha(50),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(
-                                  color: Colors.white.withAlpha(150),
-                                  width: 1.5),
+                      const SizedBox(height: 16),
+                      // Resend Button
+                      TextButton(
+                        onPressed: isResending
+                            ? null
+                            : () async {
+                                setModalState(() => isResending = true);
+                                try {
+                                  final success =
+                                      await AuthService.resendRegistrationOtp(
+                                          _registeredData!['nicNo']);
+                                  if (success && mounted) {
+                                    _showToast('OTP resent successfully!');
+                                  } else {
+                                    _showToast('Failed to resend OTP.',
+                                        isError: true);
+                                  }
+                                } catch (e) {
+                                  _showToast('Failed to resend OTP.',
+                                      isError: true);
+                                }
+                                if (mounted) {
+                                  setModalState(() => isResending = false);
+                                }
+                              },
+                        child: Text(
+                          isResending ? 'Sending...' : 'Resend OTP',
+                          style: TextStyle(
+                            color: isResending
+                                ? Colors.white54
+                                : Colors.cyanAccent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                      color: Colors.white.withAlpha(100),
+                                      width: 1.5),
+                                ),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(dialogContext);
+                                setState(() => _isLoading = false);
+                              },
+                              child: const Text('Cancel',
+                                  style: TextStyle(color: Colors.white)),
                             ),
                           ),
-                          onPressed: _verifyOTP,
-                          child: const Text('Verify',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white.withAlpha(50),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                      color: Colors.white.withAlpha(150),
+                                      width: 1.5),
+                                ),
+                              ),
+                              onPressed: _verifyOTP,
+                              child: const Text('Verify',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );

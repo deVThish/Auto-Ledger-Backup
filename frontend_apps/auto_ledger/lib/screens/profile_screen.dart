@@ -475,9 +475,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   : const Text(
                                       'Enable',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15),
                                     ),
                             ),
                           ),
@@ -947,7 +946,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
             child: Center(
-              child: Text(_points.toString(),
+              child: Text('$_points',
                   style: TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w900, color: color)),
             ),
@@ -1120,7 +1119,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 20),
                             _buildPointsWidget(),
                             const SizedBox(height: 20),
-
                             _buildGlassCard(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1148,15 +1146,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ],
                               ),
                             ),
-
                             const SizedBox(height: 20),
-
-                            // Biometric Toggle
                             _buildBiometricToggle(),
-
                             const SizedBox(height: 20),
-
-                            // Change Password
                             _buildGlassCard(
                               padding: const EdgeInsets.all(4),
                               child: ListTile(
@@ -1180,10 +1172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     size: 16),
                               ),
                             ),
-
                             const SizedBox(height: 30),
-
-                            // Logout Button
                             ClipRRect(
                               borderRadius: BorderRadius.circular(20),
                               child: BackdropFilter(

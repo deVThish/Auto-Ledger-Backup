@@ -28,6 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasShownPointsWarning = false;
   final List<Map<String, dynamic>> _recentActivities = [];
 
+  String? _currentQrToken;
+  DateTime? _currentQrExpiry;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _licenseData = Map<String, dynamic>.from(response.data);
         _isLoading = false;
+        _errorMessage = '';
       });
 
       if (!_hasShownPointsWarning) {
@@ -69,7 +73,8 @@ class _HomeScreenState extends State<HomeScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.response?.data['message'] ?? 'Failed to load license details.';
+        _errorMessage =
+            e.response?.data['message'] ?? 'Failed to load license details.';
         _isLoading = false;
       });
     } catch (e) {
@@ -91,17 +96,20 @@ class _HomeScreenState extends State<HomeScreen> {
       warningColor = Colors.red.shade400;
       warningIcon = Icons.warning_rounded;
       warningTitle = 'CRITICAL RISK';
-      warningMessage = 'You have high demerit points ($points points). Reach 100 points and your license will be permanently revoked.';
+      warningMessage =
+          'You have high demerit points ($points points). Reach 100 points and your license will be permanently revoked.';
     } else if (points >= 45 && points <= 49) {
       warningColor = Colors.orange.shade400;
       warningIcon = Icons.warning_rounded;
       warningTitle = 'SEVERE RISK';
-      warningMessage = 'You have high demerit points ($points points). Reach 50 points and your license will be suspended.';
+      warningMessage =
+          'You have high demerit points ($points points). Reach 50 points and your license will be suspended.';
     } else {
       warningColor = Colors.amber.shade400;
       warningIcon = Icons.info_outline_rounded;
       warningTitle = 'WARNING';
-      warningMessage = 'You have high demerit points ($points points). Reach 24 points and your license will be suspended.';
+      warningMessage =
+          'You have high demerit points ($points points). Reach 24 points and your license will be suspended.';
     }
 
     showDialog(
@@ -118,25 +126,40 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.white.withAlpha(40), Colors.white.withAlpha(15)],
+                  colors: [
+                    Colors.white.withAlpha(40),
+                    Colors.white.withAlpha(15)
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: Colors.white.withAlpha(80), width: 1.0),
+                border:
+                    Border.all(color: Colors.white.withAlpha(80), width: 1.0),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: warningColor.withAlpha(30), shape: BoxShape.circle),
+                    decoration: BoxDecoration(
+                        color: warningColor.withAlpha(30),
+                        shape: BoxShape.circle),
                     child: Icon(warningIcon, size: 40, color: warningColor),
                   ),
                   const SizedBox(height: 20),
-                  Text(warningTitle, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: warningColor)),
+                  Text(warningTitle,
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: warningColor)),
                   const SizedBox(height: 15),
-                  Text(warningMessage, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, color: Colors.white70, fontWeight: FontWeight.w500)),
+                  Text(warningMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w500)),
                   const SizedBox(height: 25),
                   SizedBox(
                     width: double.infinity,
@@ -144,14 +167,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white.withAlpha(40),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.white.withAlpha(60))),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                            side:
+                                BorderSide(color: Colors.white.withAlpha(60))),
                         elevation: 0,
                       ),
                       onPressed: () {
                         HapticFeedback.lightImpact();
                         Navigator.of(context).pop();
                       },
-                      child: const Text('I Understand', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      child: const Text('I Understand',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -164,7 +194,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showTemporaryLicenseSheet(Map<String, dynamic> tempLicense) {
-    _addRecentActivity('Viewed Temporary License', Icons.assignment_late_outlined);
+    _addRecentActivity(
+        'Viewed Temporary License', Icons.assignment_late_outlined);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -176,32 +207,51 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.white.withAlpha(50), Colors.white.withAlpha(20)],
+                colors: [
+                  Colors.white.withAlpha(50),
+                  Colors.white.withAlpha(20)
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(35), topRight: Radius.circular(35)),
+              borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(35), topRight: Radius.circular(35)),
               border: Border.all(color: Colors.white.withAlpha(60), width: 1.0),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.white.withAlpha(60), borderRadius: BorderRadius.circular(10)))),
+                Center(
+                    child: Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(60),
+                            borderRadius: BorderRadius.circular(10)))),
                 const SizedBox(height: 20),
                 const Row(
                   children: [
-                    Icon(Icons.assignment_late_outlined, color: Colors.white, size: 28),
+                    Icon(Icons.assignment_late_outlined,
+                        color: Colors.white, size: 28),
                     SizedBox(width: 10),
-                    Text('Temporary License', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text('Temporary License',
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildTempInfoRow('Issued Date', _formatDate(tempLicense['issue_Date'])),
+                _buildTempInfoRow(
+                    'Issued Date', _formatDate(tempLicense['issue_Date'])),
                 Divider(height: 20, color: Colors.white.withAlpha(20)),
-                _buildTempInfoRow('Valid Until', _formatDate(tempLicense['expiry_Date']), isHighlight: true),
+                _buildTempInfoRow(
+                    'Valid Until', _formatDate(tempLicense['expiry_Date']),
+                    isHighlight: true),
                 Divider(height: 20, color: Colors.white.withAlpha(20)),
-                _buildTempInfoRow('Issued By (Officer)', tempLicense['issued_By'] ?? 'Unknown'),
+                _buildTempInfoRow('Issued By (Officer)',
+                    tempLicense['issued_By'] ?? 'Unknown'),
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
@@ -211,13 +261,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       backgroundColor: Colors.white.withAlpha(30),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.white.withAlpha(60))),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          side: BorderSide(color: Colors.white.withAlpha(60))),
                     ),
                     onPressed: () {
                       HapticFeedback.mediumImpact();
                       Navigator.pop(context);
                     },
-                    child: const Text('Close', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text('Close',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -229,24 +283,87 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTempInfoRow(String title, String value, {bool isHighlight = false}) {
+  Widget _buildTempInfoRow(String title, String value,
+      {bool isHighlight = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontSize: 15, color: Colors.white70, fontWeight: FontWeight.w600)),
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isHighlight ? Colors.redAccent : Colors.white)),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 15,
+                color: Colors.white70,
+                fontWeight: FontWeight.w600)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isHighlight ? Colors.redAccent : Colors.white)),
       ],
     );
   }
 
   Future<void> _generateQR() async {
-    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.white)));
+    if (_currentQrToken != null && _currentQrExpiry != null) {
+      final now = DateTime.now();
+      if (_currentQrExpiry!.isAfter(now)) {
+        _addRecentActivity('Reopened QR Code', Icons.qr_code_scanner);
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) => _QRDialog(
+              qrToken: _currentQrToken!,
+              expiresAt: _currentQrExpiry!,
+              onClose: () {},
+              onExpired: () {
+                setState(() {
+                  _currentQrToken = null;
+                  _currentQrExpiry = null;
+                });
+              },
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) =>
+          const Center(child: CircularProgressIndicator(color: Colors.white)),
+    );
     try {
       final response = await ApiService.dio.get('/license/generate-qr');
       final String token = response.data['qrToken'];
+      final DateTime expiresAt = DateTime.parse(response.data['expiresAt']);
+
       if (mounted) Navigator.pop(context);
       _addRecentActivity('Generated QR Code', Icons.qr_code_scanner);
-      if (mounted) showDialog(context: context, barrierDismissible: false, builder: (BuildContext context) => _QRDialog(qrToken: token));
+
+      setState(() {
+        _currentQrToken = token;
+        _currentQrExpiry = expiresAt;
+      });
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) => _QRDialog(
+            qrToken: token,
+            expiresAt: expiresAt,
+            onClose: () {},
+            onExpired: () {
+              setState(() {
+                _currentQrToken = null;
+                _currentQrExpiry = null;
+              });
+            },
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) Navigator.pop(context);
       _showGlassToast('Failed to generate QR Code.', isError: true);
@@ -267,17 +384,30 @@ class _HomeScreenState extends State<HomeScreen> {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                 decoration: BoxDecoration(
-                  color: isError ? Colors.redAccent.withAlpha(50) : Colors.green.shade600.withAlpha(50),
+                  color: isError
+                      ? Colors.redAccent.withAlpha(50)
+                      : Colors.green.shade600.withAlpha(50),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withAlpha(100), width: 1.0),
+                  border: Border.all(
+                      color: Colors.white.withAlpha(100), width: 1.0),
                 ),
                 child: Row(
                   children: [
-                    Icon(isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, color: Colors.white, size: 28),
+                    Icon(
+                        isError
+                            ? Icons.error_outline_rounded
+                            : Icons.check_circle_outline_rounded,
+                        color: Colors.white,
+                        size: 28),
                     const SizedBox(width: 12),
-                    Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                    Expanded(
+                        child: Text(message,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold))),
                   ],
                 ),
               ),
@@ -292,7 +422,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _logout() async {
     await SecureStorage.deleteToken();
-    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+    if (mounted)
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
   String _formatDate(String? isoString) {
@@ -309,8 +441,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return Text.rich(
       TextSpan(
         children: [
-          TextSpan(text: number, style: TextStyle(fontSize: 8.5, color: Colors.blueGrey[200], fontWeight: FontWeight.bold)),
-          TextSpan(text: value, style: TextStyle(fontSize: 9.5, fontWeight: isBold ? FontWeight.bold : FontWeight.w600, color: Colors.white)),
+          TextSpan(
+              text: number,
+              style: TextStyle(
+                  fontSize: 8.5,
+                  color: Colors.blueGrey[200],
+                  fontWeight: FontWeight.bold)),
+          TextSpan(
+              text: value,
+              style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+                  color: Colors.white)),
         ],
       ),
       maxLines: 2,
@@ -337,20 +479,78 @@ class _HomeScreenState extends State<HomeScreen> {
         height: screenWidth * 0.58,
         child: Stack(
           children: [
-            Positioned.fill(child: Center(child: Opacity(opacity: 0.05, child: Image.asset('assets/emblem.png', width: screenWidth * 0.35, color: Colors.white, colorBlendMode: BlendMode.srcIn, errorBuilder: (c, e, s) => const SizedBox())))),
-            Positioned(bottom: 18, right: 48, child: Opacity(opacity: 0.10, child: Image.asset('assets/punkalasa.png', width: screenWidth * 0.15, color: Colors.white, colorBlendMode: BlendMode.srcIn, errorBuilder: (c, e, s) => Icon(Icons.security, size: screenWidth * 0.13, color: Colors.white)))),
+            Positioned.fill(
+                child: Center(
+                    child: Opacity(
+                        opacity: 0.05,
+                        child: Image.asset('assets/emblem.png',
+                            width: screenWidth * 0.35,
+                            color: Colors.white,
+                            colorBlendMode: BlendMode.srcIn,
+                            errorBuilder: (c, e, s) => const SizedBox())))),
+            Positioned(
+                bottom: 18,
+                right: 48,
+                child: Opacity(
+                    opacity: 0.10,
+                    child: Image.asset('assets/punkalasa.png',
+                        width: screenWidth * 0.15,
+                        color: Colors.white,
+                        colorBlendMode: BlendMode.srcIn,
+                        errorBuilder: (c, e, s) => Icon(Icons.security,
+                            size: screenWidth * 0.13, color: Colors.white)))),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
               child: Column(
                 children: [
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Container(decoration: BoxDecoration(border: Border.all(color: Colors.white24, width: 0.5)), child: Image.asset('assets/flag.png', width: screenWidth * 0.09, height: screenWidth * 0.055, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(width: screenWidth * 0.09, height: screenWidth * 0.055, color: Colors.grey[800]))),
+                      Container(
+                          decoration: BoxDecoration(
+                              border: Border.all(
+                                  color: Colors.white24, width: 0.5)),
+                          child: Image.asset('assets/flag.png',
+                              width: screenWidth * 0.09,
+                              height: screenWidth * 0.055,
+                              fit: BoxFit.cover,
+                              errorBuilder: (c, e, s) => Container(
+                                  width: screenWidth * 0.09,
+                                  height: screenWidth * 0.055,
+                                  color: Colors.grey[800]))),
                       const SizedBox(width: 8),
-                      Expanded(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.center, children: [const Text('DRIVING LICENCE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.0)), Container(margin: const EdgeInsets.symmetric(vertical: 2), height: 1.0, width: double.infinity, color: Colors.white12), const Text('DEMOCRATIC SOCIALIST REPUBLIC OF SRI LANKA', textAlign: TextAlign.center, style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Colors.white70))])),
+                      Expanded(
+                          child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                            const Text('DRIVING LICENCE',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: 1.0)),
+                            Container(
+                                margin: const EdgeInsets.symmetric(vertical: 2),
+                                height: 1.0,
+                                width: double.infinity,
+                                color: Colors.white12),
+                            const Text(
+                                'DEMOCRATIC SOCIALIST REPUBLIC OF SRI LANKA',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white70))
+                          ])),
                       const SizedBox(width: 8),
-                      Image.asset('assets/emblem.png', width: screenWidth * 0.08, height: screenWidth * 0.1, errorBuilder: (c, e, s) => SizedBox(width: screenWidth * 0.08, height: screenWidth * 0.1)),
+                      Image.asset('assets/emblem.png',
+                          width: screenWidth * 0.08,
+                          height: screenWidth * 0.1,
+                          errorBuilder: (c, e, s) => SizedBox(
+                              width: screenWidth * 0.08,
+                              height: screenWidth * 0.1)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -362,18 +562,68 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.only(top: 8.0, left: 10.0),
                           child: Column(
                             children: [
-                              Container(width: screenWidth * 0.18, height: screenWidth * 0.22, decoration: const BoxDecoration(color: Colors.transparent), child: imageUrl != null && imageUrl.isNotEmpty ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 40, color: Colors.white60)) : const Icon(Icons.person, size: 40, color: Colors.white60)),
+                              Container(
+                                  width: screenWidth * 0.18,
+                                  height: screenWidth * 0.22,
+                                  decoration: const BoxDecoration(
+                                      color: Colors.transparent),
+                                  child: imageUrl != null && imageUrl.isNotEmpty
+                                      ? Image.network(imageUrl,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(Icons.person,
+                                                      size: 40,
+                                                      color: Colors.white60))
+                                      : const Icon(Icons.person,
+                                          size: 40, color: Colors.white60)),
                               const SizedBox(height: 4),
-                              Text('4a. $issueDate', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white70)),
+                              Text('4a. $issueDate',
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white70)),
                               const SizedBox(height: 12),
                               Builder(
                                 builder: (context) {
                                   List<Color> statusGradient;
-                                  if (status == 'ACTIVE') { statusGradient = [const Color(0xFF00b09b), const Color(0xFF96c93d)]; } else if (status == 'SUSPENDED') { statusGradient = [const Color(0xFFf12711), const Color(0xFFf5af19)]; } else { statusGradient = [const Color(0xFFcb2d3e), const Color(0xFFef473a)]; }
+                                  if (status == 'ACTIVE') {
+                                    statusGradient = [
+                                      const Color(0xFF00b09b),
+                                      const Color(0xFF96c93d)
+                                    ];
+                                  } else if (status == 'SUSPENDED') {
+                                    statusGradient = [
+                                      const Color(0xFFf12711),
+                                      const Color(0xFFf5af19)
+                                    ];
+                                  } else {
+                                    statusGradient = [
+                                      const Color(0xFFcb2d3e),
+                                      const Color(0xFFef473a)
+                                    ];
+                                  }
                                   return Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(gradient: LinearGradient(colors: statusGradient.map((c) => c.withAlpha(200)).toList()), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white24)),
-                                    child: Row(mainAxisSize: MainAxisSize.min, children: [Text(status, style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 0.8))]),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                            colors: statusGradient
+                                                .map((c) => c.withAlpha(200))
+                                                .toList()),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border:
+                                            Border.all(color: Colors.white24)),
+                                    child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(status,
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: 0.8))
+                                        ]),
                                   );
                                 },
                               ),
@@ -387,11 +637,50 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: _buildDetailText('5. ', licenseNo, isBold: true)), const SizedBox(width: 8), Expanded(child: _buildDetailText('4c. ', nicNo))]),
+                                Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                          child: _buildDetailText(
+                                              '5. ', licenseNo,
+                                              isBold: true)),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                          child:
+                                              _buildDetailText('4c. ', nicNo))
+                                    ]),
                                 const SizedBox(height: 8),
-                                _buildDetailText('1, 2. ', name), const SizedBox(height: 8), _buildDetailText('8. ', address), const SizedBox(height: 8), _buildDetailText('3. ', dob),
+                                _buildDetailText('1, 2. ', name),
+                                const SizedBox(height: 8),
+                                _buildDetailText('8. ', address),
+                                const SizedBox(height: 8),
+                                _buildDetailText('3. ', dob),
                                 const Spacer(),
-                                Row(mainAxisAlignment: MainAxisAlignment.start, crossAxisAlignment: CrossAxisAlignment.center, children: [const Text('Blood Group  ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70)), Text(bloodGroup, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)), const Spacer(), Text('SL', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.purple.shade300))]),
+                                Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      const Text('Blood Group  ',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white70)),
+                                      Text(bloodGroup,
+                                          style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white)),
+                                      const Spacer(),
+                                      Text('SL',
+                                          style: TextStyle(
+                                              fontSize: 26,
+                                              fontWeight: FontWeight.w900,
+                                              color: Colors.purple.shade300))
+                                    ]),
                                 const SizedBox(height: 6),
                               ],
                             ),
@@ -410,22 +699,66 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   TableRow _buildCategoryRow(String code, String icon) {
-    final categories = _licenseData?['vehicleCategories'] as List<dynamic>? ?? [];
-    final cat = categories.cast<Map<String, dynamic>>().firstWhere((c) => c['vehicle_Class'] == code, orElse: () => <String, dynamic>{});
-    if (cat.isNotEmpty) return _buildTableRow('$code $icon', _formatDate(cat['issue_Date']), _formatDate(cat['expiry_Date']), cat['restriction'] ?? '---');
+    final categories =
+        _licenseData?['vehicleCategories'] as List<dynamic>? ?? [];
+    final cat = categories.cast<Map<String, dynamic>>().firstWhere(
+        (c) => c['vehicle_Class'] == code,
+        orElse: () => <String, dynamic>{});
+    if (cat.isNotEmpty) {
+      return _buildTableRow('$code $icon', _formatDate(cat['issue_Date']),
+          _formatDate(cat['expiry_Date']), cat['restriction'] ?? '---');
+    }
     return _buildTableRow('$code $icon', '---', '---', '---');
   }
 
-  Widget _buildLegendText(String text) => Padding(padding: const EdgeInsets.only(bottom: 2.5), child: Text(text, style: TextStyle(fontSize: 6.0, color: Colors.blueGrey[300], fontWeight: FontWeight.w600, height: 1.0)));
+  Widget _buildLegendText(String text) => Padding(
+      padding: const EdgeInsets.only(bottom: 2.5),
+      child: Text(text,
+          style: TextStyle(
+              fontSize: 6.0,
+              color: Colors.blueGrey[300],
+              fontWeight: FontWeight.w600,
+              height: 1.0)));
 
-  TableRow _buildTableRow(String col1, String col2, String col3, String restriction, {bool isHeader = false}) {
+  TableRow _buildTableRow(
+      String col1, String col2, String col3, String restriction,
+      {bool isHeader = false}) {
     return TableRow(
-      decoration: BoxDecoration(color: isHeader ? Colors.white.withAlpha(20) : Colors.transparent),
+      decoration: BoxDecoration(
+          color: isHeader ? Colors.white.withAlpha(20) : Colors.transparent),
       children: [
-        Padding(padding: const EdgeInsets.all(1.0), child: Text(col1, textAlign: TextAlign.center, style: TextStyle(fontSize: isHeader ? 7.5 : 8.5, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal, color: Colors.white))),
-        Padding(padding: const EdgeInsets.all(1.0), child: Text(col2, textAlign: TextAlign.center, style: TextStyle(fontSize: isHeader ? 7.5 : 8.5, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal, color: Colors.white70))),
-        Padding(padding: const EdgeInsets.all(1.0), child: Text(col3, textAlign: TextAlign.center, style: TextStyle(fontSize: isHeader ? 7.5 : 8.5, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal, color: Colors.white70))),
-        Padding(padding: const EdgeInsets.all(1.0), child: Text(restriction, textAlign: TextAlign.center, style: TextStyle(fontSize: isHeader ? 7.5 : 8.5, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal, color: Colors.white60))),
+        Padding(
+            padding: const EdgeInsets.all(1.0),
+            child: Text(col1,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: isHeader ? 7.5 : 8.5,
+                    fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+                    color: Colors.white))),
+        Padding(
+            padding: const EdgeInsets.all(1.0),
+            child: Text(col2,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: isHeader ? 7.5 : 8.5,
+                    fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+                    color: Colors.white70))),
+        Padding(
+            padding: const EdgeInsets.all(1.0),
+            child: Text(col3,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: isHeader ? 7.5 : 8.5,
+                    fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+                    color: Colors.white70))),
+        Padding(
+            padding: const EdgeInsets.all(1.0),
+            child: Text(restriction,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: isHeader ? 7.5 : 8.5,
+                    fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+                    color: Colors.white60))),
       ],
     );
   }
@@ -439,23 +772,86 @@ class _HomeScreenState extends State<HomeScreen> {
         height: screenWidth * 0.58,
         child: Stack(
           children: [
-            Positioned.fill(child: Center(child: Opacity(opacity: 0.03, child: Image.asset('assets/emblem.png', width: screenWidth * 0.35, color: Colors.white, colorBlendMode: BlendMode.srcIn, errorBuilder: (c, e, s) => const SizedBox())))),
-            Positioned(left: 6, top: 15, bottom: 15, child: Center(child: RotatedBox(quarterTurns: 3, child: Text('Department of Motor Traffic - Sri Lanka', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey[300]))))),
+            Positioned.fill(
+                child: Center(
+                    child: Opacity(
+                        opacity: 0.03,
+                        child: Image.asset('assets/emblem.png',
+                            width: screenWidth * 0.35,
+                            color: Colors.white,
+                            colorBlendMode: BlendMode.srcIn,
+                            errorBuilder: (c, e, s) => const SizedBox())))),
+            Positioned(
+                left: 6,
+                top: 15,
+                bottom: 15,
+                child: Center(
+                    child: RotatedBox(
+                        quarterTurns: 3,
+                        child: Text('Department of Motor Traffic - Sri Lanka',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueGrey[300]))))),
             Padding(
-              padding: const EdgeInsets.only(left: 28, right: 16, top: 12, bottom: 8),
+              padding: const EdgeInsets.only(
+                  left: 28, right: 16, top: 12, bottom: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Expanded(flex: 4, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [_buildLegendText('1. Surname'), _buildLegendText('2. Other names'), _buildLegendText('3. Date of birth'), _buildLegendText('4a. Date of Issue of the License'), _buildLegendText('4b. Issuing Authority'), _buildLegendText('4c. Administrative Number'), _buildLegendText('5. Number of the LICENCE'), _buildLegendText('7. Signature of the holder'), _buildLegendText('8. Permanent place of residence'), _buildLegendText('9. Categories of vehicles'), _buildLegendText('10. Date of Issue per category'), _buildLegendText('11. Date of Expiry per category'), _buildLegendText('12. Restrictions in code form')])),
+                  Expanded(
+                      flex: 4,
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildLegendText('1. Surname'),
+                            _buildLegendText('2. Other names'),
+                            _buildLegendText('3. Date of birth'),
+                            _buildLegendText(
+                                '4a. Date of Issue of the License'),
+                            _buildLegendText('4b. Issuing Authority'),
+                            _buildLegendText('4c. Administrative Number'),
+                            _buildLegendText('5. Number of the LICENCE'),
+                            _buildLegendText('7. Signature of the holder'),
+                            _buildLegendText('8. Permanent place of residence'),
+                            _buildLegendText('9. Categories of vehicles'),
+                            _buildLegendText('10. Date of Issue per category'),
+                            _buildLegendText('11. Date of Expiry per category'),
+                            _buildLegendText('12. Restrictions in code form')
+                          ])),
                   const SizedBox(width: 6),
                   Expanded(
                     flex: 7,
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Table(
-                        border: TableBorder.all(color: Colors.white.withAlpha(40), width: 0.5),
-                        columnWidths: const {0: FlexColumnWidth(1.2), 1: FlexColumnWidth(2.2), 2: FlexColumnWidth(2.2), 3: FlexColumnWidth(1.2)},
-                        children: [_buildTableRow('9.', '10.', '11.', '12.', isHeader: true), _buildCategoryRow('A1', '🛺'), _buildCategoryRow('A', '🏍️'), _buildCategoryRow('B1', '🛺'), _buildCategoryRow('B', '🚗'), _buildCategoryRow('C1', '🚚'), _buildCategoryRow('C', '🚛'), _buildCategoryRow('CE', '🚛'), _buildCategoryRow('D1', '🚐'), _buildCategoryRow('D', '🚌'), _buildCategoryRow('DE', '🚌'), _buildCategoryRow('G1', '🚜'), _buildCategoryRow('G', '🚜'), _buildCategoryRow('J', '🏗️'), _buildCategoryRow('H', '♿')],
+                        border: TableBorder.all(
+                            color: Colors.white.withAlpha(40), width: 0.5),
+                        columnWidths: const {
+                          0: FlexColumnWidth(1.2),
+                          1: FlexColumnWidth(2.2),
+                          2: FlexColumnWidth(2.2),
+                          3: FlexColumnWidth(1.2)
+                        },
+                        children: [
+                          _buildTableRow('9.', '10.', '11.', '12.',
+                              isHeader: true),
+                          _buildCategoryRow('A1', '🛺'),
+                          _buildCategoryRow('A', '🏍️'),
+                          _buildCategoryRow('B1', '🛺'),
+                          _buildCategoryRow('B', '🚗'),
+                          _buildCategoryRow('C1', '🚚'),
+                          _buildCategoryRow('C', '🚛'),
+                          _buildCategoryRow('CE', '🚛'),
+                          _buildCategoryRow('D1', '🚐'),
+                          _buildCategoryRow('D', '🚌'),
+                          _buildCategoryRow('DE', '🚌'),
+                          _buildCategoryRow('G1', '🚜'),
+                          _buildCategoryRow('G', '🚜'),
+                          _buildCategoryRow('J', '🏗️'),
+                          _buildCategoryRow('H', '♿')
+                        ],
                       ),
                     ),
                   ),
@@ -468,7 +864,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildLicenseGlassCard({required Widget child, EdgeInsetsGeometry? padding}) {
+  Widget _buildLicenseGlassCard(
+      {required Widget child, EdgeInsetsGeometry? padding}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
@@ -500,7 +897,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGlassButton({required String label, required IconData icon, required Color color, required VoidCallback onPressed}) {
+  Widget _buildGlassButton(
+      {required String label,
+      required IconData icon,
+      required Color color,
+      required VoidCallback onPressed}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
@@ -510,8 +911,20 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Container(
             width: double.infinity,
             height: 60,
-            decoration: BoxDecoration(color: color.withAlpha(40), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withAlpha(60), width: 1.0)),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 26, color: Colors.white), const SizedBox(width: 12), Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white))]),
+            decoration: BoxDecoration(
+                color: color.withAlpha(40),
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    Border.all(color: Colors.white.withAlpha(60), width: 1.0)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 26, color: Colors.white),
+              const SizedBox(width: 12),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white))
+            ]),
           ),
         ),
       ),
@@ -536,7 +949,11 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Recent Activities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('Recent Activities',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white)),
                 const SizedBox(height: 10),
                 Container(height: 1.0, color: Colors.white24),
                 const SizedBox(height: 10),
@@ -545,14 +962,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     physics: const BouncingScrollPhysics(),
                     padding: EdgeInsets.zero,
                     itemCount: _recentActivities.length,
-                    separatorBuilder: (context, index) => Divider(color: Colors.white.withAlpha(15)),
+                    separatorBuilder: (context, index) =>
+                        Divider(color: Colors.white.withAlpha(15)),
                     itemBuilder: (context, index) {
                       final activity = _recentActivities[index];
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withAlpha(20), shape: BoxShape.circle), child: Icon(activity['icon'], color: Colors.white70, size: 20)),
-                        title: Text(activity['title'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: Text(activity['date'], style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                        leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                                color: Colors.white.withAlpha(20),
+                                shape: BoxShape.circle),
+                            child: Icon(activity['icon'],
+                                color: Colors.white70, size: 20)),
+                        title: Text(activity['title'],
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14)),
+                        subtitle: Text(activity['date'],
+                            style: const TextStyle(
+                                color: Colors.white60, fontSize: 12)),
                       );
                     },
                   ),
@@ -566,7 +996,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDashboard() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator(color: Colors.white));
+    if (_isLoading)
+      return const Center(
+          child: CircularProgressIndicator(color: Colors.white));
     if (_errorMessage.isNotEmpty) {
       return Center(
         child: Padding(
@@ -574,9 +1006,26 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, color: Colors.redAccent, size: 50), const SizedBox(height: 16),
-              Text(_errorMessage, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.white)), const SizedBox(height: 16),
-              ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withAlpha(30)), onPressed: () { setState(() { _isLoading = true; _errorMessage = ''; }); _fetchLicenseData(); }, child: const Text('Retry', style: TextStyle(color: Colors.white))),
+              const Icon(Icons.error_outline,
+                  color: Colors.redAccent, size: 50),
+              const SizedBox(height: 16),
+              Text(_errorMessage,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, color: Colors.white)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withAlpha(30)),
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _errorMessage = '';
+                  });
+                  _fetchLicenseData();
+                },
+                child:
+                    const Text('Retry', style: TextStyle(color: Colors.white)),
+              ),
             ],
           ),
         ),
@@ -584,25 +1033,59 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final List<dynamic> tempLicenses = _licenseData?['temporaryLicenses'] ?? [];
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: kToolbarHeight + 40, bottom: 120.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 10),
-          const Text('Tap the card to rotate side', style: TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          GestureDetector(onTap: () { HapticFeedback.selectionClick(); setState(() { _isFront = !_isFront; }); }, child: AnimatedSwitcher(duration: const Duration(milliseconds: 150), child: _isFront ? _buildFrontCard() : _buildBackCard())),
-          const SizedBox(height: 24),
-          if (tempLicenses.isNotEmpty) ...[
-            _buildGlassButton(label: 'VIEW TEMPORARY LICENSE', icon: Icons.assignment_late_outlined, color: Colors.orangeAccent, onPressed: () { HapticFeedback.lightImpact(); _showTemporaryLicenseSheet(tempLicenses.last as Map<String, dynamic>); }),
-            const SizedBox(height: 16),
+    return RefreshIndicator(
+      onRefresh: _fetchLicenseData,
+      color: Colors.cyanAccent,
+      backgroundColor: Colors.white.withAlpha(20),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(
+            left: 16.0, right: 16.0, top: kToolbarHeight + 40, bottom: 120.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 10),
+            const Text('Tap the card to rotate side',
+                style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _isFront = !_isFront;
+                  });
+                },
+                child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    child: _isFront ? _buildFrontCard() : _buildBackCard())),
+            const SizedBox(height: 24),
+            if (tempLicenses.isNotEmpty) ...[
+              _buildGlassButton(
+                  label: 'VIEW TEMPORARY LICENSE',
+                  icon: Icons.assignment_late_outlined,
+                  color: Colors.orangeAccent,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _showTemporaryLicenseSheet(
+                        tempLicenses.last as Map<String, dynamic>);
+                  }),
+              const SizedBox(height: 16),
+            ],
+            _buildGlassButton(
+                label: 'SHOW QR TO OFFICER',
+                icon: Icons.qr_code_scanner,
+                color: Colors.blueAccent,
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _generateQR();
+                }),
+            const SizedBox(height: 24),
+            _buildRecentActivitiesFragment(),
           ],
-          _buildGlassButton(label: 'SHOW QR TO OFFICER', icon: Icons.qr_code_scanner, color: Colors.blueAccent, onPressed: () { HapticFeedback.lightImpact(); _generateQR(); }),
-          const SizedBox(height: 24),
-          _buildRecentActivitiesFragment(),
-        ],
+        ),
       ),
     );
   }
@@ -628,8 +1111,21 @@ class _HomeScreenState extends State<HomeScreen> {
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(color: isSelected ? Colors.white.withAlpha(30) : Colors.transparent, borderRadius: BorderRadius.circular(20)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: isSelected ? Colors.white : Colors.white60, size: 22), if (isSelected) ...[const SizedBox(width: 8), Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))]]),
+        decoration: BoxDecoration(
+            color: isSelected ? Colors.white.withAlpha(30) : Colors.transparent,
+            borderRadius: BorderRadius.circular(20)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon,
+              color: isSelected ? Colors.white : Colors.white60, size: 22),
+          if (isSelected) ...[
+            const SizedBox(width: 8),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13))
+          ]
+        ]),
       ),
     );
   }
@@ -639,9 +1135,28 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Stack(
         children: [
           Container(color: const Color(0xFF0B0F19)),
-          Positioned(top: -50, left: -50, child: Container(width: 300, height: 300, decoration: BoxDecoration(color: const Color(0xFF1E3A8A).withAlpha(140), shape: BoxShape.circle))),
-          Positioned(bottom: 100, right: -50, child: Container(width: 350, height: 350, decoration: BoxDecoration(color: Colors.teal.shade900.withAlpha(120), shape: BoxShape.circle))),
-          Positioned.fill(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 75, sigmaY: 75), child: Container(color: Colors.transparent))),
+          Positioned(
+              top: -50,
+              left: -50,
+              child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF1E3A8A).withAlpha(140),
+                      shape: BoxShape.circle))),
+          Positioned(
+              bottom: 100,
+              right: -50,
+              child: Container(
+                  width: 350,
+                  height: 350,
+                  decoration: BoxDecoration(
+                      color: Colors.teal.shade900.withAlpha(120),
+                      shape: BoxShape.circle))),
+          Positioned.fill(
+              child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 75, sigmaY: 75),
+                  child: Container(color: Colors.transparent))),
         ],
       ),
     );
@@ -656,53 +1171,65 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: Colors.transparent,
           extendBody: true,
           extendBodyBehindAppBar: true,
-          appBar: _currentIndex == 0 ? AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: const Color(0xFF0B0F19).withAlpha(120),
-            flexibleSpace: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Colors.white.withAlpha(40), width: 1.0)),
+          appBar: _currentIndex == 0
+              ? AppBar(
+                  automaticallyImplyLeading: false,
+                  backgroundColor: const Color(0xFF0B0F19).withAlpha(120),
+                  flexibleSpace: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                              bottom: BorderSide(
+                                  color: Colors.white.withAlpha(40),
+                                  width: 1.0)),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-            foregroundColor: Colors.white,
-            title: const Text('Auto-Ledger Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            elevation: 0,
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 12.0, top: 6.0, bottom: 6.0),
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent.withAlpha(30),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.redAccent.withAlpha(80), width: 1.0),
-                  ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
-                    onPressed: _logout,
-                    tooltip: 'Logout',
-                  ),
-                ),
-              )
-            ],
-          ) : null,
+                  foregroundColor: Colors.white,
+                  title: const Text('Auto-Ledger Dashboard',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  elevation: 0,
+                  actions: [
+                    Padding(
+                      padding: const EdgeInsets.only(
+                          right: 12.0, top: 6.0, bottom: 6.0),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withAlpha(30),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.redAccent.withAlpha(80),
+                              width: 1.0),
+                        ),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.logout_rounded,
+                              color: Colors.redAccent, size: 20),
+                          onPressed: _logout,
+                          tooltip: 'Logout',
+                        ),
+                      ),
+                    )
+                  ],
+                )
+              : null,
           body: _currentIndex == 0
               ? _buildDashboard()
               : _currentIndex == 1
-              ? FinesScreen(
-            onLogActivity: _addRecentActivity,
-            onSelectionModeChanged: (isSelected) => setState(() => _isSelectionMode = isSelected),
-          )
-              : ProfileScreen(
-            onLogActivity: _addRecentActivity,
-          ),
+                  ? FinesScreen(
+                      onLogActivity: _addRecentActivity,
+                      onSelectionModeChanged: (isSelected) =>
+                          setState(() => _isSelectionMode = isSelected),
+                    )
+                  : ProfileScreen(
+                      onLogActivity: _addRecentActivity,
+                    ),
           bottomNavigationBar: AnimatedSlide(
             offset: _isSelectionMode ? const Offset(0, 2) : Offset.zero,
             duration: const Duration(milliseconds: 300),
@@ -711,14 +1238,31 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 margin: const EdgeInsets.only(bottom: 16, left: 30, right: 30),
                 height: 65,
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(35), boxShadow: [BoxShadow(color: Colors.black.withAlpha(40), blurRadius: 20, offset: const Offset(0, 10))]),
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(35),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withAlpha(40),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10))
+                    ]),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(35),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                     child: Container(
-                      decoration: BoxDecoration(color: const Color(0xFF0B0F19).withAlpha(160), borderRadius: BorderRadius.circular(35), border: Border.all(color: Colors.white.withAlpha(40), width: 1.0)),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [_buildNavItem(0, 'License', Icons.credit_card), _buildNavItem(1, 'Fines', Icons.receipt_long), _buildNavItem(2, 'Profile', Icons.person)]),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFF0B0F19).withAlpha(160),
+                          borderRadius: BorderRadius.circular(35),
+                          border: Border.all(
+                              color: Colors.white.withAlpha(40), width: 1.0)),
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildNavItem(0, 'License', Icons.credit_card),
+                            _buildNavItem(1, 'Fines', Icons.receipt_long),
+                            _buildNavItem(2, 'Profile', Icons.person)
+                          ]),
                     ),
                   ),
                 ),
@@ -731,70 +1275,234 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+//  QR Dialog
 class _QRDialog extends StatefulWidget {
   final String qrToken;
-  const _QRDialog({required this.qrToken});
-  @override State<_QRDialog> createState() => _QRDialogState();
+  final DateTime expiresAt;
+  final VoidCallback onClose;
+  final VoidCallback onExpired;
+
+  const _QRDialog({
+    required this.qrToken,
+    required this.expiresAt,
+    required this.onClose,
+    required this.onExpired,
+  });
+
+  @override
+  State<_QRDialog> createState() => _QRDialogState();
 }
 
 class _QRDialogState extends State<_QRDialog> {
-  int _remainingSeconds = 180; Timer? _pollingTimer; Timer? _countdownTimer; bool _isScanned = false;
-  @override void initState() { super.initState(); _startPolling(); }
-  @override void dispose() { _pollingTimer?.cancel(); _countdownTimer?.cancel(); super.dispose(); }
-  void _startPolling() { _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async { try { final response = await ApiService.dio.get('/license/check-scan-status', queryParameters: {'qrToken': widget.qrToken}); if (response.data['scanned'] == true) { timer.cancel(); _onQrScanned(); } } catch (e) { return; } }); }
-  void _onQrScanned() { if (!mounted || _isScanned) return; setState(() { _isScanned = true; }); _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) { if (_remainingSeconds > 0) { setState(() => _remainingSeconds--); } else { timer.cancel(); if (mounted) Navigator.pop(context); } }); }
-  String get _formattedTime { int minutes = _remainingSeconds ~/ 60; int seconds = _remainingSeconds % 60; return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}'; }
+  Timer? _pollingTimer;
+  Timer? _countdownTimer;
+  bool _isScanned = false;
+  bool _isExpired = false;
+  int _remainingSeconds = 0;
 
-  @override Widget build(BuildContext context) {
+  @override
+  void initState() {
+    super.initState();
+    _remainingSeconds = widget.expiresAt.difference(DateTime.now()).inSeconds;
+
+    if (_remainingSeconds <= 0) {
+      _isExpired = true;
+      _remainingSeconds = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onExpired());
+    } else {
+      _startCountdown();
+      _startPolling();
+    }
+  }
+
+  void _startCountdown() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds--);
+      } else {
+        _countdownTimer?.cancel();
+        setState(() => _isExpired = true);
+        widget.onExpired();
+      }
+    });
+  }
+
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (_isExpired || _isScanned) {
+        timer.cancel();
+        return;
+      }
+      try {
+        final response = await ApiService.dio.get(
+          '/license/check-scan-status',
+          queryParameters: {'qrToken': widget.qrToken},
+        );
+        if (response.data['scanned'] == true) {
+          timer.cancel();
+          _onQrScanned();
+        }
+      } catch (e) {
+        // ignore
+      }
+    });
+  }
+
+  void _onQrScanned() {
+    if (!mounted || _isScanned) return;
+    setState(() => _isScanned = true);
+  }
+
+  String get _formattedTime {
+    int minutes = _remainingSeconds ~/ 60;
+    int seconds = _remainingSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _formatTime(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-        child: Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Colors.white.withAlpha(60), Colors.white.withAlpha(30)]),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.white.withAlpha(80), width: 1.0),
-                    boxShadow: [BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 25, offset: const Offset(0, 10))]
+      filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.white.withAlpha(60), Colors.white.withAlpha(30)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: Colors.white.withAlpha(80), width: 1.0),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withAlpha(30),
+                  blurRadius: 25,
+                  offset: const Offset(0, 10))
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Show this to the Officer',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              if (_isExpired) ...[
+                const Icon(Icons.timer_off, color: Colors.redAccent, size: 60),
+                const SizedBox(height: 10),
+                const Text(
+                  'QR Code Expired',
+                  style: TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
                 ),
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Show this to the Officer', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 20),
-                      ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                      color: Colors.white.withAlpha(140),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: Colors.white.withAlpha(80), width: 1.5)
-                                  ),
-                                  child: QrImageView(data: widget.qrToken, version: QrVersions.auto, size: 200.0)
-                              )
-                          )
+                const SizedBox(height: 10),
+                const Text(
+                  'Please close and generate a new QR code.',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ] else if (_isScanned) ...[
+                const Icon(Icons.check_circle,
+                    color: Colors.greenAccent, size: 60),
+                const SizedBox(height: 10),
+                const Text(
+                  'QR Code Scanned!',
+                  style: TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Officer has scanned your QR code.\nRemaining time: $_formattedTime',
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ] else ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(140),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: Colors.white.withAlpha(80), width: 1.5),
                       ),
-                      const SizedBox(height: 20),
-                      Text(_isScanned ? _formattedTime : '03:00', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: _isScanned ? Colors.redAccent : Colors.white)),
-                      const SizedBox(height: 15),
-                      SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withAlpha(30), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.white.withAlpha(40)))),
-                              onPressed: () { HapticFeedback.mediumImpact(); Navigator.pop(context); },
-                              child: const Text('Close', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
-                          )
-                      )
-                    ]
-                )
-            )
-        )
+                      child: QrImageView(
+                        data: widget.qrToken,
+                        version: QrVersions.auto,
+                        size: 200.0,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Valid for: $_formattedTime',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: _remainingSeconds < 30
+                        ? Colors.redAccent
+                        : Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'QR code will expire at ${_formatTime(widget.expiresAt)}',
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withAlpha(30),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      side: BorderSide(color: Colors.white.withAlpha(40)),
+                    ),
+                  ),
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    widget.onClose();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Close',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
