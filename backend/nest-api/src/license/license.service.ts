@@ -266,7 +266,12 @@ export class LicenseService {
       where: { qr_Token: qrToken },
     });
 
-    return { scanned: !!scan };
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    return {
+      scanned: !!scan,
+      expiresAt: expiresAt,
+    };
   }
 
   async scanLicenseQR(
@@ -311,7 +316,7 @@ export class LicenseService {
       },
     });
 
-    const qrExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const newExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     const scanToken = this.jwtService.sign(
       { licenseId: license.license_Id },
@@ -338,7 +343,7 @@ export class LicenseService {
         })),
       },
       scanToken: scanToken,
-      qrExpiresAt: qrExpiresAt,
+      expiresAt: newExpiresAt,
       driverName: license.user.name,
       officer: {
         name: officer.name,
