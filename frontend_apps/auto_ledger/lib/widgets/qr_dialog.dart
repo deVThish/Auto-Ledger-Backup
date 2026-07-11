@@ -28,18 +28,21 @@ class _QRDialogState extends State<QRDialog> {
   Timer? _countdownTimer;
   bool _isScanned = false;
   bool _isExpired = false;
-  int _remainingSeconds = 0;
+  int _remainingSeconds = 600;
 
   @override
   void initState() {
     super.initState();
-    _remainingSeconds = widget.expiresAt.difference(DateTime.now()).inSeconds;
 
-    if (_remainingSeconds <= 0) {
+    // QR Generate වෙලා කීයක් ගියත්, Open වෙනකොට ඉතුරු කාලය හොයාගන්න
+    _remainingSeconds = widget.expiresAt.difference(DateTime.now()).inSeconds;
+    if (_remainingSeconds > 600) _remainingSeconds = 600;
+    if (_remainingSeconds < 0) {
       _isExpired = true;
       _remainingSeconds = 0;
       WidgetsBinding.instance.addPostFrameCallback((_) => widget.onExpired());
     } else {
+      // Open වෙන ගමන් Countdown එක පටන් ගන්න
       _startCountdown();
       _startPolling();
     }
@@ -70,27 +73,22 @@ class _QRDialogState extends State<QRDialog> {
         );
         if (response.data['scanned'] == true) {
           timer.cancel();
-          _onQrScanned();
+          setState(() => _isScanned = true);
         }
-      } catch (_) {
-        // Silent fail
-      }
+      } catch (_) {}
     });
   }
 
-  void _onQrScanned() {
-    if (!mounted || _isScanned) return;
-    setState(() => _isScanned = true);
-  }
-
   String get _formattedTime {
-    final minutes = _remainingSeconds ~/ 60;
-    final seconds = _remainingSeconds % 60;
+    int minutes = _remainingSeconds ~/ 60;
+    int seconds = _remainingSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  String _formatTime(DateTime dt) =>
-      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  String _formatTime(DateTime dt) {
+    final local = dt.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
 
   @override
   void dispose() {
@@ -126,12 +124,14 @@ class _QRDialogState extends State<QRDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Show this to the Officer',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
+              const Text(
+                'Show this to the Officer',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
               if (_isExpired) ...[
                 const Icon(Icons.timer_off, color: Colors.redAccent, size: 60),
                 const SizedBox(height: 10),
@@ -160,42 +160,46 @@ class _QRDialogState extends State<QRDialog> {
                   textAlign: TextAlign.center,
                 ),
               ] else ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(140),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: Colors.white.withAlpha(80), width: 1.5),
-                      ),
-                      child: QrImageView(
-                          data: widget.qrToken,
-                          version: QrVersions.auto,
-                          size: 200.0),
-                    ),
+                // QR Code - ලොකු Size එක
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(140),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: Colors.white.withAlpha(80), width: 1.5),
+                  ),
+                  child: QrImageView(
+                    data: widget.qrToken,
+                    version: QrVersions.auto,
+                    size: 280.0,
                   ),
                 ),
                 const SizedBox(height: 20),
+                // Timer - 10:00 ඉඳන් අඩු වෙනවා
                 Text(
                   'Valid for: $_formattedTime',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: _remainingSeconds < 30
                         ? Colors.redAccent
                         : Colors.white,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text('QR code will expire at ${_formatTime(widget.expiresAt)}',
-                    style:
-                        const TextStyle(color: Colors.white60, fontSize: 12)),
+                const SizedBox(height: 8),
+                // Expire Time - QR Generate වෙලා Fix වෙලා (Scan උනාට වෙනස් වෙන්නේ නැහැ)
+                Text(
+                  'QR code will expire at ${_formatTime(widget.expiresAt)}',
+                  style: const TextStyle(color: Colors.white60, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Waiting for officer to scan...',
+                  style: TextStyle(color: Colors.cyanAccent, fontSize: 13),
+                ),
               ],
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 50,

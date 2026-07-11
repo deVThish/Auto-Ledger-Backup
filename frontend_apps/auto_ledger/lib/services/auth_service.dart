@@ -3,7 +3,6 @@ import 'api_service.dart';
 import '../utils/secure_storage.dart';
 
 class AuthService {
-  // Register user - OTP sent to email by backend
   static Future<bool> registerUser(Map<String, dynamic> data) async {
     try {
       final response =
@@ -14,7 +13,6 @@ class AuthService {
     }
   }
 
-  // Verify registration with OTP received in email
   static Future<bool> verifyRegistration(String nicNo, String otp) async {
     try {
       final response = await ApiService.dio.post(
@@ -32,7 +30,6 @@ class AuthService {
     }
   }
 
-  // Resend Registration OTP
   static Future<bool> resendRegistrationOtp(String nicNo) async {
     try {
       final response = await ApiService.dio.post(
@@ -45,7 +42,6 @@ class AuthService {
     }
   }
 
-  // Login user - returns DEVICE_MISMATCH if new device detected
   static Future<Map<String, dynamic>> loginUser(
       String nicNo, String password, String deviceId) async {
     try {
@@ -76,7 +72,6 @@ class AuthService {
     }
   }
 
-  // Forgot password - Send OTP to email
   static Future<bool> forgotPasswordCheck(String nicNo, String email) async {
     try {
       final response = await ApiService.dio.post(
@@ -92,7 +87,6 @@ class AuthService {
     }
   }
 
-  // Resend Password Reset OTP
   static Future<bool> resendResetOtp(String nicNo, String email) async {
     try {
       final response = await ApiService.dio.post(
@@ -108,7 +102,6 @@ class AuthService {
     }
   }
 
-  // Reset password with OTP
   static Future<bool> resetPassword(
       String nicNo, String email, String otp, String newPassword) async {
     try {
@@ -127,7 +120,6 @@ class AuthService {
     }
   }
 
-  // Biometric login - returns DEVICE_MISMATCH if new device detected
   static Future<Map<String, dynamic>> biometricLogin(
       String nicNo, String deviceId) async {
     try {
@@ -157,7 +149,6 @@ class AuthService {
     }
   }
 
-  // Verify new device with OTP - updates device ID and returns new token
   static Future<Map<String, dynamic>> verifyNewDevice(
       String nicNo, String deviceId, String otp) async {
     try {
@@ -181,7 +172,6 @@ class AuthService {
     }
   }
 
-  // Resend Device Verification OTP
   static Future<bool> resendDeviceOtp(String nicNo, String email) async {
     try {
       final response = await ApiService.dio.post(
@@ -197,7 +187,104 @@ class AuthService {
     }
   }
 
-  // Logout - clear local storage
+  static Future<bool> resendHeadOtp(String username, String email) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/head/resend-otp',
+        data: {
+          'username': username,
+          'email': email,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
+  static Future<bool> resendOfficerOtp(String badgeNo, String email) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/officer/resend-otp',
+        data: {
+          'badgeNo': badgeNo,
+          'email': email,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
+  static Future<bool> headForgotPasswordRequest(
+      String username, String email) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/head/forgot-password-request',
+        data: {
+          'username': username,
+          'email': email,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
+  static Future<bool> headResetPassword(
+      String username, String email, String otp, String newPassword) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/head/reset-password',
+        data: {
+          'username': username,
+          'email': email,
+          'otp': otp,
+          'newPasswordStr': newPassword,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
+  static Future<bool> officerForgotPasswordRequest(
+      String badgeNo, String email) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/officer/forgot-password-request',
+        data: {
+          'badgeNo': badgeNo,
+          'email': email,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
+  static Future<bool> officerResetPassword(
+      String badgeNo, String email, String otp, String newPassword) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/officer/reset-password',
+        data: {
+          'badgeNo': badgeNo,
+          'email': email,
+          'otp': otp,
+          'newPasswordStr': newPassword,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      rethrow;
+    }
+  }
+
   static Future<void> logout() async {
     await SecureStorage.deleteToken();
   }
