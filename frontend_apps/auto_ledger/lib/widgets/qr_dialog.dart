@@ -177,7 +177,6 @@ class _QRDialogState extends State<QRDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // "Valid for" - Scan වූ විට පමණක් Countdown පෙන්වයි
                 if (_isScanned && !_isExpired) ...[
                   Text(
                     'Valid for: $_formattedTime',
@@ -191,7 +190,7 @@ class _QRDialogState extends State<QRDialog> {
                   ),
                   const SizedBox(height: 2),
                 ] else if (!_isScanned && !_isExpired) ...[
-                  // Scan නොවන තාක් "10:00" ලෙස ස්ථිරව පෙන්වයි
+
                   const Text(
                     'Valid for: 10:00',
                     style: TextStyle(
@@ -203,7 +202,6 @@ class _QRDialogState extends State<QRDialog> {
                   const SizedBox(height: 2),
                 ],
 
-                // "QR code will expire at" - Backend එකෙන් එන කාලය
                 if (!_isExpired) ...[
                   Text(
                     'QR code will expire at ${_formatTime(displayExpiresAt)}',
