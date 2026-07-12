@@ -1,7 +1,5 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
 import '../constants/api_constants.dart';
 import '../storage/token_storage.dart';
 
@@ -36,7 +34,6 @@ class ApiClient {
       _buildUri(path),
       headers: await _buildHeaders(requiresAuth: requiresAuth),
     );
-
     return _handleResponse(response);
   }
 
@@ -50,7 +47,6 @@ class ApiClient {
       headers: await _buildHeaders(requiresAuth: requiresAuth),
       body: jsonEncode(body ?? {}),
     );
-
     return _handleResponse(response);
   }
 
@@ -64,7 +60,6 @@ class ApiClient {
       headers: await _buildHeaders(requiresAuth: requiresAuth),
       body: jsonEncode(body ?? {}),
     );
-
     return _handleResponse(response);
   }
 
@@ -82,7 +77,6 @@ class ApiClient {
 
     if (requiresAuth) {
       final token = await _tokenStorage.getAccessToken();
-
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
@@ -92,15 +86,6 @@ class ApiClient {
   }
 
   dynamic _handleResponse(http.Response response) {
-    // ignore: avoid_print
-    print('====================');
-    // ignore: avoid_print
-    print('STATUS CODE: ${response.statusCode}');
-    // ignore: avoid_print
-    print('RESPONSE BODY: ${response.body}');
-    // ignore: avoid_print
-    print('====================');
-    
     final decodedBody = _decodeBody(response.body);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

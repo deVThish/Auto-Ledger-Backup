@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/app_routes.dart';
 import 'core/storage/token_storage.dart';
@@ -11,8 +12,9 @@ import 'features/divisional_officer/screens/do_dashboard_screen.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/traffic_officer/screens/to_dashboard_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

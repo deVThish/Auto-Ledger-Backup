@@ -1,10 +1,10 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiConstants {
   ApiConstants._();
 
-  // ── Base URL ──
-  static const String baseUrl = 'https://u9uajqrr9h.execute-api.ap-southeast-1.amazonaws.com';
+  static String get baseUrl => dotenv.env['BASE_URL'] ?? '';
 
-  // ── Auth Endpoints ──
   static const String adminLogin = '/auth/admin/login';
   static const String headLogin = '/auth/head/login';
   static const String officerLogin = '/auth/officer/login';
@@ -14,7 +14,6 @@ class ApiConstants {
   static const String officerForgotPasswordRequest = '/auth/officer/forgot-password-request';
   static const String officerResetPassword = '/auth/officer/reset-password';
 
-  // ── User (Driver) Auth ──
   static const String userRegister = '/auth/user/register';
   static const String userVerifyRegistration = '/auth/user/verify-registration';
   static const String userLogin = '/auth/user/login';
@@ -24,7 +23,6 @@ class ApiConstants {
   static const String userResetPassword = '/auth/user/reset-password';
   static const String userChangePassword = '/auth/user/change-password';
 
-  // ── License ──
   static const String licenseBase = '/license';
   static const String createLicense = '/license';
   static const String myLicense = '/license/my-license';
@@ -35,7 +33,6 @@ class ApiConstants {
   static const String getLicensesWithFines = '/license/with-fines';
   static const String getUploadUrl = '/license/get-upload-url';
 
-  // ── Officers ──
   static const String officersBase = '/officers';
   static const String createDivision = '/officers/division';
   static const String createHead = '/officers/head';
@@ -44,9 +41,8 @@ class ApiConstants {
   static const String districtOfficers = '/officers/my-division';
   static const String divisions = '/officers/divisions';
   static const String divisionalHeads = '/officers/divisional-heads';
-  static const String officerShifts = '/officers'; // + /:id/shifts
+  static const String officerShifts = '/officers';
 
-  // ── Fines ──
   static const String finesBase = '/fines';
   static const String issueFine = '/fines';
   static const String myFines = '/fines/my-fines';
@@ -61,7 +57,6 @@ class ApiConstants {
   static const String allFines = '/fines/dmt/all-fines';
   static const String problematicLicenses = '/fines/dmt/problematic-licenses';
 
-  // ── Users (Drivers) ──
   static const String usersBase = '/users';
   static const String userProfile = '/users/profile';
   static const String updateDevice = '/users/device';

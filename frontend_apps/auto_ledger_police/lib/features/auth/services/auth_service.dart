@@ -18,12 +18,10 @@ class AuthService {
   ApiClient _apiClient;
   final TokenStorage _tokenStorage;
 
-  // ── Reset ApiClient to force fresh connection ──
   void _resetApiClient() {
     _apiClient = ApiClient();
   }
 
-  // ── OLD Login Method (Keep for backward compatibility) ──
   Future<AuthResponseModel> login({
     String? username,
     String? loginId,
@@ -70,14 +68,12 @@ class AuthService {
     return authResponse;
   }
 
-  // ── NEW: Smart Login (Tries DH first, then TO) ──
   Future<AuthResponseModel> smartLogin({
     required String loginId,
     required String password,
   }) async {
     _resetApiClient();
 
-    // 1. Try Divisional Head (username)
     try {
       final response = await _apiClient.post(
         ApiConstants.headLogin,
@@ -105,7 +101,6 @@ class AuthService {
       }
     }
 
-    // 2. Try Traffic Officer (badgeNo)
     try {
       final response = await _apiClient.post(
         ApiConstants.officerLogin,
@@ -138,7 +133,6 @@ class AuthService {
     }
   }
 
-  // ── Forgot Password: TO ──
   Future<void> requestForgotPasswordOtp({
     required String badgeNo,
     required String email,
@@ -173,7 +167,6 @@ class AuthService {
     );
   }
 
-  // ── Forgot Password: DH ──
   Future<void> requestHeadForgotPasswordOtp({
     required String username,
     required String email,
@@ -208,7 +201,6 @@ class AuthService {
     );
   }
 
-  // ── Change Password ──
   Future<void> changePassword({
     required String oldPassword,
     required String newPassword,
