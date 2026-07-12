@@ -63,14 +63,16 @@ model Police_Admin {
 }
 
 model User {
-  user_Id         String           @id @default(uuid())
-  nic_No          String           @unique
-  mobile_Phone_No String           @unique
-  device_Id       String?
-  name            String
-  password        String
-  isPhoneVerified Boolean          @default(false)
-  license         Driving_License?
+  user_Id              String   @id @default(uuid())
+  nic_No               String   @unique
+  email                String   @unique
+  device_Id            String?
+  name                 String
+  password             String
+  isEmailVerified      Boolean  @default(false)
+  reset_Otp            String?
+  reset_Otp_Expires_At DateTime?
+  license              Driving_License?
 }
 
 model Driving_License {

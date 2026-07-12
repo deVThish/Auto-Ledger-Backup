@@ -3,6 +3,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -19,7 +20,7 @@ class DefaultFirebaseOptions {
     if (kIsWeb) {
       throw UnsupportedError(
         'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
+            'you can reconfigure this by running the FlutterFire CLI again.',
       );
     }
     switch (defaultTargetPlatform) {
@@ -30,17 +31,17 @@ class DefaultFirebaseOptions {
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+              'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+              'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+              'you can reconfigure this by running the FlutterFire CLI again.',
         );
       default:
         throw UnsupportedError(
@@ -49,21 +50,24 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyB22a7ZLYFaUusG_D7wzyzg6Df_Io-zLn4',
-    appId: '1:663237094439:android:acdc387c864d6c0703b202',
-    messagingSenderId: '663237094439',
-    projectId: 'auto-ledger-41d16',
-    storageBucket: 'auto-ledger-41d16.firebasestorage.app',
-  );
+  static FirebaseOptions get android {
+    return FirebaseOptions(
+      apiKey: dotenv.env['ANDROID_API_KEY'] ?? '',
+      appId: dotenv.env['ANDROID_APP_ID'] ?? '',
+      messagingSenderId: dotenv.env['ANDROID_MESSAGING_SENDER_ID'] ?? '',
+      projectId: dotenv.env['ANDROID_PROJECT_ID'] ?? '',
+      storageBucket: dotenv.env['ANDROID_STORAGE_BUCKET'] ?? '',
+    );
+  }
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDzJ7AhObCD_NPpZLufbQy7zY1t2IFDukE',
-    appId: '1:663237094439:ios:675897db564987f003b202',
-    messagingSenderId: '663237094439',
-    projectId: 'auto-ledger-41d16',
-    storageBucket: 'auto-ledger-41d16.firebasestorage.app',
-    iosBundleId: 'com.example.autoLedger',
-  );
-
+  static FirebaseOptions get ios {
+    return FirebaseOptions(
+      apiKey: dotenv.env['IOS_API_KEY'] ?? '',
+      appId: dotenv.env['IOS_APP_ID'] ?? '',
+      messagingSenderId: dotenv.env['IOS_MESSAGING_SENDER_ID'] ?? '',
+      projectId: dotenv.env['IOS_PROJECT_ID'] ?? '',
+      storageBucket: dotenv.env['IOS_STORAGE_BUCKET'] ?? '',
+      iosBundleId: dotenv.env['IOS_BUNDLE_ID'] ?? '',
+    );
+  }
 }

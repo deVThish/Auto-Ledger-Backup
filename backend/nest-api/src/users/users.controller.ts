@@ -43,9 +43,9 @@ export class UsersController {
     return this.usersService.updateUserDevice(req.user.id, data.deviceId);
   }
 
-  @ApiOperation({ summary: 'Verify Phone Number' })
-  @Patch('verify-phone')
-  async verifyPhone(@Request() req: AuthRequest) {
-    return this.usersService.verifyPhone(req.user.id);
+  @ApiOperation({ summary: 'Verify Email Address' })
+  @Patch('verify-email')
+  async verifyEmail(@Request() req: AuthRequest) {
+    return this.usersService.verifyEmail(req.user.id);
   }
 }

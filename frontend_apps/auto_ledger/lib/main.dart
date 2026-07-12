@@ -9,11 +9,11 @@ import 'screens/splash_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await dotenv.load(fileName: ".env");
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  await dotenv.load(fileName: ".env");
 
   ApiService.init();
 
@@ -32,6 +32,12 @@ class AutoLedgerApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A2980)),
         useMaterial3: true,
         textTheme: GoogleFonts.poppinsTextTheme(),
+        scaffoldBackgroundColor: const Color(0xFF0B0F19),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0B0F19),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
       ),
       home: const SplashScreen(),
     );

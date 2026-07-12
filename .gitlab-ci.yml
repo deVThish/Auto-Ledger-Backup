@@ -1,0 +1,24 @@
+stages:
+  - deploy
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  only:
+    - development
+
+  before_script:
+    - apk update && apk add openssh-client
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
+
+  script:
+    - ssh $EC2_USER@$EC2_IP "
+      cd ~/auto-ledger-new &&
+      git fetch origin &&
+      git reset --hard origin/development &&
+      docker compose build --no-cache backend &&
+      docker compose up -d backend
+      "

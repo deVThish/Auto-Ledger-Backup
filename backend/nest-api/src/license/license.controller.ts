@@ -8,7 +8,10 @@ import {
   UseGuards,
   Param,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { LicenseService } from './license.service';
 import {
   ApiTags,
@@ -34,6 +37,12 @@ import { Type } from 'class-transformer';
 
 export interface AuthRequest {
   user: { id: string };
+}
+
+interface UploadedFileType {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
 }
 
 export class VehicleCategoryDto {
@@ -166,14 +175,21 @@ export class LicenseController {
     return this.licenseService.getMyLicense(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Generate QR Code for License' })
+  @ApiOperation({ summary: 'Generate QR Code for License (10min expiry)' })
   @Get('generate-qr')
   async generateQR(@Request() req: AuthRequest) {
+    // Returns { qrToken, expiresAt } - service handles JWT with 10m expiry
     return this.licenseService.generateLicenseQR(req.user.id);
   }
 
+  @ApiOperation({ summary: 'Check if QR code has been scanned' })
+  @Get('check-scan-status')
+  async checkScanStatus(@Query('qrToken') qrToken: string) {
+    return this.licenseService.checkScanStatus(qrToken);
+  }
+
   @Roles('TRAFFIC_OFFICER')
-  @ApiOperation({ summary: 'Scan License QR Code' })
+  @ApiOperation({ summary: 'Scan License QR Code (validates JWT expiry)' })
   @Post('scan-qr')
   async scanQR(@Request() req: AuthRequest, @Body() data: ScanQRDto) {
     return this.licenseService.scanLicenseQR(
@@ -183,6 +199,7 @@ export class LicenseController {
     );
   }
 
+  @Roles('DMT_ADMIN')
   @ApiOperation({ summary: 'Update License Status' })
   @Patch(':id/status')
   async updateStatus(@Param('id') id: string, @Body() data: UpdateStatusDto) {
@@ -220,5 +237,13 @@ export class LicenseController {
   @Get('with-fines')
   async getLicensesWithFines(@Query('nic') nic?: string) {
     return this.licenseService.getLicensesWithFines(nic);
+  }
+
+  @Roles('DMT_ADMIN')
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload license image via backend (No CORS)' })
+  uploadImage(@UploadedFile() file: UploadedFileType) {
+    return this.licenseService.uploadImageToS3(file);
   }
 }

@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { JwtService } from '@nestjs/jwt';
@@ -39,6 +38,12 @@ export interface UpdateLicenseData {
   dateOfBirth?: string | Date;
   issueDate?: string | Date;
   categories?: VehicleCategoryData[];
+}
+
+interface MulterFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
 }
 
 @Injectable()
@@ -117,6 +122,31 @@ export class LicenseService {
     };
   }
 
+  async uploadImageToS3(file: MulterFile) {
+    const bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME') ||
+      'auto-ledger-images-handling';
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
+
+    const cleanFileName = file.originalname.replace(/\s+/g, '-');
+    const uniqueFileName = `licenses/${Date.now()}-${cleanFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: uniqueFileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    });
+
+    await this.s3Client.send(command);
+
+    const publicFileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${uniqueFileName}`;
+    return {
+      fileUrl: publicFileUrl,
+      message: 'Image uploaded successfully',
+    };
+  }
+
   async createLicense(data: CreateLicenseData) {
     let user = await this.prisma.user.findUnique({
       where: { nic_No: data.nicNo },
@@ -128,7 +158,7 @@ export class LicenseService {
           nic_No: data.nicNo,
           name: 'Pending App Registration',
           password: 'NOT_REGISTERED',
-          mobile_Phone_No: `PENDING_${data.nicNo}`,
+          email: `pending_${data.nicNo}@example.com`,
           device_Id: 'PENDING',
         },
       });
@@ -189,10 +219,10 @@ export class LicenseService {
       },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found.');
 
     if (license.status === 'REVOKED' || license.status === 'EXPIRED') {
-      throw new BadRequestException();
+      throw new BadRequestException('License is revoked or expired.');
     }
 
     if (license.status === 'SUSPENDED') {
@@ -210,17 +240,51 @@ export class LicenseService {
           await this.prisma.temporary_License.deleteMany({
             where: { license_Id: license.license_Id },
           });
-          throw new BadRequestException();
+          throw new BadRequestException('Temporary license expired.');
         }
       } else {
-        throw new BadRequestException();
+        throw new BadRequestException(
+          'License is suspended without temporary license.',
+        );
       }
     }
 
-    const randomToken = crypto.randomBytes(16).toString('hex');
-    const qrToken = `${license.license_Id}:${randomToken}`;
+    const qrToken = this.jwtService.sign(
+      { licenseId: license.license_Id },
+      { expiresIn: '10m' },
+    );
 
-    return { qrToken };
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    return { qrToken, expiresAt };
+  }
+
+  async checkScanStatus(qrToken: string) {
+    if (!qrToken) throw new BadRequestException('QR token required.');
+
+    // ✅ scan_Time භාවිතා කරන්න (scanned_At නොවේ)
+    const scan = await this.prisma.qR_Scan_History.findFirst({
+      where: { qr_Token: qrToken },
+      orderBy: { scan_Time: 'desc' },
+    });
+
+    let expiresAt: Date;
+    let scanned = false;
+
+    if (scan) {
+      scanned = true;
+      // ✅ scan_Time භාවිතා කරන්න
+      const scanTime = scan.scan_Time;
+      expiresAt = new Date(scanTime.getTime() + 10 * 60 * 1000);
+    } else {
+      scanned = false;
+      expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    }
+
+    return {
+      scanned: scanned,
+      expiresAt: expiresAt,
+    };
   }
 
   async scanLicenseQR(
@@ -228,25 +292,33 @@ export class LicenseService {
     trafficOfficerId: string,
     location?: string,
   ) {
-    const parts = qrToken.split(':');
-    if (parts.length !== 2) throw new BadRequestException();
-
-    const licenseId = parts[0];
+    let licenseId: string;
+    try {
+      const payload = this.jwtService.verify<{ licenseId: string }>(qrToken);
+      licenseId = payload.licenseId;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired QR code.');
+    }
 
     await this.autoActivateLicenses();
+
     const license = await this.prisma.driving_License.findUnique({
       where: { license_Id: licenseId },
-      include: { user: true },
+      include: {
+        user: true,
+        vehicleCategories: true,
+      },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found.');
 
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { traffic_Officer_Id: trafficOfficerId },
     });
 
-    if (!officer) throw new UnauthorizedException();
+    if (!officer) throw new UnauthorizedException('Officer not found.');
 
+    // ✅ scanned_At ඉවත් කරන්න, මොකද scan_Time auto generate වෙනවා
     await this.prisma.qR_Scan_History.create({
       data: {
         qr_Token: qrToken,
@@ -258,17 +330,39 @@ export class LicenseService {
       },
     });
 
+    const newExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
     const scanToken = this.jwtService.sign(
       { licenseId: license.license_Id },
-      { expiresIn: '3m' },
+      { expiresIn: '10m' },
     );
 
     return {
-      driverName: license.user.name,
-      licenseNo: license.license_No,
-      status: license.status,
-      points: license.points,
+      license: {
+        licenseNo: license.license_No,
+        fullName: license.full_Name,
+        nicNo: license.nic_No,
+        address: license.address,
+        bloodGroup: license.blood_Group,
+        dateOfBirth: license.date_of_birth,
+        issueDate: license.issue_Date,
+        status: license.status,
+        points: license.points,
+        image: license.image,
+        vehicleCategories: license.vehicleCategories.map((vc) => ({
+          vehicleClass: vc.vehicle_Class,
+          issueDate: vc.issue_Date,
+          expiryDate: vc.expiry_Date,
+          restriction: vc.restriction,
+        })),
+      },
       scanToken: scanToken,
+      expiresAt: newExpiresAt,
+      driverName: license.user.name,
+      officer: {
+        name: officer.name,
+        badgeNo: officer.badge_No,
+      },
     };
   }
 
