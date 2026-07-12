@@ -2,7 +2,7 @@ class ApiConstants {
   ApiConstants._();
 
   // ── Base URL ──
-  static const String baseUrl = 'http://47.129.144.60:3000';
+  static const String baseUrl = 'https://u9uajqrr9h.execute-api.ap-southeast-1.amazonaws.com';
 
   // ── Auth Endpoints ──
   static const String adminLogin = '/auth/admin/login';

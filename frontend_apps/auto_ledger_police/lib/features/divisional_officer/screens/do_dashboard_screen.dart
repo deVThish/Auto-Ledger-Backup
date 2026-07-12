@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/network/api_client.dart';
@@ -11,6 +12,7 @@ import 'assign_shift_screen.dart';
 import 'court_cases_screen.dart';
 import 'district_statistics_screen.dart';
 import 'traffic_officer_list_screen.dart';
+import 'settings_screen.dart';
 
 class DoDashboardScreen extends StatelessWidget {
   const DoDashboardScreen({super.key});
@@ -25,14 +27,14 @@ class DoDashboardScreen extends StatelessWidget {
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 22),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(28),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.78),
-                  borderRadius: BorderRadius.circular(32),
+                  borderRadius: BorderRadius.circular(28),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.65),
                   ),
@@ -51,7 +53,7 @@ class DoDashboardScreen extends StatelessWidget {
                       width: 62,
                       height: 62,
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlack,
+                        color: AppTheme.policeBlue,
                         borderRadius: BorderRadius.circular(22),
                       ),
                       child: const Icon(
@@ -65,7 +67,7 @@ class DoDashboardScreen extends StatelessWidget {
                       'Log out?',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppTheme.primaryBlack,
+                        color: AppTheme.policeBlue,
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
@@ -89,7 +91,7 @@ class DoDashboardScreen extends StatelessWidget {
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(dialogContext, false),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryBlack,
+                              foregroundColor: AppTheme.policeBlue,
                               side: const BorderSide(color: AppTheme.borderGray),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(22),
@@ -107,7 +109,7 @@ class DoDashboardScreen extends StatelessWidget {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(dialogContext, true),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryBlack,
+                              backgroundColor: AppTheme.policeBlue,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -132,390 +134,107 @@ class DoDashboardScreen extends StatelessWidget {
       },
     );
 
-    if (confirmed != true) {
-      return;
-    }
-
+    if (confirmed != true) return;
     await AuthService().logout();
-
     if (!context.mounted) return;
-
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.login,
       (route) => false,
     );
   }
 
-  Future<void> _showChangePasswordDialog(BuildContext context) async {
-    final oldPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    bool isLoading = false;
-
-    await showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.28),
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            Future<void> submit() async {
-              final oldPassword = oldPasswordController.text.trim();
-              final newPassword = newPasswordController.text.trim();
-              final confirmPassword = confirmPasswordController.text.trim();
-
-              if (oldPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
-                AppErrorHandler.showPopup(context, message: 'Please fill all fields');
-                return;
-              }
-
-              if (newPassword.length < 8) {
-                AppErrorHandler.showPopup(context, message: 'Password must be at least 8 characters');
-                return;
-              }
-
-              if (oldPassword == newPassword) {
-                AppErrorHandler.showPopup(context, message: 'New password must be different');
-                return;
-              }
-
-              if (newPassword != confirmPassword) {
-                AppErrorHandler.showPopup(context, message: 'Passwords do not match');
-                return;
-              }
-
-              setState(() {
-                isLoading = true;
-              });
-
-              try {
-                await AuthService().changePassword(
-                  oldPassword: oldPassword,
-                  newPassword: newPassword,
-                );
-
-                if (!context.mounted) return;
-
-                Navigator.pop(dialogContext);
-                AppErrorHandler.showPopup(context, message: 'Password changed successfully', isError: false);
-              } on ApiException catch (error) {
-                AppErrorHandler.showPopup(context, message: error.message);
-              } catch (_) {
-                AppErrorHandler.showPopup(context, message: 'Unable to change password. Try again.');
-              } finally {
-                if (context.mounted) {
-                  setState(() {
-                    isLoading = false;
-                  });
-                }
-              }
-            }
-
-            InputDecoration glassDecoration(String label, String hint, IconData icon) {
-              return InputDecoration(
-                labelText: label,
-                hintText: hint,
-                prefixIcon: Icon(icon),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.18),
-                labelStyle: const TextStyle(
-                  color: AppTheme.primaryBlack,
-                  fontWeight: FontWeight.w700,
-                ),
-                hintStyle: const TextStyle(
-                  color: AppTheme.textGray,
-                  fontWeight: FontWeight.w600,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
-                  borderSide: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.45),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
-                  borderSide: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.45),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
-                  borderSide: const BorderSide(
-                    color: AppTheme.primaryBlack,
-                    width: 1.2,
-                  ),
-                ),
-              );
-            }
-
-            Widget field({
-              required TextEditingController controller,
-              required String label,
-              required String hint,
-              required IconData icon,
-            }) {
-              return TextField(
-                controller: controller,
-                obscureText: true,
-                decoration: glassDecoration(label, hint, icon),
-              );
-            }
-
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(32),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-                  child: Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 36,
-                          offset: const Offset(0, 18),
-                        ),
-                      ],
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 62,
-                            height: 62,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryBlack,
-                              borderRadius: BorderRadius.circular(22),
-                            ),
-                            child: const Icon(
-                              Icons.lock_reset_rounded,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Change Password',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppTheme.primaryBlack,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Update the password for this session.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppTheme.textGray,
-                              fontSize: 13,
-                              height: 1.45,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          field(
-                            controller: oldPasswordController,
-                            label: 'Current Password',
-                            hint: 'Enter current password',
-                            icon: Icons.lock_outline_rounded,
-                          ),
-                          const SizedBox(height: 12),
-                          field(
-                            controller: newPasswordController,
-                            label: 'New Password',
-                            hint: 'Enter new password',
-                            icon: Icons.lock_reset_rounded,
-                          ),
-                          const SizedBox(height: 12),
-                          field(
-                            controller: confirmPasswordController,
-                            label: 'Confirm New Password',
-                            hint: 'Repeat new password',
-                            icon: Icons.verified_user_outlined,
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppTheme.primaryBlack,
-                                    side: const BorderSide(
-                                      color: AppTheme.borderGray,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(22),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Cancel',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: isLoading ? null : submit,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryBlack,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(22),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  child: isLoading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Text(
-                                          'Update',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+  void _openSettings(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
     );
-    oldPasswordController.dispose();
-    newPasswordController.dispose();
-    confirmPasswordController.dispose();
   }
 
   void _openScreen(BuildContext context, Widget screen) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => screen,
-      ),
+      MaterialPageRoute(builder: (_) => screen),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // ✅ Fix 1: Status Bar - Background Transparent, Icons Dark
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundWhite,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 22),
-                    _DashboardHeader(
-                      onLogout: () => _handleLogout(context),
-                      onChangePassword: () => _showChangePasswordDialog(context),
-                    ),
-                    const SizedBox(height: 26),
-                    const _WelcomeCard(),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Divisional Head Actions',
-                      style: TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+              return SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 22),
+                      _DashboardHeader(
+                        onLogout: () => _handleLogout(context),
+                        onSettings: () => _openSettings(context),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _DashboardActionCard(
-                      icon: Icons.person_add_alt_1_outlined,
-                      title: 'Add Traffic Officer',
-                      subtitle: 'Create a new traffic officer account.',
-                      onTap: () => _openScreen(
-                        context,
-                        const AddTrafficOfficerScreen(),
+                      const SizedBox(height: 26),
+                      const _WelcomeCard(),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Divisional Head Actions',
+                        style: TextStyle(
+                          color: AppTheme.policeBlue,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _DashboardActionCard(
-                      icon: Icons.groups_2_outlined,
-                      title: 'Traffic Officer List',
-                      subtitle: 'View officers assigned to your district.',
-                      onTap: () => _openScreen(
-                        context,
-                        const TrafficOfficerListScreen(),
+                      const SizedBox(height: 14),
+                      _DashboardActionCard(
+                        icon: Icons.person_add_alt_1_outlined,
+                        title: 'Add Traffic Officer',
+                        subtitle: 'Create a new traffic officer account.',
+                        onTap: () => _openScreen(context, const AddTrafficOfficerScreen()),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _DashboardActionCard(
-                      icon: Icons.schedule_outlined,
-                      title: 'Assign Shift',
-                      subtitle: 'Set active duty time for an officer.',
-                      onTap: () => _openScreen(
-                        context,
-                        const AssignShiftScreen(),
+                      const SizedBox(height: 12),
+                      _DashboardActionCard(
+                        icon: Icons.groups_2_outlined,
+                        title: 'Traffic Officer List',
+                        subtitle: 'View officers assigned to your district.',
+                        onTap: () => _openScreen(context, const TrafficOfficerListScreen()),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _DashboardActionCard(
-                      icon: Icons.gavel_outlined,
-                      title: 'Court Cases',
-                      subtitle: 'Review and resolve court pending fines.',
-                      onTap: () => _openScreen(
-                        context,
-                        const CourtCasesScreen(),
+                      const SizedBox(height: 12),
+                      _DashboardActionCard(
+                        icon: Icons.schedule_outlined,
+                        title: 'Assign Shift',
+                        subtitle: 'Set active duty time for an officer.',
+                        onTap: () => _openScreen(context, const AssignShiftScreen()),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _DashboardActionCard(
-                      icon: Icons.bar_chart_rounded,
-                      title: 'District Statistics',
-                      subtitle: 'View district level fine summary.',
-                      onTap: () => _openScreen(
-                        context,
-                        const DistrictStatisticsScreen(),
+                      const SizedBox(height: 12),
+                      _DashboardActionCard(
+                        icon: Icons.gavel_outlined,
+                        title: 'Court Cases',
+                        subtitle: 'Review and resolve court pending fines.',
+                        onTap: () => _openScreen(context, const CourtCasesScreen()),
                       ),
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+                      const SizedBox(height: 12),
+                      _DashboardActionCard(
+                        icon: Icons.bar_chart_rounded,
+                        title: 'District Statistics',
+                        subtitle: 'View district level fine summary.',
+                        onTap: () => _openScreen(context, const DistrictStatisticsScreen()),
+                      ),
+                      const SizedBox(height: 28),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -525,27 +244,38 @@ class DoDashboardScreen extends StatelessWidget {
 class _DashboardHeader extends StatelessWidget {
   const _DashboardHeader({
     required this.onLogout,
-    required this.onChangePassword,
+    required this.onSettings,
   });
 
-  final VoidCallback onChangePassword;
   final VoidCallback onLogout;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Container(
-          height: 48,
-          width: 48,
+          height: 56,
+          width: 56,
           decoration: BoxDecoration(
-            color: AppTheme.primaryBlack,
+            color: AppTheme.policeBlue,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: const Icon(
-            Icons.local_police_outlined,
-            color: Colors.white,
-            size: 28,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.asset(
+              'assets/images/sl_police_logo.png',
+              width: 56,
+              height: 56,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(
+                  Icons.local_police_outlined,
+                  color: Colors.white,
+                  size: 28,
+                );
+              },
+            ),
           ),
         ),
         const SizedBox(width: 14),
@@ -556,7 +286,7 @@ class _DashboardHeader extends StatelessWidget {
               Text(
                 'Police Portal',
                 style: TextStyle(
-                  color: AppTheme.primaryBlack,
+                  color: AppTheme.policeBlue,
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                 ),
@@ -576,14 +306,14 @@ class _DashboardHeader extends StatelessWidget {
         PopupMenuButton<String>(
           icon: const Icon(
             Icons.more_vert_rounded,
-            color: AppTheme.primaryBlack,
+            color: AppTheme.policeBlue,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           onSelected: (value) {
-            if (value == 'change_password') {
-              onChangePassword();
+            if (value == 'settings') {
+              onSettings();
             }
             if (value == 'logout') {
               onLogout();
@@ -591,12 +321,12 @@ class _DashboardHeader extends StatelessWidget {
           },
           itemBuilder: (context) => const [
             PopupMenuItem(
-              value: 'change_password',
+              value: 'settings',
               child: Row(
                 children: [
-                  Icon(Icons.lock_outline_rounded),
+                  Icon(Icons.settings_rounded),
                   SizedBox(width: 10),
-                  Text('Change Password'),
+                  Text('Settings'),
                 ],
               ),
             ),
@@ -633,67 +363,98 @@ class _WelcomeCard extends StatelessWidget {
             ? 'Divisional Head • ${session!.districtId}'
             : 'Divisional Head';
 
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryBlack,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                // ✅ Fix 2: Welcome Card - Darker Navy + Shiny (Gradient + Stronger Shadow)
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF0B1A30),
+                    AppTheme.policeBlueDark,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 25,
+                    offset: const Offset(0, 12),
+                  ),
+                  // Shiny highlight
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(-4, -4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        text: 'Welcome, $officerName ',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 23,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                        ),
-                        children: [
-                          WidgetSpan(
-                            alignment: PlaceholderAlignment.middle,
-                            child: const Icon(
-                              Icons.verified_user_outlined,
-                              color: Colors.white,
-                              size: 22,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            text: 'Welcome, $officerName ',
+                            style: const TextStyle(
+                              color: Colors.white, // Pure White
+                              fontSize: 23,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
                             ),
+                            children: [
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: const Icon(
+                                  Icons.verified_user_outlined,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    divisionLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Manage traffic officers, duty shifts, court cases, and district level statistics from one place.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                divisionLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Manage traffic officers, duty shifts, court cases, and district level statistics from one place.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  height: 1.45,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -716,73 +477,83 @@ class _DashboardActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(25),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(25),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: AppTheme.borderGray),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppTheme.lightGray,
-                  borderRadius: BorderRadius.circular(18),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            splashColor: Colors.white.withValues(alpha: 0.1),
+            highlightColor: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+              decoration: BoxDecoration(
+                color: AppTheme.policeBlue.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 1.2,
                 ),
-                child: Icon(
-                  icon,
-                  color: AppTheme.primaryBlack,
-                  size: 26,
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.policeBlue.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: AppTheme.textGray,
-                        fontSize: 13,
-                        height: 1.35,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Icon(
+                      icon,
+                      color: Colors.white, // Pure White
+                      size: 26,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white, // Pure White
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.75), // Increased from 0.7
+                            fontSize: 13,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white.withValues(alpha: 0.3),
+                    size: 16,
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: AppTheme.textGray,
-                size: 16,
-              ),
-            ],
+            ),
           ),
         ),
       ),

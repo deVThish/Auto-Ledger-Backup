@@ -15,7 +15,7 @@ class AuthService {
   })  : _apiClient = apiClient ?? ApiClient(),
         _tokenStorage = tokenStorage ?? const TokenStorage();
 
-  ApiClient _apiClient; // <-- Changed from 'final' to allow reset
+  ApiClient _apiClient;
   final TokenStorage _tokenStorage;
 
   // ── Reset ApiClient to force fresh connection ──
@@ -23,13 +23,13 @@ class AuthService {
     _apiClient = ApiClient();
   }
 
+  // ── OLD Login Method (Keep for backward compatibility) ──
   Future<AuthResponseModel> login({
     String? username,
     String? loginId,
     required String password,
     LoginRole loginRole = LoginRole.trafficOfficer,
   }) async {
-    // Reset ApiClient before each login attempt to avoid stale connection issues
     _resetApiClient();
 
     final resolvedLoginId = (loginId ?? username ?? '').trim();
@@ -70,7 +70,75 @@ class AuthService {
     return authResponse;
   }
 
-  // ── TO: Forgot Password ──
+  // ── NEW: Smart Login (Tries DH first, then TO) ──
+  Future<AuthResponseModel> smartLogin({
+    required String loginId,
+    required String password,
+  }) async {
+    _resetApiClient();
+
+    // 1. Try Divisional Head (username)
+    try {
+      final response = await _apiClient.post(
+        ApiConstants.headLogin,
+        requiresAuth: false,
+        body: {
+          'username': loginId.trim(),
+          'password': password.trim(),
+        },
+      );
+      final authResponse = AuthResponseModel.fromJson(
+        response as Map<String, dynamic>,
+      );
+      await _tokenStorage.saveSession(
+        accessToken: authResponse.accessToken,
+        officerId: authResponse.officer.id,
+        officerName: authResponse.officer.name,
+        officerBadgeNumber: authResponse.officer.badgeNumber,
+        role: authResponse.officer.role,
+        districtId: authResponse.officer.divisionId,
+      );
+      return authResponse;
+    } on ApiException catch (e) {
+      if (e.statusCode != 401 && e.statusCode != 404) {
+        rethrow;
+      }
+    }
+
+    // 2. Try Traffic Officer (badgeNo)
+    try {
+      final response = await _apiClient.post(
+        ApiConstants.officerLogin,
+        requiresAuth: false,
+        body: {
+          'badgeNo': loginId.trim(),
+          'password': password.trim(),
+        },
+      );
+      final authResponse = AuthResponseModel.fromJson(
+        response as Map<String, dynamic>,
+      );
+      await _tokenStorage.saveSession(
+        accessToken: authResponse.accessToken,
+        officerId: authResponse.officer.id,
+        officerName: authResponse.officer.name,
+        officerBadgeNumber: authResponse.officer.badgeNumber,
+        role: authResponse.officer.role,
+        districtId: authResponse.officer.divisionId,
+      );
+      return authResponse;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 404) {
+        throw ApiException(
+          statusCode: 401,
+          message: 'Invalid credentials. Please check your ID/Badge and Password.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  // ── Forgot Password: TO ──
   Future<void> requestForgotPasswordOtp({
     required String badgeNo,
     required String email,
@@ -105,7 +173,7 @@ class AuthService {
     );
   }
 
-  // ── DO: Forgot Password ──
+  // ── Forgot Password: DH ──
   Future<void> requestHeadForgotPasswordOtp({
     required String username,
     required String email,
@@ -140,7 +208,7 @@ class AuthService {
     );
   }
 
-  // ── Authenticated Password Change ──
+  // ── Change Password ──
   Future<void> changePassword({
     required String oldPassword,
     required String newPassword,

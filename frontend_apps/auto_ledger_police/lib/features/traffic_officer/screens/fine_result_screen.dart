@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/fine_model.dart';
-import '../../../shared/widgets/app_button.dart';
 import 'qr_scanner_screen.dart';
 
 class FineResultScreen extends StatelessWidget {
@@ -18,7 +17,10 @@ class FineResultScreen extends StatelessWidget {
 
   String _formatDate(DateTime? dateTime) {
     if (dateTime == null) return '-';
-    return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+    final local = dateTime.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    return '${local.year}-$month-$day';
   }
 
   double get _totalAmount {
@@ -51,6 +53,35 @@ class FineResultScreen extends StatelessWidget {
     return AppTheme.primaryBlack;
   }
 
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    double radius = 28,
+    Color? color,
+    Color? borderColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: color ?? Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: borderColor ?? Colors.white.withValues(alpha: 0.38),
+          width: 1.1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusColor = _statusColor();
@@ -68,208 +99,198 @@ class FineResultScreen extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final horizontalPadding =
-                constraints.maxWidth < 380 ? 20.0 : 26.0;
+                constraints.maxWidth < 380 ? 16.0 : 20.0;
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 18),
-                    _SuccessHeader(
-                      licenseNumber: licenseNumber,
-                    ),
-                    const SizedBox(height: 24),
-                    _ResultSummaryCard(
-                      licenseStatus: result.licenseStatus,
-                      accumulatedPoints: result.accumulatedPoints,
-                      temporaryExpiry:
-                          _formatDate(result.temporaryLicenseExpiry),
-                      totalPoints: _totalPoints,
-                      totalAmount: _totalAmount,
-                      statusColor: statusColor,
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Fine Details',
-                      style: TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    if (result.fineDetails.isEmpty)
-                      const _EmptyResultCard()
-                    else
-                      ...result.fineDetails.map(
-                        (fine) => Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _FineDetailCard(fine: fine),
-                        ),
-                      ),
-                    const SizedBox(height: 10),
-                    AppButton(
-                      text: 'Issue Another Fine',
-                      icon: Icons.qr_code_scanner_rounded,
-                      isLoading: false,
-                      onPressed: () => _issueAnotherFine(context),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: () => _goToDashboard(context),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.primaryBlack,
-                          side: const BorderSide(
-                            color: AppTheme.primaryBlack,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                        child: const Text(
-                          'Back to Dashboard',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
+            return Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFF8FBFF),
+                    Color(0xFFF1F6FF),
                   ],
+                ),
+              ),
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: horizontalPadding,
+                  right: horizontalPadding,
+                  top: 18,
+                  bottom: 24,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _glassCard(
+                        radius: 32,
+                        color: AppTheme.primaryBlack.withValues(alpha: 0.96),
+                        borderColor: Colors.white.withValues(alpha: 0.14),
+                        padding: const EdgeInsets.all(22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.check_circle_outline_rounded,
+                              color: Colors.white,
+                              size: 34,
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'Fine Issued Successfully',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 23,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              licenseNumber.isEmpty
+                                  ? 'The fine has been recorded.'
+                                  : licenseNumber,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                height: 1.45,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _glassCard(
+                        radius: 30,
+                        child: Column(
+                          children: [
+                            _InfoRow(
+                              title: 'License Status',
+                              value: result.licenseStatus.isEmpty
+                                  ? '-'
+                                  : result.licenseStatus,
+                              valueColor: statusColor,
+                            ),
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              title: 'Accumulated Points',
+                              value: '${result.accumulatedPoints}',
+                            ),
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              title: 'Fine Points',
+                              value: '${_totalPoints}',
+                            ),
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              title: 'Total Amount',
+                              value: 'LKR ${_totalAmount.toStringAsFixed(2)}',
+                            ),
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              title: 'Temporary Expiry',
+                              value: _formatDate(result.temporaryLicenseExpiry),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Fine Details',
+                        style: TextStyle(
+                          color: AppTheme.primaryBlack,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (result.fineDetails.isEmpty)
+                        _glassCard(
+                          radius: 28,
+                          child: const Column(
+                            children: [
+                              Icon(
+                                Icons.receipt_long_outlined,
+                                color: AppTheme.primaryBlack,
+                                size: 34,
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                'Fine issued, but no fine details returned',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: AppTheme.primaryBlack,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        ...result.fineDetails.map(
+                          (fine) => Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _FineDetailCard(fine: fine),
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _issueAnotherFine(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryBlack,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                          icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                          label: const Text(
+                            'Issue Another Fine',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton(
+                          onPressed: () => _goToDashboard(context),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryBlack,
+                            side: const BorderSide(color: AppTheme.primaryBlack),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                          ),
+                          child: const Text(
+                            'Back to Dashboard',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                    ],
+                  ),
                 ),
               ),
             );
           },
         ),
-      ),
-    );
-  }
-}
-
-class _SuccessHeader extends StatelessWidget {
-  const _SuccessHeader({required this.licenseNumber});
-
-  final String licenseNumber;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.primaryBlack,
-            Color(0xFF31363F),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.check_circle_outline_rounded,
-            color: Colors.white,
-            size: 34,
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Fine Issued Successfully',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 23,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            licenseNumber.isEmpty ? 'The fine has been recorded.' : licenseNumber,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResultSummaryCard extends StatelessWidget {
-  const _ResultSummaryCard({
-    required this.licenseStatus,
-    required this.accumulatedPoints,
-    required this.temporaryExpiry,
-    required this.totalPoints,
-    required this.totalAmount,
-    required this.statusColor,
-  });
-
-  final String licenseStatus;
-  final int accumulatedPoints;
-  final String temporaryExpiry;
-  final int totalPoints;
-  final double totalAmount;
-  final Color statusColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.borderGray),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _InfoRow(
-            title: 'License Status',
-            value: licenseStatus.isEmpty ? '-' : licenseStatus,
-            valueColor: statusColor,
-          ),
-          const SizedBox(height: 12),
-          _InfoRow(
-            title: 'Accumulated Points',
-            value: '$accumulatedPoints',
-          ),
-          const SizedBox(height: 12),
-          _InfoRow(
-            title: 'Fine Points',
-            value: '$totalPoints',
-          ),
-          const SizedBox(height: 12),
-          _InfoRow(
-            title: 'Total Amount',
-            value: 'LKR ${totalAmount.toStringAsFixed(2)}',
-          ),
-          const SizedBox(height: 12),
-          _InfoRow(
-            title: 'Temporary Expiry',
-            value: temporaryExpiry,
-          ),
-        ],
       ),
     );
   }
@@ -356,7 +377,7 @@ class _FineDetailCard extends StatelessWidget {
           const SizedBox(height: 12),
           _InfoRow(
             title: 'Status',
-            value: fine.status,
+            value: fine.status.isEmpty ? 'PENDING' : fine.status,
           ),
           const SizedBox(height: 10),
           _InfoRow(
@@ -367,42 +388,6 @@ class _FineDetailCard extends StatelessWidget {
           _InfoRow(
             title: 'Amount',
             value: 'LKR ${fine.amount.toStringAsFixed(2)}',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyResultCard extends StatelessWidget {
-  const _EmptyResultCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.borderGray),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            color: AppTheme.primaryBlack,
-            size: 34,
-          ),
-          SizedBox(height: 12),
-          Text(
-            'Fine issued, but no fine details returned',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTheme.primaryBlack,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
           ),
         ],
       ),

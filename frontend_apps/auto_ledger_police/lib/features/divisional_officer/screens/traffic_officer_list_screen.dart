@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../models/officer_model.dart';
 import '../../../models/shift_model.dart';
 import '../services/officer_service.dart';
@@ -33,6 +36,12 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
     _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _officersFuture = _loadOfficers(clearCache: true);
   }
 
   @override
@@ -91,16 +100,150 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
       if (start == null || end == null) return false;
       return start.isBefore(now) && end.isAfter(now);
     });
-    if (hasActive) return 'Duty';
+    if (hasActive) return 'On Duty';
 
-    final hasFuture = shifts.any((s) {
+    return 'Off Duty';
+  }
+
+  String _formatShiftTime(OfficerModel officer) {
+    final shifts = _shiftCache[officer.id];
+    if (shifts == null || shifts.isEmpty) return 'No shifts assigned';
+
+    final now = DateTime.now();
+
+    ShiftModel? activeShift;
+    for (final s in shifts) {
+      final start = s.startTime;
+      final end = s.endTime;
+      if (start != null && end != null && start.isBefore(now) && end.isAfter(now)) {
+        activeShift = s;
+        break;
+      }
+    }
+
+    if (activeShift != null) {
+      final start = activeShift.startTime;
+      final end = activeShift.endTime;
+      if (start == null || end == null) return 'Invalid shift times';
+
+      final startLocal = start.toLocal();
+      final endLocal = end.toLocal();
+
+      final sHour = startLocal.hour > 12 ? startLocal.hour - 12 : startLocal.hour == 0 ? 12 : startLocal.hour;
+      final sMin = startLocal.minute.toString().padLeft(2, '0');
+      final sPeriod = startLocal.hour >= 12 ? 'PM' : 'AM';
+
+      final eHour = endLocal.hour > 12 ? endLocal.hour - 12 : endLocal.hour == 0 ? 12 : endLocal.hour;
+      final eMin = endLocal.minute.toString().padLeft(2, '0');
+      final ePeriod = endLocal.hour >= 12 ? 'PM' : 'AM';
+
+      return 'Current: $sHour:$sMin $sPeriod - $eHour:$eMin $ePeriod';
+    }
+
+    final futureShifts = shifts.where((s) {
       final start = s.startTime;
       if (start == null) return false;
       return start.isAfter(now);
-    });
-    if (hasFuture) return 'Scheduled';
+    }).toList()
+      ..sort((a, b) {
+        final aStart = a.startTime;
+        final bStart = b.startTime;
+        if (aStart == null && bStart == null) return 0;
+        if (aStart == null) return 1;
+        if (bStart == null) return -1;
+        return aStart.compareTo(bStart);
+      });
 
-    return 'Duty';
+    if (futureShifts.isNotEmpty) {
+      final next = futureShifts.first;
+      final start = next.startTime;
+      final end = next.endTime;
+      if (start == null || end == null) return 'Invalid shift times';
+
+      final startLocal = start.toLocal();
+      final endLocal = end.toLocal();
+
+      final sHour = startLocal.hour > 12 ? startLocal.hour - 12 : startLocal.hour == 0 ? 12 : startLocal.hour;
+      final sMin = startLocal.minute.toString().padLeft(2, '0');
+      final sPeriod = startLocal.hour >= 12 ? 'PM' : 'AM';
+
+      final eHour = endLocal.hour > 12 ? endLocal.hour - 12 : endLocal.hour == 0 ? 12 : endLocal.hour;
+      final eMin = endLocal.minute.toString().padLeft(2, '0');
+      final ePeriod = endLocal.hour >= 12 ? 'PM' : 'AM';
+
+      return 'Upcoming: $sHour:$sMin $sPeriod - $eHour:$eMin $ePeriod';
+    }
+
+    final pastShifts = shifts.where((s) {
+      final end = s.endTime;
+      if (end == null) return false;
+      return end.isBefore(now);
+    }).toList()
+      ..sort((a, b) {
+        final aEnd = a.endTime;
+        final bEnd = b.endTime;
+        if (aEnd == null && bEnd == null) return 0;
+        if (aEnd == null) return 1;
+        if (bEnd == null) return -1;
+        return bEnd.compareTo(aEnd);
+      });
+
+    if (pastShifts.isNotEmpty) {
+      final last = pastShifts.first;
+      final start = last.startTime;
+      final end = last.endTime;
+      if (start == null || end == null) return 'Invalid shift times';
+
+      final startLocal = start.toLocal();
+      final endLocal = end.toLocal();
+
+      final sHour = startLocal.hour > 12 ? startLocal.hour - 12 : startLocal.hour == 0 ? 12 : startLocal.hour;
+      final sMin = startLocal.minute.toString().padLeft(2, '0');
+      final sPeriod = startLocal.hour >= 12 ? 'PM' : 'AM';
+
+      final eHour = endLocal.hour > 12 ? endLocal.hour - 12 : endLocal.hour == 0 ? 12 : endLocal.hour;
+      final eMin = endLocal.minute.toString().padLeft(2, '0');
+      final ePeriod = endLocal.hour >= 12 ? 'PM' : 'AM';
+
+      return 'Last: $sHour:$sMin $sPeriod - $eHour:$eMin $ePeriod';
+    }
+
+    return 'No shifts assigned';
+  }
+
+  Color _getStatusColor(String status) {
+    if (status == 'On Duty') return AppTheme.successGreen;
+    return AppTheme.textGray;
+  }
+
+  Color _getStatusBackground(String status) {
+    if (status == 'On Duty') {
+      return AppTheme.successGreen.withValues(alpha: 0.12);
+    }
+    return AppTheme.lightGray;
+  }
+
+  IconData _getStatusIcon(String status) {
+    if (status == 'On Duty') return Icons.play_circle_outline_rounded;
+    return Icons.schedule_outlined;
+  }
+
+  Future<void> _openAssignShift(OfficerModel officer) async {
+    await _loadOfficerShifts(officer.id);
+    if (!mounted) return;
+
+    final shiftToEdit = _getShiftToEdit(officer);
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AssignShiftScreen(
+          initialOfficer: officer,
+          initialShift: shiftToEdit,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    await _refreshOfficers();
   }
 
   ShiftModel? _getShiftToEdit(OfficerModel officer) {
@@ -113,10 +256,7 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
     for (final s in shifts) {
       final start = s.startTime;
       final end = s.endTime;
-      if (start != null &&
-          end != null &&
-          start.isBefore(now) &&
-          end.isAfter(now)) {
+      if (start != null && end != null && start.isBefore(now) && end.isAfter(now)) {
         activeShift = s;
         break;
       }
@@ -143,135 +283,120 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
     await _officersFuture;
   }
 
-  Future<void> _openAssignShift(OfficerModel officer) async {
-    await _loadOfficerShifts(officer.id);
-    if (!mounted) return;
-
-    final shiftToEdit = _getShiftToEdit(officer);
-
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AssignShiftScreen(
-          initialOfficer: officer,
-          initialShift: shiftToEdit,
-        ),
-      ),
-    );
-
-    if (!mounted) return;
-    await _refreshOfficers();
-  }
-
-  String _formatShiftTime(OfficerModel officer) {
-    final shifts = _shiftCache[officer.id];
-    if (shifts == null || shifts.isEmpty) return 'No shifts assigned';
-
-    final now = DateTime.now();
-
-    ShiftModel? activeShift;
-    for (final s in shifts) {
-      final start = s.startTime;
-      final end = s.endTime;
-      if (start != null &&
-          end != null &&
-          start.isBefore(now) &&
-          end.isAfter(now)) {
-        activeShift = s;
-        break;
-      }
-    }
-
-    final shiftToShow = activeShift ?? shifts.first;
-    final start = shiftToShow.startTime;
-    final end = shiftToShow.endTime;
-    if (start == null || end == null) return 'Invalid shift times';
-
-    final startLocal = start.toLocal();
-    final endLocal = end.toLocal();
-
-    final sHour = startLocal.hour > 12 ? startLocal.hour - 12 : startLocal.hour;
-    final sMin = startLocal.minute.toString().padLeft(2, '0');
-    final sPeriod = startLocal.hour >= 12 ? 'PM' : 'AM';
-
-    final eHour = endLocal.hour > 12 ? endLocal.hour - 12 : endLocal.hour;
-    final eMin = endLocal.minute.toString().padLeft(2, '0');
-    final ePeriod = endLocal.hour >= 12 ? 'PM' : 'AM';
-
-    return '$sHour:$sMin $sPeriod - $eHour:$eMin $ePeriod';
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
-      appBar: AppBar(
-        title: const Text(
-          'Traffic Officers',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundWhite,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: const IconThemeData(
+            color: Color(0xFF0B1A30),
+          ),
+          title: const Text(
+            'Traffic Officers',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0B1A30),
+            ),
+          ),
+        ),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: FutureBuilder<List<OfficerModel>>(
+                    future: _officersFuture,
+                    builder: (context, snapshot) {
+                      final snapshotData = snapshot.data;
+                      final officers = snapshotData ?? _cachedOfficers;
+                      final isFirstLoad = snapshot.connectionState ==
+                              ConnectionState.waiting &&
+                          _cachedOfficers.isEmpty &&
+                          snapshotData == null;
 
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: FutureBuilder<List<OfficerModel>>(
-                  future: _officersFuture,
-                  builder: (context, snapshot) {
-                    final snapshotData = snapshot.data;
-                    final officers = snapshotData ?? _cachedOfficers;
-                    final isFirstLoad = snapshot.connectionState ==
-                            ConnectionState.waiting &&
-                        _cachedOfficers.isEmpty &&
-                        snapshotData == null;
+                      if (snapshot.hasError && officers.isEmpty) {
+                        return Column(
+                          children: [
+                            const SizedBox(height: 18),
+                            const _HeaderCard(),
+                            const SizedBox(height: 24),
+                            _ErrorCard(
+                              message: snapshot.error is ApiException
+                                  ? (snapshot.error as ApiException).message
+                                  : 'Unable to load traffic officers.',
+                              onRetry: () {
+                                setState(() {
+                                  _officersFuture = _loadOfficers(clearCache: true);
+                                });
+                              },
+                            ),
+                          ],
+                        );
+                      }
 
-                    if (snapshot.hasError && officers.isEmpty) {
-                      return _ErrorCard(
-                        message: snapshot.error is ApiException
-                            ? (snapshot.error as ApiException).message
-                            : 'Unable to load traffic officers.',
-                        onRetry: _refreshOfficers,
-                      );
-                    }
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 18),
-                        _HeaderCard(),
-                        const SizedBox(height: 24),
-                        _HeaderStats(officers: officers),
-                        const SizedBox(height: 14),
-                        if (isFirstLoad)
-                          const SizedBox.shrink()
-                        else if (officers.isEmpty)
-                          const _EmptyCard()
-                        else
-                          ...officers.map(
-                            (officer) => Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: _OfficerListCard(
-                                officer: officer,
-                                status: _getStatusForOfficer(officer),
-                                shiftTime: _formatShiftTime(officer),
-                                onAssignShift: () =>
-                                    _openAssignShift(officer),
-                              ),
+                      if (isFirstLoad) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 60),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF0B1A30),
+                              strokeWidth: 3,
                             ),
                           ),
-                        const SizedBox(height: 18),
-                      ],
-                    );
-                  },
+                        );
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 18),
+                          const _HeaderCard(),
+                          const SizedBox(height: 24),
+                          _HeaderStats(officers: officers),
+                          const SizedBox(height: 14),
+                          if (officers.isEmpty)
+                            const _EmptyCard()
+                          else
+                            ...officers.map(
+                              (officer) {
+                                final status = _getStatusForOfficer(officer);
+                                final isOffDuty = status == 'Off Duty' || status == 'No Shift';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  child: _OfficerListCard(
+                                    officer: officer,
+                                    status: status,
+                                    shiftTime: _formatShiftTime(officer),
+                                    statusColor: _getStatusColor(status),
+                                    statusBackground: _getStatusBackground(status),
+                                    statusIcon: _getStatusIcon(status),
+                                    showAssignButton: isOffDuty,
+                                    onAssignShift: () => _openAssignShift(officer),
+                                  ),
+                                );
+                              },
+                            ),
+                          const SizedBox(height: 18),
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -290,15 +415,15 @@ class _HeaderCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppTheme.primaryBlack,
-            AppTheme.primaryBlack.withValues(alpha: 0.85),
+          colors: const [
+            Color(0xFF0B1A30),
+            AppTheme.policeBlueDark,
           ],
         ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryBlack.withValues(alpha: 0.3),
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.25),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -306,7 +431,11 @@ class _HeaderCard extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          Icon(Icons.groups_2_outlined, color: Colors.white, size: 30),
+          Icon(
+            Icons.groups_2_outlined,
+            color: Colors.white,
+            size: 30,
+          ),
           SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -324,7 +453,7 @@ class _HeaderCard extends StatelessWidget {
                 ),
                 SizedBox(height: 6),
                 Text(
-                  'View and manage duty shifts',
+                  'View officers assigned to your district',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
@@ -353,7 +482,7 @@ class _HeaderStats extends StatelessWidget {
           child: Text(
             'Officer List',
             style: TextStyle(
-              color: AppTheme.primaryBlack,
+              color: Color(0xFF0B1A30),
               fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
@@ -366,9 +495,9 @@ class _HeaderStats extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
           ),
           child: Text(
-            '${officers.length} Officers',
+            '${officers.length} officers',
             style: const TextStyle(
-              color: AppTheme.primaryBlack,
+              color: Color(0xFF0B1A30),
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -384,244 +513,229 @@ class _OfficerListCard extends StatelessWidget {
     required this.officer,
     required this.status,
     required this.shiftTime,
+    required this.statusColor,
+    required this.statusBackground,
+    required this.statusIcon,
+    required this.showAssignButton,
     required this.onAssignShift,
   });
 
   final OfficerModel officer;
   final String status;
   final String shiftTime;
+  final Color statusColor;
+  final Color statusBackground;
+  final IconData statusIcon;
+  final bool showAssignButton;
   final VoidCallback onAssignShift;
-
-  Color get _statusColor {
-    if (status == 'Duty') return AppTheme.successGreen;
-    if (status == 'Scheduled') return AppTheme.primaryBlack;
-    return AppTheme.textGray;
-  }
-
-  Color get _statusBackground {
-    if (status == 'Duty') {
-      return AppTheme.successGreen.withValues(alpha: 0.12);
-    }
-    if (status == 'Scheduled') {
-      return AppTheme.primaryBlack.withValues(alpha: 0.06);
-    }
-    return AppTheme.lightGray;
-  }
-
-  IconData get _statusIcon {
-    if (status == 'Duty') return Icons.play_circle_outline_rounded;
-    if (status == 'Scheduled') return Icons.schedule_rounded;
-    return Icons.schedule_outlined;
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.primaryBlack.withValues(alpha: 0.12),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.4),
-            blurRadius: 30,
-            offset: const Offset(-4, -4),
-            spreadRadius: -2,
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(4, 4),
-            spreadRadius: -1,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.local_police_outlined,
-                  color: AppTheme.primaryBlack,
-                  size: 28,
-                ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: const Color(0xFF0B1A30).withValues(alpha: 0.08),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0B1A30).withValues(alpha: 0.03),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      officer.name.isEmpty ? 'Unnamed Officer' : officer.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      officer.badgeNumber,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textGray,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: _statusBackground,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: status == 'Duty'
-                        ? AppTheme.successGreen.withValues(alpha: 0.5)
-                        : Colors.transparent,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (status == 'Duty') ...[
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.successGreen,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    Text(
-                      status,
-                      style: TextStyle(
-                        color: _statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.5),
+                blurRadius: 1,
+                offset: const Offset(-1, -1),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: const Color(0xFF0B1A30).withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.local_police_outlined,
+                      color: Color(0xFF0B1A30),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          officer.name.isEmpty ? 'Unnamed Officer' : officer.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF0B1A30),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          officer.badgeNumber.isEmpty ? 'No Badge' : officer.badgeNumber,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppTheme.textGray,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: statusBackground,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: status == 'On Duty'
+                            ? AppTheme.successGreen.withValues(alpha: 0.5)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (status == 'On Duty') ...[
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.successGreen,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          status,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _statusIcon,
-                  color: AppTheme.primaryBlack,
-                  size: 22,
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0B1A30).withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF0B1A30).withValues(alpha: 0.06),
+                  ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        status == 'No Shift'
-                            ? 'No Shift Assigned'
-                            : status == 'Scheduled'
-                                ? 'Upcoming Shift'
-                                : 'Shift Details',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.primaryBlack,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
+                child: Row(
+                  children: [
+                    Icon(
+                      statusIcon,
+                      color: const Color(0xFF0B1A30),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            status == 'No Shift'
+                                ? 'No Shift Assigned'
+                                : status == 'Off Duty'
+                                    ? 'Off Duty'
+                                    : 'Shift Details',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF0B1A30),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            shiftTime,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppTheme.textGray,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        shiftTime,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textGray,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    ),
+                  ],
+                ),
+              ),
+              if (showAssignButton) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: onAssignShift,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0B1A30),
+                      side: BorderSide(
+                        color: const Color(0xFF0B1A30).withValues(alpha: 0.25),
                       ),
-                    ],
+                      backgroundColor: const Color(0xFF0B1A30).withValues(alpha: 0.02),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                    ),
+                    child: const Text(
+                      'Assign Shift',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton(
-              onPressed: onAssignShift,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryBlack,
-                side: BorderSide(
-                  color: AppTheme.primaryBlack.withValues(alpha: 0.3),
-                ),
-                backgroundColor: Colors.white.withValues(alpha: 0.1),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-              ),
-              child: const Text(
-                'Assign Shift',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.onRetry, required this.message});
+  const _ErrorCard({
+    required this.onRetry,
+    required this.message,
+  });
 
   final VoidCallback onRetry;
   final String message;
@@ -638,7 +752,11 @@ class _ErrorCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.error_outline, color: AppTheme.errorRed, size: 32),
+          const Icon(
+            Icons.error_outline,
+            color: AppTheme.errorRed,
+            size: 32,
+          ),
           const SizedBox(height: 10),
           Text(
             message,
@@ -660,7 +778,12 @@ class _ErrorCard extends StatelessWidget {
               ),
             ),
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w800)),
+            label: const Text(
+              'Retry',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
         ],
       ),
@@ -679,17 +802,21 @@ class _EmptyCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.primaryBlack.withValues(alpha: 0.1)),
+        border: Border.all(color: const Color(0xFF0B1A30).withValues(alpha: 0.1)),
       ),
       child: const Column(
         children: [
-          Icon(Icons.person_off_outlined, color: AppTheme.primaryBlack, size: 34),
+          Icon(
+            Icons.person_off_outlined,
+            color: Color(0xFF0B1A30),
+            size: 34,
+          ),
           SizedBox(height: 12),
           Text(
             'No traffic officers found',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppTheme.primaryBlack,
+              color: Color(0xFF0B1A30),
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),

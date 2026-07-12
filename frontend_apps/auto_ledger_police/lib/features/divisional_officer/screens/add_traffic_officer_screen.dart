@@ -20,12 +20,13 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
   final _badgeController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _officerService = OfficerService();
   final _emailController = TextEditingController();
+  final _officerService = OfficerService();
 
   bool _isPasswordHidden = true;
   bool _isConfirmPasswordHidden = true;
   bool _isLoading = false;
+  bool _showValidationErrors = false;
 
   @override
   void dispose() {
@@ -40,11 +41,24 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
   Future<void> _handleCreateOfficer() async {
     FocusScope.of(context).unfocus();
 
+    setState(() {
+      _showValidationErrors = true;
+    });
+
     if (!_formKey.currentState!.validate()) {
       AppErrorHandler.showPopup(
         context,
         message: 'Please complete the officer details.',
       );
+
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _showValidationErrors = false;
+          });
+          _formKey.currentState!.validate();
+        }
+      });
       return;
     }
 
@@ -101,10 +115,15 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundWhite,
       appBar: AppBar(
+        toolbarHeight: 74,
+        iconTheme: const IconThemeData(
+          color: Color(0xFF0B1A30),
+        ),
         title: const Text(
           'Add Traffic Officer',
           style: TextStyle(
             fontWeight: FontWeight.w800,
+            color: Color(0xFF0B1A30),
           ),
         ),
       ),
@@ -113,238 +132,270 @@ class _AddTrafficOfficerScreenState extends State<AddTrafficOfficerScreen> {
           builder: (context, constraints) {
             final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppTheme.primaryBlack,
-                            AppTheme.primaryBlack.withValues(alpha: 0.85),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryBlack.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.person_add_alt_1_outlined,
-                            color: Colors.white,
-                            size: 34,
-                          ),
-                          SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Register New Officer',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 23,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Create a traffic officer account',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+            return Theme(
+              data: Theme.of(context).copyWith(
+                inputDecorationTheme: InputDecorationTheme(
+                  labelStyle: const TextStyle(
+                    color: Color(0xFF0B1A30),
+                  ),
+                  hintStyle: TextStyle(
+                    color: const Color(0xFF0B1A30).withValues(alpha: 0.35),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  suffixIconColor: const Color(0xFF0B1A30),
+                  prefixIconColor: const Color(0xFF0B1A30),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: BorderSide(
+                      color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
+                      width: 1.5,
                     ),
-                    const SizedBox(height: 24),
-                    Form(
-                      key: _formKey,
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF0B1A30),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 18),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(22),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: AppTheme.primaryBlack.withValues(alpha: 0.12),
-                            width: 1.5,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFF0B1A30),
+                              AppTheme.policeBlueDark,
+                            ],
                           ),
+                          borderRadius: BorderRadius.circular(28),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                            BoxShadow(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              blurRadius: 30,
-                              offset: const Offset(-4, -4),
-                              spreadRadius: -2,
-                            ),
-                            BoxShadow(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              blurRadius: 15,
-                              offset: const Offset(4, 4),
-                              spreadRadius: -1,
+                              color: const Color(0xFF0B1A30).withValues(alpha: 0.25),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
                             ),
                           ],
                         ),
-                        child: Column(
+                        child: const Row(
                           children: [
-                            AppTextField(
-                              controller: _nameController,
-                              label: 'Officer Name',
-                              hint: 'Example: Nimal Perera',
-                              icon: Icons.person_outline,
-                              textInputAction: TextInputAction.next,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Officer name is required';
-                                }
-                                if (value.trim().length < 3) {
-                                  return 'Officer name is too short';
-                                }
-                                return null;
-                              },
+                            Icon(
+                              Icons.person_add_alt_1_outlined,
+                              color: Colors.white,
+                              size: 34,
                             ),
-                            const SizedBox(height: 16),
-                            AppTextField(
-                              controller: _emailController,
-                              label: 'Email Address',
-                              hint: 'Example: officer@police.lk',
-                              icon: Icons.email_outlined,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Email is required';
-                                }
-                                if (!value.contains('@')) {
-                                  return 'Enter a valid email';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            AppTextField(
-                              controller: _badgeController,
-                              label: 'Badge Number',
-                              hint: 'Example: TRF-GALLE-100',
-                              icon: Icons.badge_outlined,
-                              textInputAction: TextInputAction.next,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Badge number is required';
-                                }
-                                if (value.trim().length < 4) {
-                                  return 'Badge number is too short';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            AppTextField(
-                              controller: _passwordController,
-                              label: 'Password',
-                              hint: 'Create officer password',
-                              icon: Icons.lock_outline,
-                              obscureText: _isPasswordHidden,
-                              textInputAction: TextInputAction.next,
-                              suffixIcon: IconButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordHidden = !_isPasswordHidden;
-                                  });
-                                },
-                                icon: Icon(
-                                  _isPasswordHidden
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                ),
+                            SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Register New Officer',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 23,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Create a traffic officer account',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Password is required';
-                                }
-                                if (value.trim().length < 6) {
-                                  return 'Password must be at least 6 characters';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            AppTextField(
-                              controller: _confirmPasswordController,
-                              label: 'Confirm Password',
-                              hint: 'Re-enter password',
-                              icon: Icons.lock_reset_outlined,
-                              obscureText: _isConfirmPasswordHidden,
-                              textInputAction: TextInputAction.done,
-                              suffixIcon: IconButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _isConfirmPasswordHidden =
-                                        !_isConfirmPasswordHidden;
-                                  });
-                                },
-                                icon: Icon(
-                                  _isConfirmPasswordHidden
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Confirm password is required';
-                                }
-                                if (value.trim() !=
-                                    _passwordController.text.trim()) {
-                                  return 'Passwords do not match';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 24),
-                            AppButton(
-                              text: 'Create Officer',
-                              isLoading: _isLoading,
-                              onPressed: _handleCreateOfficer,
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+                      const SizedBox(height: 24),
+                      Form(
+                        key: _formKey,
+                        child: Container(
+                          padding: const EdgeInsets.all(22),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.88),
+                                Colors.white.withValues(alpha: 0.60),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(32),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              width: 1.8,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF0B1A30).withValues(alpha: 0.05),
+                                blurRadius: 24,
+                                offset: const Offset(0, 12),
+                              ),
+                              BoxShadow(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                blurRadius: 1,
+                                offset: const Offset(-1, -1),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              AppTextField(
+                                controller: _nameController,
+                                label: 'Officer Name',
+                                hint: 'Nimal Perera',
+                                icon: Icons.person_outline,
+                                textInputAction: TextInputAction.next,
+                                validator: (value) {
+                                  if (!_showValidationErrors) return null;
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Officer name is required';
+                                  }
+                                  if (value.trim().length < 3) {
+                                    return 'Officer name is too short';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                              AppTextField(
+                                controller: _emailController,
+                                label: 'Email Address',
+                                hint: 'officer@police.lk',
+                                icon: Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                validator: (value) {
+                                  if (!_showValidationErrors) return null;
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Email is required';
+                                  }
+                                  if (!value.contains('@')) {
+                                    return 'Enter a valid email';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                              AppTextField(
+                                controller: _badgeController,
+                                label: 'Badge Number',
+                                hint: 'TRF-GALLE-100',
+                                icon: Icons.badge_outlined,
+                                textInputAction: TextInputAction.next,
+                                validator: (value) {
+                                  if (!_showValidationErrors) return null;
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Badge number is required';
+                                  }
+                                  if (value.trim().length < 4) {
+                                    return 'Badge number is too short';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                              AppTextField(
+                                controller: _passwordController,
+                                label: 'Password',
+                                hint: 'Enter secure password',
+                                icon: Icons.lock_outline,
+                                obscureText: _isPasswordHidden,
+                                textInputAction: TextInputAction.next,
+                                suffixIcon: IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _isPasswordHidden = !_isPasswordHidden;
+                                    });
+                                  },
+                                  icon: Icon(
+                                    _isPasswordHidden
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (!_showValidationErrors) return null;
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Password is required';
+                                  }
+                                  if (value.trim().length < 6) {
+                                    return 'Password must be at least 6 characters';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                              AppTextField(
+                                controller: _confirmPasswordController,
+                                label: 'Confirm Password',
+                                hint: 'Re-enter password',
+                                icon: Icons.lock_reset_outlined,
+                                obscureText: _isConfirmPasswordHidden,
+                                textInputAction: TextInputAction.done,
+                                suffixIcon: IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _isConfirmPasswordHidden =
+                                          !_isConfirmPasswordHidden;
+                                    });
+                                  },
+                                  icon: Icon(
+                                    _isConfirmPasswordHidden
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (!_showValidationErrors) return null;
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Confirm password is required';
+                                  }
+                                  if (value.trim() !=
+                                      _passwordController.text.trim()) {
+                                    return 'Passwords do not match';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 26),
+                              AppButton(
+                                text: 'Create Officer',
+                                isLoading: _isLoading,
+                                onPressed: _handleCreateOfficer,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                    ],
+                  ),
                 ),
               ),
             );

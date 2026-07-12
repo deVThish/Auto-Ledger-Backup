@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_theme.dart';
 
-class LiquidNavBar extends StatelessWidget {
+class LiquidNavBar extends StatefulWidget {
   const LiquidNavBar({
     super.key,
     required this.selectedIndex,
@@ -12,17 +13,76 @@ class LiquidNavBar extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   @override
+  State<LiquidNavBar> createState() => _LiquidNavBarState();
+}
+
+class _LiquidNavBarState extends State<LiquidNavBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  Animation<double>? _animation;
+  double _currentValue = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentValue = widget.selectedIndex.toDouble();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+    _animation = AlwaysStoppedAnimation<double>(_currentValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant LiquidNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      final targetValue = widget.selectedIndex.toDouble();
+
+      _animation = Tween<double>(
+        begin: _currentValue,
+        end: targetValue,
+      ).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Curves.easeInOutCubic,
+        ),
+      );
+
+      _controller
+        ..stop()
+        ..reset()
+        ..forward().whenComplete(() {
+          if (mounted) {
+            setState(() {
+              _currentValue = targetValue;
+            });
+          } else {
+            _currentValue = targetValue;
+          }
+        });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final items = [
-      _NavBarItemData(Icons.person_rounded, "Profile"),
-      _NavBarItemData(Icons.home_rounded, "Home"),
-      _NavBarItemData(Icons.settings_rounded, "Settings"),
+      _NavBarItemData(Icons.person_rounded, 'Profile'),
+      _NavBarItemData(Icons.home_rounded, 'Home'),
+      _NavBarItemData(Icons.settings_rounded, 'Settings'),
     ];
 
     return Container(
       padding: const EdgeInsets.only(left: 45, right: 45, bottom: 28),
       color: Colors.transparent,
-      child: Container(
+      child: SizedBox(
         width: double.infinity,
         height: 72,
         child: LayoutBuilder(
@@ -30,96 +90,97 @@ class LiquidNavBar extends StatelessWidget {
             final barWidth = constraints.maxWidth;
             final itemWidth = barWidth / items.length;
 
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // ── Background Liquid Painter ──
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(end: selectedIndex.toDouble()),
-                  duration: const Duration(milliseconds: 500), // Slower = Smoother
-                  curve: Curves.fastOutSlowIn, // Soft, natural motion
-                  builder: (context, animValue, child) {
-                    return CustomPaint(
-                      size: Size(barWidth, 72),
-                      painter: _LiquidNavPainter(animValue, items.length),
-                    );
-                  },
-                ),
-                // ── Bubble Indicator ──
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.fastOutSlowIn,
-                  top: -14, // Slightly lower for better visual
-                  left: (selectedIndex * itemWidth) + (itemWidth / 2) - 26,
-                  child: Container(
-                    width: 52,
-                    height: 52,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.policeBlue,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x33142C5C),
-                          blurRadius: 10,
-                          offset: Offset(0, 6),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-                // ── Nav Items ──
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: List.generate(items.length, (index) {
-                    final bool isActive = index == selectedIndex;
+            return AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final animationValue =
+                    _controller.isAnimating ? _animation!.value : _currentValue;
 
-                    return GestureDetector(
-                      onTap: () => onTap(index),
-                      behavior: HitTestBehavior.opaque,
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    CustomPaint(
+                      size: Size(barWidth, 72),
+                      painter: _LiquidNavPainter(animationValue, items.length),
+                    ),
+                    Positioned(
+                      top: -14,
+                      left: (animationValue * itemWidth) + (itemWidth / 2) - 26,
                       child: Container(
-                        width: itemWidth,
-                        height: 72,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 500),
-                              curve: Curves.fastOutSlowIn,
-                              transform: Matrix4.translationValues(
-                                0,
-                                isActive ? -24 : 0,
-                                0,
-                              ),
-                              child: Icon(
-                                items[index].icon,
-                                color: isActive ? Colors.white : AppTheme.textGray,
-                                size: 24,
-                              ),
-                            ),
-                            AnimatedPositioned(
-                              duration: const Duration(milliseconds: 300),
-                              bottom: isActive ? 12 : -15,
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 250),
-                                opacity: isActive ? 1.0 : 0.0,
-                                child: Text(
-                                  items[index].label,
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.policeBlue,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                              ),
+                        width: 52,
+                        height: 52,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.policeBlue,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0x33142C5C),
+                              blurRadius: 10,
+                              offset: Offset(0, 6),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  }),
-                ),
-              ],
+                    ),
+                    Row(
+                      children: List.generate(items.length, (index) {
+                        final distance = (animationValue - index).abs();
+                        final activeFactor = (1.0 - distance).clamp(0.0, 1.0);
+                        final isActive = index == widget.selectedIndex;
+
+                        return GestureDetector(
+                          onTap: () => widget.onTap(index),
+                          behavior: HitTestBehavior.opaque,
+                          child: SizedBox(
+                            width: itemWidth,
+                            height: 72,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Transform.translate(
+                                  offset: Offset(0, -24 * activeFactor),
+                                  child: Transform.scale(
+                                    scale: 0.98 + (0.06 * activeFactor),
+                                    child: Icon(
+                                      items[index].icon,
+                                      color: isActive
+                                          ? Colors.white
+                                          : AppTheme.textGray,
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 11,
+                                  left: 0,
+                                  right: 0,
+                                  child: Opacity(
+                                    opacity: activeFactor,
+                                    child: Transform.translate(
+                                      offset: Offset(0, 6 * (1 - activeFactor)),
+                                      child: Center(
+                                        child: Text(
+                                          items[index].label,
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.policeBlue,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -131,12 +192,14 @@ class LiquidNavBar extends StatelessWidget {
 class _NavBarItemData {
   final IconData icon;
   final String label;
+
   _NavBarItemData(this.icon, this.label);
 }
 
 class _LiquidNavPainter extends CustomPainter {
   final double animValue;
   final int count;
+
   _LiquidNavPainter(this.animValue, this.count);
 
   @override
@@ -167,7 +230,12 @@ class _LiquidNavPainter extends CustomPainter {
 
     final finalPath = Path.combine(PathOperation.intersect, path, cutoutPath);
 
-    canvas.drawShadow(finalPath, Colors.black.withValues(alpha: 0.06), 8.0, true);
+    canvas.drawShadow(
+      finalPath,
+      Colors.black.withValues(alpha: 0.06),
+      8.0,
+      true,
+    );
     canvas.drawPath(finalPath, paint);
 
     final borderPaint = Paint()
@@ -180,6 +248,6 @@ class _LiquidNavPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LiquidNavPainter oldDelegate) {
-    return oldDelegate.animValue != animValue;
+    return oldDelegate.animValue != animValue || oldDelegate.count != count;
   }
 }

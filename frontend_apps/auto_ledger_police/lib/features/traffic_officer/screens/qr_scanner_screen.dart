@@ -4,6 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
+import '../../../models/license_model.dart';
 import '../services/traffic_fine_service.dart';
 import 'license_preview_screen.dart';
 
@@ -21,6 +22,16 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   bool _isLoading = false;
   bool _isScanning = false;
 
+  String _lastQrToken = '';
+  LicenseModel? _activeSessionLicense;
+
+  bool get _hasActiveSession {
+    final license = _activeSessionLicense;
+    if (license == null) return false;
+    return license.scanExpiresAt != null &&
+        DateTime.now().isBefore(license.scanExpiresAt!);
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -29,9 +40,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   void _handleScan(BarcodeCapture capture) {
     if (_isScanning || _isLoading) return;
+    if (capture.barcodes.isEmpty) return;
 
     final qrToken = capture.barcodes.first.rawValue;
-    if (qrToken == null || qrToken.isEmpty) {
+    if (qrToken == null || qrToken.trim().isEmpty) {
       AppErrorHandler.showPopup(
         context,
         message: 'Invalid QR code. Please try again.',
@@ -39,11 +51,26 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       return;
     }
 
+    final cleanedToken = qrToken.trim();
+
+    if (_hasActiveSession &&
+        _lastQrToken.isNotEmpty &&
+        cleanedToken == _lastQrToken) {
+      final activeLicense = _activeSessionLicense;
+      if (activeLicense != null) {
+        _isScanning = true;
+        _openPreviewWithLicense(activeLicense, cleanedToken, reuseSession: true);
+        return;
+      }
+    }
+
     _isScanning = true;
-    _verifyLicense(qrToken);
+    _verifyLicense(cleanedToken);
   }
 
   Future<void> _verifyLicense(String qrToken) async {
+    if (!mounted) return;
+
     setState(() => _isLoading = true);
 
     try {
@@ -56,44 +83,90 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       await _controller.stop();
 
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => LicensePreviewScreen(
-            qrToken: qrToken,
-            license: license,
-          ),
-        ),
-      ).then((_) {
-        if (mounted) {
-          _controller.start();
-          setState(() {
-            _isLoading = false;
-            _isScanning = false;
-          });
-        }
+      final sessionToken = license.scanToken.trim().isNotEmpty
+          ? license.scanToken.trim()
+          : qrToken.trim();
+
+      final now = license.scanVerifiedAt ?? DateTime.now();
+      final sessionLicense = license.copyWith(
+        scanToken: sessionToken,
+        scanVerifiedAt: now,
+        scanExpiresAt: license.scanExpiresAt ?? now.add(const Duration(minutes: 3)),
+      );
+
+      _lastQrToken = qrToken;
+      _activeSessionLicense = sessionLicense;
+
+      await _openPreviewWithLicense(sessionLicense, sessionToken);
+
+      if (!mounted) return;
+
+      try {
+        await _controller.start();
+      } catch (_) {}
+
+      setState(() {
+        _isLoading = false;
+        _isScanning = false;
       });
     } on ApiException catch (error) {
       if (!mounted) return;
+
       AppErrorHandler.showPopup(
         context,
         message: error.message,
       );
+
       setState(() {
         _isLoading = false;
         _isScanning = false;
       });
-      _controller.start();
+
+      try {
+        await _controller.start();
+      } catch (_) {}
     } catch (_) {
       if (!mounted) return;
+
       AppErrorHandler.showPopup(
         context,
         message: 'Unable to verify license. Please try again.',
       );
+
       setState(() {
         _isLoading = false;
         _isScanning = false;
       });
-      _controller.start();
+
+      try {
+        await _controller.start();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _openPreviewWithLicense(
+    LicenseModel license,
+    String qrToken, {
+    bool reuseSession = false,
+  }) async {
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LicensePreviewScreen(
+          qrToken: qrToken,
+          license: license,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (reuseSession) {
+      setState(() {
+        _isLoading = false;
+        _isScanning = false;
+      });
     }
   }
 
@@ -123,15 +196,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           builder: (context, constraints) {
             final screenWidth = constraints.maxWidth;
             final screenHeight = constraints.maxHeight;
-
-            // Calculate 1:1 square size (fit within screen with margins)
-            final squareSize = (screenWidth < screenHeight)
+            final squareSize = screenWidth < screenHeight
                 ? screenWidth - 32
                 : screenHeight - 200;
 
             return Column(
               children: [
-                // ── Camera Section (1:1 Frame) ──
                 Expanded(
                   flex: 6,
                   child: Center(
@@ -152,25 +222,23 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       clipBehavior: Clip.hardEdge,
                       child: Stack(
                         children: [
-                          // ── Mobile Scanner ──
                           MobileScanner(
                             controller: _controller,
                             onDetect: _handleScan,
                           ),
-                          // ── QR Overlay ──
                           CustomPaint(
                             painter: _QrOverlayPainter(
                               cutOutSize: squareSize * 0.7,
                             ),
                             size: Size(squareSize, squareSize),
                           ),
-                          // ── Loading Overlay ──
                           if (_isLoading)
                             Container(
                               color: Colors.black.withValues(alpha: 0.6),
                               child: const Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     CircularProgressIndicator(
                                       color: Colors.white,
@@ -188,7 +256,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                 ),
                               ),
                             ),
-                          // ── Bottom Hint ──
                           Positioned(
                             bottom: 20,
                             left: 0,
@@ -229,7 +296,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     ),
                   ),
                 ),
-                // ── Bottom Info ──
                 Expanded(
                   flex: 1,
                   child: Center(
@@ -268,7 +334,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }
 }
 
-// ── QR Overlay Painter (1:1 Frame) ──
 class _QrOverlayPainter extends CustomPainter {
   const _QrOverlayPainter({required this.cutOutSize});
 
@@ -281,27 +346,19 @@ class _QrOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
-    // Center the cutout
     final left = (size.width - cutOutSize) / 2;
     final top = (size.height - cutOutSize) / 2;
     final right = left + cutOutSize;
     final bottom = top + cutOutSize;
+    const cornerLength = 28.0;
 
-    final cornerLength = 28.0;
-
-    // Top-left corner
-    canvas.drawLine(
-      Offset(left, top + cornerLength),
-      Offset(left, top),
-      paint,
-    );
+    canvas.drawLine(Offset(left, top + cornerLength), Offset(left, top), paint);
     canvas.drawLine(
       Offset(left, top),
       Offset(left + cornerLength, top),
       paint,
     );
 
-    // Top-right corner
     canvas.drawLine(
       Offset(right, top + cornerLength),
       Offset(right, top),
@@ -313,7 +370,6 @@ class _QrOverlayPainter extends CustomPainter {
       paint,
     );
 
-    // Bottom-left corner
     canvas.drawLine(
       Offset(left, bottom - cornerLength),
       Offset(left, bottom),
@@ -325,7 +381,6 @@ class _QrOverlayPainter extends CustomPainter {
       paint,
     );
 
-    // Bottom-right corner
     canvas.drawLine(
       Offset(right, bottom - cornerLength),
       Offset(right, bottom),

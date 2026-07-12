@@ -53,6 +53,7 @@ class TokenStorage {
   static const String _loginAtKey = 'login_at';
   static const String _tokenExpiresAtKey = 'token_expires_at';
   static const String _loggedOutKey = 'logged_out';
+  static const String _biometricEnabledKey = 'biometric_enabled';
 
   Future<void> saveSession({
     required String accessToken,
@@ -96,8 +97,7 @@ class TokenStorage {
     final accessToken = await _storage.read(key: _accessTokenKey);
     final officerId = await _storage.read(key: _officerIdKey);
     final officerName = await _storage.read(key: _officerNameKey);
-    final officerBadgeNumber =
-    await _storage.read(key: _officerBadgeNumberKey);
+    final officerBadgeNumber = await _storage.read(key: _officerBadgeNumberKey);
     final role = await _storage.read(key: _officerRoleKey);
     final districtId = await _storage.read(key: _districtIdKey);
     final loginAtValue = await _storage.read(key: _loginAtKey);
@@ -119,9 +119,9 @@ class TokenStorage {
     }
 
     final tokenExpiresAt =
-    tokenExpiresAtValue == null || tokenExpiresAtValue.trim().isEmpty
-        ? null
-        : DateTime.tryParse(tokenExpiresAtValue);
+        tokenExpiresAtValue == null || tokenExpiresAtValue.trim().isEmpty
+            ? null
+            : DateTime.tryParse(tokenExpiresAtValue);
 
     final session = PoliceSession(
       accessToken: accessToken,
@@ -151,7 +151,20 @@ class TokenStorage {
     await _storage.delete(key: _districtIdKey);
     await _storage.delete(key: _loginAtKey);
     await _storage.delete(key: _tokenExpiresAtKey);
+    await _storage.delete(key: _biometricEnabledKey);
     await _storage.write(key: _loggedOutKey, value: 'true');
+  }
+
+  Future<void> saveBiometricEnabled(bool enabled) async {
+    await _storage.write(
+      key: _biometricEnabledKey,
+      value: enabled.toString(),
+    );
+  }
+
+  Future<bool> getBiometricEnabled() async {
+    final value = await _storage.read(key: _biometricEnabledKey);
+    return value == 'true';
   }
 
   DateTime? _readJwtExpiry(String token) {

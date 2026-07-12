@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
@@ -25,6 +27,11 @@ class _FineHistoryScreenState extends State<FineHistoryScreen> {
 
   Future<List<FineModel>> _load() async {
     final fines = await _service.getFineHistory();
+    fines.sort((a, b) {
+      final aDate = a.issuedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.issuedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
     _cachedFines = fines;
     return fines;
   }
@@ -34,6 +41,71 @@ class _FineHistoryScreenState extends State<FineHistoryScreen> {
       _future = _load();
     });
     await _future;
+  }
+
+  String _formatDate(DateTime? dateTime) {
+    if (dateTime == null) return '-';
+    final local = dateTime.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final hour = local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final ampm = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '${local.year}-$month-$day $displayHour:$minute $ampm';
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'PAID':
+        return AppTheme.successGreen;
+      case 'PENDING':
+        return Colors.orange;
+      case 'OVERDUE':
+        return AppTheme.errorRed;
+      case 'COURT_CASE':
+      case 'COURT':
+      case 'REVOKED':
+      case 'SUSPENDED':
+        return AppTheme.errorRed;
+      default:
+        return AppTheme.textGray;
+    }
+  }
+
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    double radius = 28,
+    Color? color,
+    Color? borderColor,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          width: double.infinity,
+          padding: padding,
+          decoration: BoxDecoration(
+            color: color ?? Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(
+              color: borderColor ?? Colors.white.withValues(alpha: 0.40),
+              width: 1.1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
   }
 
   @override
@@ -62,7 +134,7 @@ class _FineHistoryScreenState extends State<FineHistoryScreen> {
               final fines = snapshot.data ?? _cachedFines;
               final isLoading =
                   snapshot.connectionState == ConnectionState.waiting &&
-                  fines.isEmpty;
+                      fines.isEmpty;
 
               if (isLoading) {
                 return const Center(
@@ -85,12 +157,16 @@ class _FineHistoryScreenState extends State<FineHistoryScreen> {
 
               return ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
                 itemCount: fines.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final fine = fines[index];
-                  return _FineHistoryCard(fine: fine);
+                  return _FineHistoryCard(
+                    fine: fine,
+                    formatDate: _formatDate,
+                    statusColor: _statusColor,
+                  );
                 },
               );
             },
@@ -102,20 +178,28 @@ class _FineHistoryScreenState extends State<FineHistoryScreen> {
 }
 
 class _FineHistoryCard extends StatelessWidget {
-  const _FineHistoryCard({required this.fine});
+  const _FineHistoryCard({
+    required this.fine,
+    required this.formatDate,
+    required this.statusColor,
+  });
 
   final FineModel fine;
+  final String Function(DateTime? dateTime) formatDate;
+  final Color Function(String status) statusColor;
 
   @override
   Widget build(BuildContext context) {
     final title = fine.offenseName.isEmpty ? 'Traffic Offense' : fine.offenseName;
+    final color = statusColor(fine.status);
+    final status = fine.status.isEmpty ? 'PENDING' : fine.status;
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.borderGray),
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -127,55 +211,146 @@ class _FineHistoryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppTheme.primaryBlack,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Status: ${fine.status}',
-            style: const TextStyle(
-              color: AppTheme.textGray,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Amount: LKR ${fine.amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              color: AppTheme.textGray,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Points: ${fine.points}',
-            style: const TextStyle(
-              color: AppTheme.textGray,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (fine.issuedAt != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Issued: ${fine.issuedAt!.toLocal()}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppTheme.textGray,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppTheme.primaryBlack,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: color.withValues(alpha: 0.20)),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _Chip(label: 'License: ${fine.licenseNumber.isEmpty ? '-' : fine.licenseNumber}'),
+              if (fine.officerName.trim().isNotEmpty)
+                _Chip(label: 'Officer: ${fine.officerName}'),
+              _Chip(label: 'Points: ${fine.points}'),
+              _Chip(label: 'Amount: LKR ${fine.amount.toStringAsFixed(2)}'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _MetaRow(
+                  title: 'Issued',
+                  value: formatDate(fine.issuedAt),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetaRow(
+                  title: 'Due Date',
+                  value: formatDate(fine.dueDate),
+                ),
+              ),
+            ],
+          ),
+          if (fine.officerBadgeNumber.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _MetaRow(
+              title: 'Badge Number',
+              value: fine.officerBadgeNumber,
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({
+    required this.title,
+    required this.value,
+  });
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.lightGray.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppTheme.textGray,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value.isEmpty ? '-' : value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppTheme.primaryBlack,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.lightGray.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppTheme.primaryBlack,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

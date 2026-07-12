@@ -354,9 +354,17 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundWhite,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(
+          color: Color(0xFF0B1A30),
+        ),
         title: const Text(
           'Assign Shift',
-          style: TextStyle(fontWeight: FontWeight.w800),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0B1A30),
+          ),
         ),
       ),
       body: SafeArea(
@@ -373,7 +381,7 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 18),
-                    _HeaderCard(),
+                    const _HeaderCard(),
                     const SizedBox(height: 24),
                     FutureBuilder<List<OfficerModel>>(
                       future: _officersFuture,
@@ -395,7 +403,15 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                         }
 
                         if (isFirstLoad) {
-                          return const SizedBox.shrink();
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 60),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF0B1A30),
+                                strokeWidth: 3,
+                              ),
+                            ),
+                          );
                         }
 
                         if (officers.isEmpty) {
@@ -405,36 +421,31 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                         final selected = _resolveSelectedOfficer(officers);
 
                         return Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(22),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(28),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.88),
+                                Colors.white.withValues(alpha: 0.60),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(32),
                             border: Border.all(
-                              color: AppTheme.primaryBlack.withValues(alpha: 0.12),
-                              width: 1.5,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              width: 1.8,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: const Color(0xFF0B1A30).withValues(alpha: 0.05),
+                                blurRadius: 24,
+                                offset: const Offset(0, 12),
                               ),
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 16,
-                                offset: const Offset(0, 8),
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withValues(alpha: 0.4),
-                                blurRadius: 30,
-                                offset: const Offset(-4, -4),
-                                spreadRadius: -2,
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                blurRadius: 15,
-                                offset: const Offset(4, 4),
-                                spreadRadius: -1,
+                                color: Colors.white.withValues(alpha: 0.6),
+                                blurRadius: 1,
+                                offset: const Offset(-1, -1),
                               ),
                             ],
                           ),
@@ -445,18 +456,18 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                                 selectedOfficer: selected,
                                 onChanged: _handleOfficerChanged,
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 18),
                               if (selected?.hasActiveShift == true)
                                 _ExistingShiftNotice(officer: selected!),
                               if (selected?.hasActiveShift == true)
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 18),
                               _DateTimeSelector(
                                 title: 'Start Time',
                                 value: _formatDateTime(_startDateTime),
                                 icon: Icons.play_circle_outline_rounded,
                                 onTap: () => _selectDateTime(isStart: true),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 18),
                               _DateTimeSelector(
                                 title: 'End Time',
                                 value: _formatDateTime(_endDateTime),
@@ -464,7 +475,7 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                                 onTap: () =>
                                     _selectDateTime(isStart: false),
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 26),
                               AppButton(
                                 text: _submitText,
                                 isLoading: _isLoading,
@@ -499,15 +510,15 @@ class _HeaderCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppTheme.primaryBlack,
-            AppTheme.primaryBlack.withValues(alpha: 0.85),
+          colors: const [
+            Color(0xFF0B1A30),
+            AppTheme.policeBlueDark,
           ],
         ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryBlack.withValues(alpha: 0.3),
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.25),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -588,28 +599,39 @@ class _OfficerDropdown extends StatelessWidget {
         }).toList();
       },
       onChanged: onChanged,
+      iconEnabledColor: const Color(0xFF0B1A30),
       decoration: InputDecoration(
         labelText: 'Traffic Officer',
+        labelStyle: const TextStyle(
+          color: Color(0xFF0B1A30),
+        ),
         hintText: 'Select officer',
-        prefixIcon: const Icon(Icons.local_police_outlined),
+        hintStyle: TextStyle(
+          color: const Color(0xFF0B1A30).withValues(alpha: 0.35),
+          fontWeight: FontWeight.w400,
+          fontSize: 14,
+        ),
+        prefixIcon: const Icon(Icons.local_police_outlined, color: Color(0xFF0B1A30)),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.15),
+        fillColor: Colors.white.withValues(alpha: 0.3),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(25),
           borderSide: BorderSide(
-            color: AppTheme.primaryBlack.withValues(alpha: 0.1),
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(25),
           borderSide: BorderSide(
-            color: AppTheme.primaryBlack.withValues(alpha: 0.1),
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
+            width: 1.5,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(25),
-          borderSide: BorderSide(
-            color: AppTheme.primaryBlack.withValues(alpha: 0.3),
+          borderSide: const BorderSide(
+            color: Color(0xFF0B1A30),
+            width: 2,
           ),
         ),
       ),
@@ -636,7 +658,7 @@ class _OfficerDropdownText extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppTheme.primaryBlack,
+              color: Color(0xFF0B1A30),
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -658,9 +680,9 @@ class _ExistingShiftNotice extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
+        color: const Color(0xFF0B1A30).withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primaryBlack.withValues(alpha: 0.1)),
+        border: Border.all(color: const Color(0xFF0B1A30).withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -668,7 +690,7 @@ class _ExistingShiftNotice extends StatelessWidget {
             officer.isOnDutyNow
                 ? Icons.play_circle_outline_rounded
                 : Icons.schedule_rounded,
-            color: AppTheme.primaryBlack,
+            color: const Color(0xFF0B1A30),
             size: 22,
           ),
           const SizedBox(width: 10),
@@ -678,7 +700,7 @@ class _ExistingShiftNotice extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppTheme.textGray,
+                color: Color(0xFF0B1A30),
                 fontSize: 13,
                 height: 1.35,
                 fontWeight: FontWeight.w700,
@@ -716,17 +738,18 @@ class _DateTimeSelector extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
+            color: Colors.white.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(25),
             border: Border.all(
-              color: AppTheme.primaryBlack.withValues(alpha: 0.1),
+              color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
+              width: 1.5,
             ),
           ),
           child: Row(
             children: [
               Icon(
                 icon,
-                color: AppTheme.primaryBlack,
+                color: const Color(0xFF0B1A30),
                 size: 24,
               ),
               const SizedBox(width: 14),
@@ -737,18 +760,18 @@ class _DateTimeSelector extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: AppTheme.primaryBlack,
+                        color: Color(0xFF0B1A30),
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                      ),
+                  ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textGray,
+                      style: TextStyle(
+                        color: const Color(0xFF0B1A30).withValues(alpha: 0.6),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -758,7 +781,7 @@ class _DateTimeSelector extends StatelessWidget {
               ),
               const Icon(
                 Icons.calendar_month_outlined,
-                color: AppTheme.textGray,
+                color: Color(0xFF0B1A30),
                 size: 21,
               ),
             ],
@@ -829,7 +852,7 @@ class _EmptyView extends StatelessWidget {
       children: [
         Icon(
           Icons.person_off_outlined,
-          color: AppTheme.primaryBlack,
+          color: Color(0xFF0B1A30),
           size: 34,
         ),
         SizedBox(height: 12),
@@ -837,7 +860,7 @@ class _EmptyView extends StatelessWidget {
           'No traffic officers found',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: AppTheme.primaryBlack,
+            color: Color(0xFF0B1A30),
             fontSize: 16,
             fontWeight: FontWeight.w800,
           ),
