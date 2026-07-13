@@ -177,6 +177,23 @@ export class ForgotPasswordRequestDto {
   email: string;
 }
 
+export class VerifyResetOtpDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+}
+
 export class ResetPasswordDto {
   @ApiProperty({ example: '200204802139' })
   @IsString()
@@ -212,6 +229,23 @@ export class HeadForgotPasswordRequestDto {
   email: string;
 }
 
+export class HeadVerifyResetOtpDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+}
+
 export class HeadResetPasswordDto {
   @ApiProperty()
   @IsString()
@@ -245,6 +279,23 @@ export class OfficerForgotPasswordRequestDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
+}
+
+export class OfficerVerifyResetOtpDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
 }
 
 export class OfficerResetPasswordDto {
@@ -434,7 +485,18 @@ export class AuthController {
   }
 
   @SkipDeviceCheck()
-  @ApiOperation({ summary: 'Step 2: Reset Password with OTP' })
+  @ApiOperation({ summary: 'Step 2: Verify OTP for password reset' })
+  @Post('user/verify-reset-otp')
+  async verifyUserResetOtp(@Body() data: VerifyResetOtpDto) {
+    return await this.authService.verifyUserResetOtp(
+      data.nicNo,
+      data.email,
+      data.otp,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 3: Reset Password with verified OTP' })
   @Post('user/reset-password')
   async resetPassword(@Body() data: ResetPasswordDto) {
     return await this.authService.resetPassword(
@@ -456,7 +518,20 @@ export class AuthController {
   }
 
   @SkipDeviceCheck()
-  @ApiOperation({ summary: 'Step 2: Reset Password for Divisional Head' })
+  @ApiOperation({
+    summary: 'Step 2: Verify OTP for Divisional Head password reset',
+  })
+  @Post('head/verify-reset-otp')
+  async headVerifyResetOtp(@Body() data: HeadVerifyResetOtpDto) {
+    return await this.authService.verifyHeadResetOtp(
+      data.username,
+      data.email,
+      data.otp,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 3: Reset Password for Divisional Head' })
   @Post('head/reset-password')
   async headResetPassword(@Body() data: HeadResetPasswordDto) {
     return await this.authService.resetHeadPassword(
@@ -489,7 +564,20 @@ export class AuthController {
   }
 
   @SkipDeviceCheck()
-  @ApiOperation({ summary: 'Step 2: Reset Password for Traffic Officer' })
+  @ApiOperation({
+    summary: 'Step 2: Verify OTP for Traffic Officer password reset',
+  })
+  @Post('officer/verify-reset-otp')
+  async officerVerifyResetOtp(@Body() data: OfficerVerifyResetOtpDto) {
+    return await this.authService.verifyOfficerResetOtp(
+      data.badgeNo,
+      data.email,
+      data.otp,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 3: Reset Password for Traffic Officer' })
   @Post('officer/reset-password')
   async officerResetPassword(@Body() data: OfficerResetPasswordDto) {
     return await this.authService.resetOfficerPassword(
