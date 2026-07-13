@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { Fine, Payment } from '@prisma/client';
+import * as nodemailer from 'nodemailer';
+import { License_Status, Fine_Status } from '@prisma/client';
 
 export interface CreateOffenseData {
   code: string;
@@ -23,13 +24,24 @@ export interface UpdateOffenseData {
   isCourtCase?: boolean;
 }
 
-type FineWithPayment = Fine & { payment: Payment | null };
-
 interface ScanTokenPayload {
   licenseId: string;
-  iat?: number;
-  exp?: number;
 }
+
+type LicenseUpdatePayload = {
+  points: number;
+  status: License_Status;
+  suspended_Until: Date | null;
+  has_24_Suspension?: boolean;
+  has_50_Suspension?: boolean;
+  has_100_Revoke?: boolean;
+};
+
+type FineWithPayment = {
+  status: Fine_Status;
+  issue_At: Date;
+  payment: { amount: number } | null;
+};
 
 @Injectable()
 export class FinesService {
@@ -37,6 +49,38 @@ export class FinesService {
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
+
+  private async sendWarningEmail(
+    email: string,
+    subject: string,
+    message: string,
+  ) {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Auto-Ledger" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `⚠️ Auto-Ledger: ${subject}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a2e; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #ff6f00; text-align: center;">⚠️ License Status Update</h2>
+          <p style="text-align: center; color: #cccccc;">${message}</p>
+          <div style="background-color: #16213e; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h3 style="color: #ff6f00;">${subject}</h3>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">Please login to the Auto-Ledger app for more details.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
+        </div>
+      `,
+    });
+  }
 
   private async autoActivateLicenses() {
     await this.prisma.driving_License.updateMany({
@@ -70,13 +114,20 @@ export class FinesService {
     });
 
     for (const fine of overdueFines) {
-      await this.prisma.fine.update({
-        where: { fine_Id: fine.fine_Id },
-        data: { status: 'OVERDUE' },
-      });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.fine.update({
+          where: { fine_Id: fine.fine_Id },
+          data: { status: 'OVERDUE' },
+        });
 
-      await this.prisma.temporary_License.deleteMany({
-        where: { license_Id: fine.license_Id },
+        await tx.driving_License.update({
+          where: { license_Id: fine.license_Id },
+          data: { status: 'SUSPENDED' },
+        });
+
+        await tx.temporary_License.deleteMany({
+          where: { license_Id: fine.license_Id },
+        });
       });
     }
   }
@@ -103,17 +154,22 @@ export class FinesService {
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { traffic_Officer_Id: data.officerId },
     });
-    if (!officer) throw new NotFoundException();
+    if (!officer) throw new NotFoundException('Officer not found');
 
     const license = await this.prisma.driving_License.findUnique({
       where: { license_Id: licenseId },
     });
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found');
+
+    if (license.status === 'REVOKED' || license.status === 'EXPIRED') {
+      throw new BadRequestException('License is revoked or expired.');
+    }
 
     const offenses = await this.prisma.offence_Category.findMany({
       where: { offense_Id: { in: data.offenseIds } },
     });
-    if (offenses.length === 0) throw new BadRequestException();
+    if (offenses.length === 0)
+      throw new BadRequestException('No offenses found');
 
     const isCourtCase = offenses.some((o) => o.is_Court_Case);
     const fineDueDate = new Date();
@@ -126,34 +182,54 @@ export class FinesService {
     );
     const newPoints = oldPoints + totalPointsAdded;
 
-    let newStatus = license.status as 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
-    if (newStatus !== 'REVOKED' && newStatus !== 'SUSPENDED') {
-      newStatus = 'ACTIVE';
-    }
-
+    let newStatus: License_Status = license.status;
     let suspendedUntil = license.suspended_Until;
-    let fineStatus: 'PENDING' | 'COURT_CASE' = 'PENDING';
+    let fineStatus: Fine_Status = 'PENDING';
     let isPointSuspension = false;
+    let actionTriggered = false;
+    let warningSubject = '';
+    let warningMessage = '';
 
-    const now = new Date();
-
-    if (newPoints >= 100 && oldPoints < 100) {
+    if (!license.has_100_Revoke && newPoints >= 100) {
       newStatus = 'REVOKED';
       suspendedUntil = null;
       isPointSuspension = true;
-    } else if (newPoints >= 50 && oldPoints < 50) {
+      actionTriggered = true;
+      warningSubject = 'License REVOKED (100 Points)';
+      warningMessage =
+        'Your license has been REVOKED due to exceeding 100 points. Please contact your Divisional Head.';
+    } else if (
+      !license.has_50_Suspension &&
+      newPoints >= 50 &&
+      !actionTriggered
+    ) {
       newStatus = 'SUSPENDED';
+      const now = new Date();
       suspendedUntil = new Date(now.setMonth(now.getMonth() + 6));
       isPointSuspension = true;
-    } else if (newPoints >= 24 && oldPoints < 24) {
+      actionTriggered = true;
+      warningSubject = 'License SUSPENDED (6 Months)';
+      warningMessage =
+        'Your license has been SUSPENDED for 6 months due to exceeding 50 points.';
+    } else if (
+      !license.has_24_Suspension &&
+      newPoints >= 24 &&
+      !actionTriggered
+    ) {
       newStatus = 'SUSPENDED';
+      const now = new Date();
       suspendedUntil = new Date(now.setMonth(now.getMonth() + 1));
       isPointSuspension = true;
-    } else if (isCourtCase) {
+      actionTriggered = true;
+      warningSubject = 'License SUSPENDED (1 Month)';
+      warningMessage =
+        'Your license has been SUSPENDED for 1 month due to exceeding 24 points.';
+    }
+
+    if (!isPointSuspension && isCourtCase) {
       newStatus = 'SUSPENDED';
       fineStatus = 'COURT_CASE';
-    } else if (oldPoints >= 100 || license.status === 'REVOKED') {
-      newStatus = 'REVOKED';
+      suspendedUntil = null;
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -173,20 +249,37 @@ export class FinesService {
         });
       }
 
+      const updateData: LicenseUpdatePayload = {
+        points: newPoints,
+        status: newStatus,
+        suspended_Until: suspendedUntil,
+      };
+
+      if (actionTriggered) {
+        if (newPoints >= 24 && !license.has_24_Suspension) {
+          updateData.has_24_Suspension = true;
+        }
+        if (newPoints >= 50 && !license.has_50_Suspension) {
+          updateData.has_50_Suspension = true;
+        }
+        if (newPoints >= 100 && !license.has_100_Revoke) {
+          updateData.has_100_Revoke = true;
+        }
+      }
+
       await tx.driving_License.update({
         where: { license_Id: licenseId },
-        data: {
-          points: newPoints,
-          status: newStatus,
-          suspended_Until: suspendedUntil,
-        },
+        data: updateData,
       });
 
-      if (!isPointSuspension && !isCourtCase && newStatus !== 'REVOKED') {
+      if (
+        !isPointSuspension &&
+        fineStatus !== 'COURT_CASE' &&
+        newStatus !== 'REVOKED'
+      ) {
         const existingTemp = await tx.temporary_License.findFirst({
           where: { license_Id: licenseId },
         });
-
         if (!existingTemp) {
           await tx.temporary_License.create({
             data: {
@@ -195,6 +288,25 @@ export class FinesService {
               issued_By: data.officerId,
             },
           });
+        }
+        if (newStatus !== 'SUSPENDED') {
+          await tx.driving_License.update({
+            where: { license_Id: licenseId },
+            data: { status: 'TEMPORARY' },
+          });
+        }
+      }
+
+      if (actionTriggered && warningSubject) {
+        const user = await tx.user.findUnique({
+          where: { user_Id: license.user_Id },
+        });
+        if (user) {
+          await this.sendWarningEmail(
+            user.email,
+            warningSubject,
+            warningMessage,
+          );
         }
       }
 
@@ -209,7 +321,7 @@ export class FinesService {
     const license = await this.prisma.driving_License.findUnique({
       where: { user_Id: userId },
     });
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found');
 
     return this.prisma.fine.findMany({
       where: { license_Id: license.license_Id },
@@ -227,21 +339,24 @@ export class FinesService {
       where: { fine_Id: fineId },
       include: { license: true },
     });
-    if (!fine) throw new NotFoundException();
-    if (fine.status === 'PAID') throw new BadRequestException();
+    if (!fine) throw new NotFoundException('Fine not found');
+    if (fine.status === 'PAID')
+      throw new BadRequestException('Fine already paid');
 
     const now = new Date();
     const isOverdue = fine.due_Date ? now > fine.due_Date : false;
 
     return this.prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.create({
+      await tx.payment.create({
         data: { fine_Id: fineId, amount: amount, status: 'COMPLETED' },
       });
 
-      const newFineStatus =
-        isOverdue || fine.status === 'COURT_CASE' ? fine.status : 'PAID';
+      let newFineStatus: Fine_Status = 'PAID';
+      if (isOverdue || fine.status === 'COURT_CASE') {
+        newFineStatus = fine.status;
+      }
 
-      const updatedFine = await tx.fine.update({
+      await tx.fine.update({
         where: { fine_Id: fineId },
         data: { status: newFineStatus },
       });
@@ -259,13 +374,7 @@ export class FinesService {
           where: { license_Id: fine.license_Id },
         });
 
-        const isPointsSuspended = currentLicense?.suspended_Until != null;
-
-        if (
-          pendingCount === 0 &&
-          currentLicense?.status !== 'REVOKED' &&
-          !isPointsSuspended
-        ) {
+        if (pendingCount === 0 && currentLicense?.status !== 'REVOKED') {
           await tx.temporary_License.deleteMany({
             where: { license_Id: fine.license_Id },
           });
@@ -281,8 +390,7 @@ export class FinesService {
           isOverdue || fine.status === 'COURT_CASE'
             ? 'Payment recorded. Waiting for Divisional Head approval.'
             : 'Payment successful. License activated.',
-        paymentId: payment.payment_Id,
-        fineStatus: updatedFine.status,
+        fineId: fineId,
       };
     });
   }
@@ -292,41 +400,39 @@ export class FinesService {
       where: { fine_Id: { in: fineIds } },
       include: { license: true },
     });
-    if (fines.length !== fineIds.length) throw new BadRequestException();
+    if (fines.length !== fineIds.length)
+      throw new BadRequestException('Invalid fines');
 
     for (const fine of fines) {
-      if (fine.status === 'PAID') throw new BadRequestException();
+      if (fine.status === 'PAID')
+        throw new BadRequestException('Fine already paid');
     }
 
     const licenseId = fines[0].license_Id;
 
     return this.prisma.$transaction(async (tx) => {
-      const payments: { payment_Id: string }[] = [];
       let hasOverdueOrCourt = false;
 
       for (const fine of fines) {
         const now = new Date();
         const isOverdue = fine.due_Date ? now > fine.due_Date : false;
+        if (isOverdue || fine.status === 'COURT_CASE') hasOverdueOrCourt = true;
 
-        if (isOverdue || fine.status === 'COURT_CASE') {
-          hasOverdueOrCourt = true;
-        }
-
-        const p = await tx.payment.create({
+        await tx.payment.create({
           data: {
             fine_Id: fine.fine_Id,
             amount: totalAmount / fineIds.length,
             status: 'COMPLETED',
           },
         });
-        payments.push(p);
 
-        const newFineStatus =
-          isOverdue || fine.status === 'COURT_CASE' ? fine.status : 'PAID';
-
+        let newStatus: Fine_Status = 'PAID';
+        if (isOverdue || fine.status === 'COURT_CASE') {
+          newStatus = fine.status;
+        }
         await tx.fine.update({
           where: { fine_Id: fine.fine_Id },
-          data: { status: newFineStatus },
+          data: { status: newStatus },
         });
       }
 
@@ -343,13 +449,7 @@ export class FinesService {
           where: { license_Id: licenseId },
         });
 
-        const isPointsSuspended = currentLicense?.suspended_Until != null;
-
-        if (
-          pendingCount === 0 &&
-          currentLicense?.status !== 'REVOKED' &&
-          !isPointsSuspended
-        ) {
+        if (pendingCount === 0 && currentLicense?.status !== 'REVOKED') {
           await tx.temporary_License.deleteMany({
             where: { license_Id: licenseId },
           });
@@ -360,37 +460,73 @@ export class FinesService {
         }
       }
 
-      return {
-        message: hasOverdueOrCourt
-          ? 'Payment recorded. Waiting for Divisional Head approval.'
-          : 'Bulk payment successful.',
-        payments: payments.map((p) => p.payment_Id),
-      };
+      return { message: 'Bulk payment processed.' };
     });
   }
 
-  async updateCourtCase(fineId: string, verdict: 'ACTIVE' | 'REVOKED') {
+  async resolveOverdueCourtCase(
+    fineId: string,
+    verdict: 'ACTIVE' | 'REVOKED',
+    headId: string,
+  ) {
     const fine = await this.prisma.fine.findUnique({
       where: { fine_Id: fineId },
-      include: { license: true },
+      include: {
+        license: true,
+        trafficOfficer: true,
+      },
     });
-    if (!fine) throw new NotFoundException();
+    if (!fine) throw new NotFoundException('Fine not found');
+    if (fine.trafficOfficer.divisional_Head_Id !== headId) {
+      throw new UnauthorizedException(
+        'You are not authorized to resolve this case.',
+      );
+    }
+    if (fine.status !== 'OVERDUE' && fine.status !== 'COURT_CASE') {
+      throw new BadRequestException('This fine is not overdue or court case.');
+    }
 
-    return this.prisma.$transaction(async (tx) => {
-      await tx.fine.update({
-        where: { fine_Id: fineId },
-        data: { status: 'PAID' },
-      });
-
-      return tx.driving_License.update({
-        where: { license_Id: fine.license_Id },
-        data: {
-          status: verdict,
-          points: verdict === 'ACTIVE' ? 0 : fine.license.points,
-          suspended_Until: null,
+    if (verdict === 'ACTIVE') {
+      const pendingFines = await this.prisma.fine.count({
+        where: {
+          license_Id: fine.license_Id,
+          status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
         },
       });
-    });
+
+      if (pendingFines > 0) {
+        throw new BadRequestException(
+          'Cannot activate: There are pending/overdue/court case fines.',
+        );
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.fine.update({
+          where: { fine_Id: fineId },
+          data: { status: 'PAID' },
+        });
+
+        await tx.driving_License.update({
+          where: { license_Id: fine.license_Id },
+          data: {
+            status: 'ACTIVE',
+            suspended_Until: null,
+          },
+        });
+
+        await tx.temporary_License.deleteMany({
+          where: { license_Id: fine.license_Id },
+        });
+      });
+
+      return { message: 'License activated successfully. All fines cleared.' };
+    } else {
+      await this.prisma.driving_License.update({
+        where: { license_Id: fine.license_Id },
+        data: { status: 'REVOKED' },
+      });
+      return { message: 'License revoked by Divisional Head.' };
+    }
   }
 
   async getAllOffenses() {
@@ -426,7 +562,7 @@ export class FinesService {
     const offense = await this.prisma.offence_Category.findUnique({
       where: { offense_Id: id },
     });
-    if (!offense) throw new NotFoundException();
+    if (!offense) throw new NotFoundException('Offense not found');
 
     return this.prisma.offence_Category.update({
       where: { offense_Id: id },

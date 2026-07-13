@@ -9,6 +9,7 @@ datasource db {
 
 enum License_Status {
   ACTIVE
+  TEMPORARY
   SUSPENDED
   EXPIRED
   REVOKED
@@ -76,26 +77,29 @@ model User {
 }
 
 model Driving_License {
-  license_Id        String                     @id @default(uuid())
-  license_No        String                     @unique
-  full_Name         String
-  nic_No            String                     @unique
-  status            License_Status             @default(ACTIVE)
-  image             String?
-  points            Int                        @default(0)
-  suspended_Until   DateTime?
-  address           String
-  date_of_birth     DateTime
-  blood_Group       String
-  issue_Date        DateTime
-  user_Id           String                     @unique
-  user              User                       @relation(fields: [user_Id], references: [user_Id])
-  dmt_Admin_Id      String
-  dmtAdmin          DMT_Admin                  @relation(fields: [dmt_Admin_Id], references: [dmt_Admin_Id])
-  fines             Fine[]
-  temporaryLicenses Temporary_License[]
-  qrScans           QR_Scan_History[]
-  vehicleCategories License_Vehicle_Category[]
+  license_Id           String                     @id @default(uuid())
+  license_No           String                     @unique
+  full_Name            String
+  nic_No               String                     @unique
+  status               License_Status             @default(ACTIVE)
+  image                String?
+  points               Int                        @default(0)
+  suspended_Until      DateTime?
+  address              String
+  date_of_birth        DateTime
+  blood_Group          String
+  issue_Date           DateTime
+  user_Id              String                     @unique
+  user                 User                       @relation(fields: [user_Id], references: [user_Id])
+  dmt_Admin_Id         String
+  dmtAdmin             DMT_Admin                  @relation(fields: [dmt_Admin_Id], references: [dmt_Admin_Id])
+  fines                Fine[]
+  temporaryLicenses    Temporary_License[]
+  qrScans              QR_Scan_History[]
+  vehicleCategories    License_Vehicle_Category[]
+  has_24_Suspension    Boolean                    @default(false)
+  has_50_Suspension    Boolean                    @default(false)
+  has_100_Revoke       Boolean                    @default(false)
 }
 
 model License_Vehicle_Category {
