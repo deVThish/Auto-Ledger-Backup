@@ -14,6 +14,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { SkipDeviceCheck } from '../common/decorators/skip-device-check.decorator';
 import {
   IsString,
   MinLength,
@@ -331,6 +332,7 @@ export interface AuthRequest {
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Login for DMT & Police Admins' })
   @Post('admin/login')
   async loginAdmin(@Body() data: AdminLoginDto) {
@@ -341,48 +343,56 @@ export class AuthController {
     );
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Login for Divisional Heads' })
   @Post('head/login')
   async loginHead(@Body() data: HeadLoginDto) {
     return await this.authService.loginHead(data.username, data.password);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Login for Traffic Officers' })
   @Post('officer/login')
   async loginOfficer(@Body() data: OfficerLoginDto) {
     return await this.authService.loginOfficer(data.badgeNo, data.password);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Step 1: Register a new driver' })
   @Post('user/register')
   async registerUser(@Body() data: RegisterUserDto) {
     return await this.authService.registerUser(data);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Step 2: Complete Registration with OTP' })
   @Post('user/verify-registration')
   async verifyRegistration(@Body() data: VerifyRegistrationDto) {
     return await this.authService.verifyRegistration(data.nicNo, data.otp);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Resend Registration OTP' })
   @Post('user/resend-registration-otp')
   async resendRegistrationOtp(@Body() data: ResendRegistrationOtpDto) {
     return await this.authService.resendRegistrationOtp(data.nicNo);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Resend Password Reset OTP' })
   @Post('user/resend-reset-otp')
   async resendResetOtp(@Body() data: ResendResetOtpDto) {
     return await this.authService.resendResetOtp(data.nicNo, data.email);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Resend Device Verification OTP' })
   @Post('user/resend-device-otp')
   async resendDeviceOtp(@Body() data: ResendDeviceOtpDto) {
     return await this.authService.resendDeviceOtp(data.nicNo, data.email);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Login for Drivers' })
   @Post('user/login')
   async loginUser(@Body() data: UserLoginDto) {
@@ -393,24 +403,28 @@ export class AuthController {
     );
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Biometric Login for Drivers' })
   @Post('user/biometric-login')
   async biometricLogin(@Body() data: BiometricLoginDto) {
     return await this.authService.biometricLogin(data.nicNo, data.deviceId);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Verify new device with OTP' })
   @Post('user/verify-device')
   async verifyDevice(@Body() data: VerifyDeviceDto) {
     return await this.authService.verifyNewDevice(data.nicNo, data.deviceId);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Step 1: Request OTP for password reset' })
   @Post('user/forgot-password-check')
   async forgotPasswordRequest(@Body() data: ForgotPasswordRequestDto) {
     return await this.authService.requestPasswordReset(data.nicNo, data.email);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Step 2: Reset Password with OTP' })
   @Post('user/reset-password')
   async resetPassword(@Body() data: ResetPasswordDto) {
@@ -422,6 +436,7 @@ export class AuthController {
     );
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Step 1: Request OTP for Divisional Head' })
   @Post('head/forgot-password-request')
   async headForgotPasswordRequest(@Body() data: HeadForgotPasswordRequestDto) {
@@ -431,6 +446,7 @@ export class AuthController {
     );
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Step 2: Reset Password for Divisional Head' })
   @Post('head/reset-password')
   async headResetPassword(@Body() data: HeadResetPasswordDto) {
@@ -442,6 +458,7 @@ export class AuthController {
     );
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Resend OTP for Divisional Head' })
   @Post('head/resend-otp')
   async resendHeadOtp(
@@ -450,6 +467,7 @@ export class AuthController {
     return await this.authService.resendHeadOtp(data.username, data.email);
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Step 1: Request OTP for Traffic Officer' })
   @Post('officer/forgot-password-request')
   async officerForgotPasswordRequest(
@@ -461,6 +479,7 @@ export class AuthController {
     );
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Step 2: Reset Password for Traffic Officer' })
   @Post('officer/reset-password')
   async officerResetPassword(@Body() data: OfficerResetPasswordDto) {
@@ -472,6 +491,7 @@ export class AuthController {
     );
   }
 
+  @SkipDeviceCheck()
   @ApiOperation({ summary: 'Resend OTP for Traffic Officer' })
   @Post('officer/resend-otp')
   async resendOfficerOtp(
