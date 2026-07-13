@@ -178,7 +178,6 @@ export class LicenseController {
   @ApiOperation({ summary: 'Generate QR Code for License (10min expiry)' })
   @Get('generate-qr')
   async generateQR(@Request() req: AuthRequest) {
-    // Returns { qrToken, expiresAt } - service handles JWT with 10m expiry
     return this.licenseService.generateLicenseQR(req.user.id);
   }
 
@@ -245,5 +244,19 @@ export class LicenseController {
   @ApiOperation({ summary: 'Upload license image via backend (No CORS)' })
   uploadImage(@UploadedFile() file: UploadedFileType) {
     return this.licenseService.uploadImageToS3(file);
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Patch(':id/resolve-revoked')
+  async resolveRevokedLicense(
+    @Param('id') id: string,
+    @Body('verdict') verdict: 'ACTIVE' | 'REVOKED',
+    @Request() req: AuthRequest,
+  ) {
+    return await this.licenseService.resolveRevokedLicense(
+      id,
+      verdict,
+      req.user.id,
+    );
   }
 }

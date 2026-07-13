@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { JwtService } from '@nestjs/jwt';
+import { License_Status } from '@prisma/client';
 
 export interface VehicleCategoryData {
   vehicleClass: string;
@@ -92,7 +93,7 @@ export class LicenseService {
         where: {
           license_Id: { in: licensesToActivate.map((l) => l.license_Id) },
         },
-        data: { status: 'ACTIVE', points: 0 },
+        data: { status: 'ACTIVE' },
       });
     }
   }
@@ -176,6 +177,9 @@ export class LicenseService {
         user_Id: user.user_Id,
         dmt_Admin_Id: data.dmtAdminId,
         image: data.image,
+        has_24_Suspension: false,
+        has_50_Suspension: false,
+        has_100_Revoke: false,
         vehicleCategories: {
           create: data.categories.map((cat) => ({
             vehicle_Class: cat.vehicleClass,
@@ -203,7 +207,7 @@ export class LicenseService {
         vehicleCategories: true,
       },
     });
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found');
     return license;
   }
 
@@ -214,39 +218,31 @@ export class LicenseService {
       include: {
         temporaryLicenses: true,
         fines: {
-          where: { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+          where: { status: { in: ['OVERDUE', 'COURT_CASE'] } },
         },
       },
     });
 
     if (!license) throw new NotFoundException('License not found.');
 
-    if (license.status === 'REVOKED' || license.status === 'EXPIRED') {
-      throw new BadRequestException('License is revoked or expired.');
+    const blockedStatuses: License_Status[] = [
+      'SUSPENDED',
+      'REVOKED',
+      'EXPIRED',
+    ];
+    if (blockedStatuses.includes(license.status)) {
+      throw new BadRequestException(
+        `License is ${license.status}. QR cannot be generated.`,
+      );
     }
 
-    if (license.status === 'SUSPENDED') {
-      if (license.temporaryLicenses.length > 0) {
-        const tempLicense = license.temporaryLicenses[0];
-        const now = new Date();
-
-        if (now > new Date(tempLicense.expiry_Date)) {
-          for (const fine of license.fines) {
-            await this.prisma.fine.update({
-              where: { fine_Id: fine.fine_Id },
-              data: { status: 'OVERDUE' },
-            });
-          }
-          await this.prisma.temporary_License.deleteMany({
-            where: { license_Id: license.license_Id },
-          });
-          throw new BadRequestException('Temporary license expired.');
-        }
-      } else {
-        throw new BadRequestException(
-          'License is suspended without temporary license.',
-        );
-      }
+    const hasCourtOrOverdue = license.fines.some(
+      (f) => f.status === 'OVERDUE' || f.status === 'COURT_CASE',
+    );
+    if (hasCourtOrOverdue) {
+      throw new BadRequestException(
+        'License has overdue or court case fines. QR cannot be generated.',
+      );
     }
 
     const qrToken = this.jwtService.sign(
@@ -255,34 +251,20 @@ export class LicenseService {
     );
 
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
     return { qrToken, expiresAt };
   }
 
   async checkScanStatus(qrToken: string) {
     if (!qrToken) throw new BadRequestException('QR token required.');
 
-    // ✅ scan_Time භාවිතා කරන්න (scanned_At නොවේ)
     const scan = await this.prisma.qR_Scan_History.findFirst({
       where: { qr_Token: qrToken },
-      orderBy: { scan_Time: 'desc' },
     });
 
-    let expiresAt: Date;
-    let scanned = false;
-
-    if (scan) {
-      scanned = true;
-      // ✅ scan_Time භාවිතා කරන්න
-      const scanTime = scan.scan_Time;
-      expiresAt = new Date(scanTime.getTime() + 10 * 60 * 1000);
-    } else {
-      scanned = false;
-      expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    }
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     return {
-      scanned: scanned,
+      scanned: !!scan,
       expiresAt: expiresAt,
     };
   }
@@ -318,11 +300,11 @@ export class LicenseService {
 
     if (!officer) throw new UnauthorizedException('Officer not found.');
 
-    // ✅ scanned_At ඉවත් කරන්න, මොකද scan_Time auto generate වෙනවා
     await this.prisma.qR_Scan_History.create({
       data: {
         qr_Token: qrToken,
         traffic_Officer_Id: trafficOfficerId,
+        head_Id: officer.divisional_Head_Id,
         traffic_Officer_Name: officer.name,
         driver_Name: license.user.name,
         location: location || null,
@@ -392,7 +374,7 @@ export class LicenseService {
       },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found');
     return license;
   }
 
@@ -412,17 +394,27 @@ export class LicenseService {
       where: { license_Id: licenseId },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found');
 
-    const updatePayload: {
+    interface UpdatePayload {
       full_Name?: string;
       address?: string;
       blood_Group?: string;
       image?: string;
       date_of_birth?: Date;
       issue_Date?: Date;
-      vehicleCategories?: any;
-    } = {};
+      vehicleCategories?: {
+        deleteMany: Record<string, never>;
+        create: Array<{
+          vehicle_Class: string;
+          issue_Date: Date;
+          expiry_Date: Date;
+          restriction: string | null;
+        }>;
+      };
+    }
+
+    const updatePayload: UpdatePayload = {};
 
     if (data.fullName) updatePayload.full_Name = data.fullName;
     if (data.address) updatePayload.address = data.address;
@@ -437,6 +429,7 @@ export class LicenseService {
         where: { license_Id: licenseId },
       });
       updatePayload.vehicleCategories = {
+        deleteMany: {},
         create: data.categories.map((cat) => ({
           vehicle_Class: cat.vehicleClass,
           issue_Date: new Date(cat.issueDate),
@@ -470,5 +463,61 @@ export class LicenseService {
         },
       },
     });
+  }
+
+  async resolveRevokedLicense(
+    licenseId: string,
+    verdict: 'ACTIVE' | 'REVOKED',
+    headId: string,
+  ) {
+    const license = await this.prisma.driving_License.findUnique({
+      where: { license_Id: licenseId },
+      include: {
+        triggering_Fine: true,
+      },
+    });
+    if (!license) throw new NotFoundException('License not found');
+    if (license.status !== 'REVOKED') {
+      throw new BadRequestException('License is not in REVOKED status');
+    }
+
+    if (license.triggering_Fine && license.triggering_Fine.head_Id !== headId) {
+      throw new UnauthorizedException(
+        'This revocation belongs to the previous Divisional Head.',
+      );
+    }
+
+    if (verdict === 'ACTIVE') {
+      const pendingFines = await this.prisma.fine.count({
+        where: {
+          license_Id: licenseId,
+          status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
+        },
+      });
+
+      if (pendingFines > 0) {
+        throw new BadRequestException(
+          'Cannot activate: There are pending/overdue/court case fines.',
+        );
+      }
+
+      return this.prisma.driving_License.update({
+        where: { license_Id: licenseId },
+        data: {
+          status: 'ACTIVE',
+          points: 0,
+          suspended_Until: null,
+          has_24_Suspension: false,
+          has_50_Suspension: false,
+          has_100_Revoke: false,
+          triggering_Fine_Id: null,
+        },
+      });
+    } else {
+      return this.prisma.driving_License.update({
+        where: { license_Id: licenseId },
+        data: { status: 'REVOKED' },
+      });
+    }
   }
 }

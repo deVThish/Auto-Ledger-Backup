@@ -77,12 +77,13 @@ export class FinesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DIVISIONAL_HEAD')
-  @Patch(':id/court-verdict')
-  updateCourtVerdict(
+  @Patch(':id/resolve-overdue')
+  resolveOverdueCourtCase(
     @Param('id') id: string,
     @Body('verdict') verdict: 'ACTIVE' | 'REVOKED',
+    @Request() req: AuthRequest,
   ) {
-    return this.finesService.updateCourtCase(id, verdict);
+    return this.finesService.resolveOverdueCourtCase(id, verdict, req.user.id);
   }
 
   @Get('offenses')
