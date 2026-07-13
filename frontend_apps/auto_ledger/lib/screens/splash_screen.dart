@@ -1,8 +1,9 @@
 import 'dart:ui';
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import '../utils/secure_storage.dart';
+import '../utils/device_info.dart';
+import '../services/user_service.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
 
@@ -14,12 +15,11 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with TickerProviderStateMixin { // ✅ Changed from SingleTickerProviderStateMixin
+    with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _slideAnimation;
-
   late AnimationController _dotsController;
 
   @override
@@ -72,20 +72,59 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkAuthStatus() async {
-    await Future.delayed(const Duration(seconds: 3));
     final token = await SecureStorage.getToken();
+    if (token == null) {
+      _navigateToLogin();
+      return;
+    }
 
-    if (!mounted) return;
+    try {
+      final currentDeviceId = await DeviceInfoUtil.getDeviceId();
+      final userProfile = await UserService.getUserProfile();
 
-    if (token != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else {
+      if (userProfile == null) {
+        _logoutAndNavigate();
+        return;
+      }
+
+      final serverDeviceId = userProfile['device_Id'] ?? '';
+
+      if (serverDeviceId.isNotEmpty && serverDeviceId != currentDeviceId) {
+        _logoutAndNavigate();
+        return;
+      }
+
+      _navigateToHome();
+    } catch (e) {
+      _logoutAndNavigate();
+    }
+  }
+
+  void _logoutAndNavigate() async {
+    await SecureStorage.deleteToken();
+    await SecureStorage.deleteNic();
+    if (mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+  }
+
+  void _navigateToLogin() {
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+  }
+
+  void _navigateToHome() {
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     }
   }
