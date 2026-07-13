@@ -35,6 +35,7 @@ type LicenseUpdatePayload = {
   has_24_Suspension?: boolean;
   has_50_Suspension?: boolean;
   has_100_Revoke?: boolean;
+  triggering_Fine_Id?: string | null;
 };
 
 type FineWithPayment = {
@@ -156,6 +157,8 @@ export class FinesService {
     });
     if (!officer) throw new NotFoundException('Officer not found');
 
+    const currentHeadId = officer.divisional_Head_Id;
+
     const license = await this.prisma.driving_License.findUnique({
       where: { license_Id: licenseId },
     });
@@ -237,6 +240,7 @@ export class FinesService {
         data: {
           license_Id: licenseId,
           traffic_Officer_Id: data.officerId,
+          head_Id: currentHeadId,
           due_Date: fineDueDate,
           status: fineStatus,
           comment: data.comment || null,
@@ -264,6 +268,7 @@ export class FinesService {
         }
         if (newPoints >= 100 && !license.has_100_Revoke) {
           updateData.has_100_Revoke = true;
+          updateData.triggering_Fine_Id = fine.fine_Id;
         }
       }
 
@@ -286,6 +291,7 @@ export class FinesService {
               license_Id: licenseId,
               expiry_Date: fineDueDate,
               issued_By: data.officerId,
+              head_Id: currentHeadId,
             },
           });
         }
@@ -473,15 +479,16 @@ export class FinesService {
       where: { fine_Id: fineId },
       include: {
         license: true,
-        trafficOfficer: true,
       },
     });
     if (!fine) throw new NotFoundException('Fine not found');
-    if (fine.trafficOfficer.divisional_Head_Id !== headId) {
+
+    if (fine.head_Id !== headId) {
       throw new UnauthorizedException(
-        'You are not authorized to resolve this case.',
+        'This court case belongs to the previous Divisional Head.',
       );
     }
+
     if (fine.status !== 'OVERDUE' && fine.status !== 'COURT_CASE') {
       throw new BadRequestException('This fine is not overdue or court case.');
     }
@@ -599,16 +606,10 @@ export class FinesService {
     await this.autoActivateLicenses();
     await this.processOverdueFines();
 
-    const officers = await this.prisma.traffic_Officer.findMany({
-      where: { divisional_Head_Id: headId },
-      select: { traffic_Officer_Id: true },
-    });
-    const officerIds = officers.map((o) => o.traffic_Officer_Id);
-
     return this.prisma.fine.findMany({
       where: {
         status: { in: ['OVERDUE', 'COURT_CASE'] },
-        traffic_Officer_Id: { in: officerIds },
+        head_Id: headId,
       },
       include: {
         license: {
@@ -640,10 +641,8 @@ export class FinesService {
       },
     });
 
-    const officerIds = officers.map((o) => o.traffic_Officer_Id);
-
     const fines = await this.prisma.fine.findMany({
-      where: { traffic_Officer_Id: { in: officerIds } },
+      where: { head_Id: headId },
       include: { payment: true },
     });
 
@@ -654,15 +653,19 @@ export class FinesService {
     );
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+    const calcRevenue = (fineArray: FineWithPayment[]) => {
+      return fineArray
+        .filter(
+          (f): f is FineWithPayment & { payment: { amount: number } } =>
+            f.status === 'PAID' && f.payment !== null,
+        )
+        .reduce((sum, f) => sum + f.payment.amount, 0);
+    };
+
     const dailyFines = fines.filter((f) => new Date(f.issue_At) >= startOfDay);
     const monthlyFines = fines.filter(
       (f) => new Date(f.issue_At) >= startOfMonth,
     );
-
-    const calcRevenue = (fineArray: FineWithPayment[]) =>
-      fineArray
-        .filter((f) => f.status === 'PAID' && f.payment)
-        .reduce((sum, f) => sum + (f.payment?.amount || 0), 0);
 
     return {
       totalOfficers: officers.length,

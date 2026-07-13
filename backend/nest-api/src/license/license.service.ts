@@ -304,6 +304,7 @@ export class LicenseService {
       data: {
         qr_Token: qrToken,
         traffic_Officer_Id: trafficOfficerId,
+        head_Id: officer.divisional_Head_Id,
         traffic_Officer_Name: officer.name,
         driver_Name: license.user.name,
         location: location || null,
@@ -471,20 +472,18 @@ export class LicenseService {
   ) {
     const license = await this.prisma.driving_License.findUnique({
       where: { license_Id: licenseId },
+      include: {
+        triggering_Fine: true,
+      },
     });
     if (!license) throw new NotFoundException('License not found');
     if (license.status !== 'REVOKED') {
       throw new BadRequestException('License is not in REVOKED status');
     }
 
-    const fine = await this.prisma.fine.findFirst({
-      where: { license_Id: licenseId },
-      include: { trafficOfficer: true },
-    });
-
-    if (fine && fine.trafficOfficer.divisional_Head_Id !== headId) {
+    if (license.triggering_Fine && license.triggering_Fine.head_Id !== headId) {
       throw new UnauthorizedException(
-        'You are not authorized to resolve this license.',
+        'This revocation belongs to the previous Divisional Head.',
       );
     }
 
@@ -511,6 +510,7 @@ export class LicenseService {
           has_24_Suspension: false,
           has_50_Suspension: false,
           has_100_Revoke: false,
+          triggering_Fine_Id: null,
         },
       });
     } else {

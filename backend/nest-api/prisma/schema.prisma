@@ -42,8 +42,10 @@ model QR_Scan_History {
   driver_Name          String
   location             String?
   license_Id           String
+  head_Id              String
   license              Driving_License @relation(fields: [license_Id], references: [license_Id])
   officer              Traffic_Officer @relation(fields: [traffic_Officer_Id], references: [traffic_Officer_Id])
+  head                 Divisional_Head @relation(fields: [head_Id], references: [divisional_Head_Id])
 }
 
 model DMT_Admin {
@@ -93,13 +95,15 @@ model Driving_License {
   user                 User                       @relation(fields: [user_Id], references: [user_Id])
   dmt_Admin_Id         String
   dmtAdmin             DMT_Admin                  @relation(fields: [dmt_Admin_Id], references: [dmt_Admin_Id])
-  fines                Fine[]
+  fines                Fine[]                     @relation("LicenseFines")
   temporaryLicenses    Temporary_License[]
   qrScans              QR_Scan_History[]
   vehicleCategories    License_Vehicle_Category[]
   has_24_Suspension    Boolean                    @default(false)
   has_50_Suspension    Boolean                    @default(false)
   has_100_Revoke       Boolean                    @default(false)
+  triggering_Fine_Id   String?                    @unique
+  triggering_Fine      Fine?                      @relation("TriggeringFine", fields: [triggering_Fine_Id], references: [fine_Id])
 }
 
 model License_Vehicle_Category {
@@ -117,9 +121,11 @@ model Temporary_License {
   issue_Date           DateTime        @default(now())
   expiry_Date          DateTime
   license_Id           String
-  license              Driving_License @relation(fields: [license_Id], references: [license_Id])
   issued_By            String
+  head_Id              String
+  license              Driving_License @relation(fields: [license_Id], references: [license_Id])
   officer              Traffic_Officer @relation(fields: [issued_By], references: [traffic_Officer_Id])
+  head                 Divisional_Head @relation(fields: [head_Id], references: [divisional_Head_Id])
 }
 
 model Division {
@@ -143,6 +149,10 @@ model Divisional_Head {
   division_Id          String
   division             Division          @relation(fields: [division_Id], references: [division_Id])
   officers             Traffic_Officer[]
+  fines                Fine[]
+  shifts               Shift[]
+  temporaryLicenses    Temporary_License[]
+  qrScans              QR_Scan_History[]
 }
 
 model Traffic_Officer {
@@ -170,7 +180,9 @@ model Shift {
   is_Active          Boolean         @default(true)
   location           String?
   traffic_Officer_Id String
+  head_Id            String
   trafficOfficer     Traffic_Officer @relation(fields: [traffic_Officer_Id], references: [traffic_Officer_Id])
+  head               Divisional_Head @relation(fields: [head_Id], references: [divisional_Head_Id])
 }
 
 model Offence_Category {
@@ -193,11 +205,14 @@ model Fine {
   comment            String?
   status             Fine_Status     @default(PENDING)
   license_Id         String
-  license            Driving_License @relation(fields: [license_Id], references: [license_Id])
   traffic_Officer_Id String
+  head_Id            String
+  license            Driving_License @relation("LicenseFines", fields: [license_Id], references: [license_Id])
   trafficOfficer     Traffic_Officer @relation(fields: [traffic_Officer_Id], references: [traffic_Officer_Id])
+  head               Divisional_Head @relation(fields: [head_Id], references: [divisional_Head_Id])
   offenses           Fine_Offence[]
   payment            Payment?
+  revokedLicense     Driving_License? @relation("TriggeringFine")
 }
 
 model Fine_Offence {
