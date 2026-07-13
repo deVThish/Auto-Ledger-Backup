@@ -202,6 +202,7 @@ export class OfficersService {
     return this.prisma.shift.create({
       data: {
         traffic_Officer_Id: data.officerId,
+        head_Id: officer.divisional_Head_Id,
         date: data.date,
         start_Time: data.startTime,
         end_Time: data.endTime,
@@ -303,5 +304,37 @@ export class OfficersService {
         is_Active: 'desc',
       },
     });
+  }
+
+  async transferOfficer(officerId: string, newHeadId: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { traffic_Officer_Id: officerId },
+    });
+    if (!officer) throw new NotFoundException('Officer not found');
+
+    const newHead = await this.prisma.divisional_Head.findUnique({
+      where: { divisional_Head_Id: newHeadId },
+    });
+    if (!newHead) throw new NotFoundException('New Head not found');
+    if (!newHead.is_Active)
+      throw new BadRequestException('New Head is not active');
+
+    const updatedOfficer = await this.prisma.traffic_Officer.update({
+      where: { traffic_Officer_Id: officerId },
+      data: { divisional_Head_Id: newHeadId },
+    });
+
+    await this.prisma.shift.updateMany({
+      where: {
+        traffic_Officer_Id: officerId,
+        is_Active: true,
+      },
+      data: { is_Active: false },
+    });
+
+    return {
+      message: `Officer ${officer.name} transferred to ${newHead.name} successfully.`,
+      officer: updatedOfficer,
+    };
   }
 }
