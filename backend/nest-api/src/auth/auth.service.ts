@@ -292,6 +292,22 @@ export class AuthService {
     return { message: 'OTP sent successfully to your email.' };
   }
 
+  async verifyHeadResetOtp(username: string, email: string, otp: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || head.email !== email) {
+      throw new BadRequestException('Invalid Username or Email.');
+    }
+    if (head.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!head.reset_Otp_Expires_At || new Date() > head.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
+  }
+
   async resetHeadPassword(
     username: string,
     email: string,
@@ -363,6 +379,25 @@ export class AuthService {
 
     await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyOfficerResetOtp(badgeNo: string, email: string, otp: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email.');
+    }
+    if (officer.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (
+      !officer.reset_Otp_Expires_At ||
+      new Date() > officer.reset_Otp_Expires_At
+    ) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
   }
 
   async resetOfficerPassword(
@@ -620,6 +655,22 @@ export class AuthService {
 
     await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyUserResetOtp(nicNo: string, email: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
   }
 
   async resetPassword(
