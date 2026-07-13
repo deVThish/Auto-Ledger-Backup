@@ -389,7 +389,8 @@ export class AuthService {
     if (!officer || officer.email !== email) {
       throw new BadRequestException('Invalid Badge Number or Email.');
     }
-    if (officer.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (officer.reset_Otp !== otp)
+      throw new BadRequestException('Invalid OTP.');
     if (
       !officer.reset_Otp_Expires_At ||
       new Date() > officer.reset_Otp_Expires_At
