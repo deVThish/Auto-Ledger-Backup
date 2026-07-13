@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
@@ -256,6 +258,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (success && mounted) {
         setState(() => _isLoading = false);
         _showOTPDialog();
+      } else {
+        _showToast('Registration Failed. Check NIC or Email.', isError: true);
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
@@ -265,49 +270,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _verifyOTP() async {
-    FocusScope.of(context).unfocus();
-
-    if (_otpController.text.trim().isEmpty) {
-      _showToast('Please enter the OTP', isError: true);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final isVerified = await AuthService.verifyRegistration(
-          _registeredData!['nicNo'], _otpController.text.trim());
-
-      if (!mounted) return;
-
-      if (isVerified) {
-        if (mounted) Navigator.pop(context);
-
-        final overlay = Navigator.of(context, rootNavigator: true).overlay;
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-
-        if (overlay != null) {
-          _showGlobalSuccessToast(overlay, 'Registration Successful!');
-        }
-      } else {
-        _showToast('Invalid OTP. Please try again.', isError: true);
-        setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showToast('OTP Verification Failed.', isError: true);
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
   void _showOTPDialog() {
     _otpController.clear();
     bool isResending = false;
+    bool isVerifying = false;
+    String? errorMsg;
+    String? successMsg;
 
     showDialog(
       context: context,
@@ -355,6 +323,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             fontSize: 20,
                             letterSpacing: 8),
                         textAlign: TextAlign.center,
+                        onChanged: (val) {
+                          if (errorMsg != null || successMsg != null) {
+                            setModalState(() {
+                              errorMsg = null;
+                              successMsg = null;
+                            });
+                          }
+                        },
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.white.withAlpha(20),
@@ -366,29 +342,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               borderSide: BorderSide.none),
                         ),
                       ),
+
+                      if (errorMsg != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(errorMsg!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      if (successMsg != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(successMsg!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+
                       const SizedBox(height: 16),
                       // Resend Button
                       TextButton(
-                        onPressed: isResending
+                        onPressed: isResending || isVerifying
                             ? null
                             : () async {
-                                setModalState(() => isResending = true);
+                                FocusScope.of(dialogContext).unfocus();
+                                setModalState(() {
+                                  isResending = true;
+                                  errorMsg = null;
+                                  successMsg = null;
+                                });
                                 try {
                                   final success =
                                       await AuthService.resendRegistrationOtp(
-                                          _registeredData!['nicNo']);
-                                  if (success && mounted) {
-                                    _showToast('OTP resent successfully!');
-                                  } else {
-                                    _showToast('Failed to resend OTP.',
-                                        isError: true);
+                                              _registeredData!['nicNo'])
+                                          .timeout(const Duration(seconds: 15));
+
+                                  if (dialogContext.mounted) {
+                                    if (success) {
+                                      setModalState(() => successMsg =
+                                          'OTP resent successfully!');
+                                    } else {
+                                      setModalState(() =>
+                                          errorMsg = 'Failed to resend OTP.');
+                                    }
                                   }
                                 } catch (e) {
-                                  _showToast('Failed to resend OTP.',
-                                      isError: true);
-                                }
-                                if (mounted) {
-                                  setModalState(() => isResending = false);
+                                  if (dialogContext.mounted) {
+                                    setModalState(() =>
+                                        errorMsg = 'Failed to resend OTP.');
+                                  }
+                                } finally {
+                                  if (dialogContext.mounted) {
+                                    setModalState(() => isResending = false);
+                                  }
                                 }
                               },
                         child: Text(
@@ -415,7 +426,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                               onPressed: () {
-                                Navigator.pop(dialogContext);
+                                FocusScope.of(dialogContext).unfocus();
+                                if (dialogContext.mounted) {
+                                  Navigator.pop(dialogContext);
+                                }
                                 setState(() => _isLoading = false);
                               },
                               child: const Text('Cancel',
@@ -436,10 +450,74 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       width: 1.5),
                                 ),
                               ),
-                              onPressed: _verifyOTP,
-                              child: const Text('Verify',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
+                              onPressed: isVerifying || isResending
+                                  ? null
+                                  : () async {
+                                      FocusScope.of(dialogContext).unfocus();
+                                      final otp = _otpController.text.trim();
+
+                                      if (otp.isEmpty) {
+                                        setModalState(() =>
+                                            errorMsg = 'Please enter the OTP');
+                                        return;
+                                      }
+
+                                      setModalState(() {
+                                        isVerifying = true;
+                                        errorMsg = null;
+                                        successMsg = null;
+                                      });
+
+                                      try {
+                                        final isVerified = await AuthService
+                                                .verifyRegistration(
+                                                    _registeredData!['nicNo'],
+                                                    otp)
+                                            .timeout(
+                                                const Duration(seconds: 15));
+
+                                        if (!dialogContext.mounted) return;
+
+                                        if (isVerified) {
+                                          Navigator.pop(dialogContext);
+
+                                          if (!this.context.mounted) return;
+                                          final overlay = Navigator.of(
+                                                  this.context,
+                                                  rootNavigator: true)
+                                              .overlay;
+
+                                          Navigator.pushReplacement(
+                                            this.context,
+                                            MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const HomeScreen()),
+                                          );
+
+                                          if (overlay != null) {
+                                            _showGlobalSuccessToast(overlay,
+                                                'Registration Successful!');
+                                          }
+                                        } else {
+                                          setModalState(() => errorMsg =
+                                              'Invalid OTP. Please try again.');
+                                        }
+                                      } catch (e) {
+                                        if (dialogContext.mounted) {
+                                          setModalState(() => errorMsg =
+                                              'OTP Verification Failed.');
+                                        }
+                                      } finally {
+                                        if (dialogContext.mounted) {
+                                          setModalState(
+                                              () => isVerifying = false);
+                                        }
+                                      }
+                                    },
+                              child: Text(
+                                  isVerifying ? 'Verifying...' : 'Verify',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],

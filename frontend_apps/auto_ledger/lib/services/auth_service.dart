@@ -9,7 +9,9 @@ class AuthService {
           await ApiService.dio.post('/auth/user/register', data: data);
       return response.statusCode == 201 || response.statusCode == 200;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -26,7 +28,9 @@ class AuthService {
       }
       return false;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -38,7 +42,9 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -68,7 +74,9 @@ class AuthService {
           'email': e.response?.data['email'] ?? '',
         };
       }
-      rethrow;
+      return {'success': false};
+    } catch (e) {
+      return {'success': false};
     }
   }
 
@@ -83,7 +91,27 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> verifyResetOtp(String nicNo, String email, String otp) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/user/verify-reset-otp',
+        data: {
+          'nicNo': nicNo,
+          'email': email,
+          'otp': otp,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -98,7 +126,9 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -116,7 +146,9 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -145,7 +177,9 @@ class AuthService {
           'email': e.response?.data['email'] ?? '',
         };
       }
-      rethrow;
+      return {'success': false};
+    } catch (e) {
+      return {'success': false};
     }
   }
 
@@ -194,7 +228,9 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -209,7 +245,9 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -224,7 +262,9 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -240,7 +280,28 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> headVerifyResetOtp(
+      String username, String email, String otp) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/head/verify-reset-otp',
+        data: {
+          'username': username,
+          'email': email,
+          'otp': otp,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -258,7 +319,9 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -274,7 +337,28 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> officerVerifyResetOtp(
+      String badgeNo, String email, String otp) async {
+    try {
+      final response = await ApiService.dio.post(
+        '/auth/officer/verify-reset-otp',
+        data: {
+          'badgeNo': badgeNo,
+          'email': email,
+          'otp': otp,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException {
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -292,7 +376,9 @@ class AuthService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException {
-      rethrow;
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
