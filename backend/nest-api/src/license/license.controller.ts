@@ -24,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { DeviceGuard } from '../common/guard/device.guard';
 import {
   IsString,
   IsNotEmpty,
@@ -136,7 +137,7 @@ export class UpdateLicenseDto extends PartialType(CreateLicenseDto) {}
 
 @ApiTags('Driving License')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, DeviceGuard)
 @Controller('license')
 export class LicenseController {
   constructor(private readonly licenseService: LicenseService) {}
