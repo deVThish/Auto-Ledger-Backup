@@ -166,9 +166,20 @@ class AuthService {
         await SecureStorage.saveNic(nicNo);
         return {'success': true};
       }
-      return {'success': false};
-    } on DioException {
-      rethrow;
+      return {'success': false, 'message': 'Verification failed.'};
+    } on DioException catch (e) {
+      String errorMsg = 'Invalid OTP. Please try again.';
+      if (e.response?.data != null && e.response?.data['message'] != null) {
+        errorMsg = e.response?.data['message'] is List
+            ? e.response?.data['message'][0]
+            : e.response?.data['message'];
+      }
+      return {'success': false, 'message': errorMsg};
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'An error occurred during verification.'
+      };
     }
   }
 
