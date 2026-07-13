@@ -133,6 +133,11 @@ export class VerifyDeviceDto {
   @IsString()
   @IsNotEmpty()
   deviceId: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
 }
 
 export class ChangePasswordDto {
@@ -414,7 +419,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify new device with OTP' })
   @Post('user/verify-device')
   async verifyDevice(@Body() data: VerifyDeviceDto) {
-    return await this.authService.verifyNewDevice(data.nicNo, data.deviceId);
+    return await this.authService.verifyNewDevice(
+      data.nicNo,
+      data.deviceId,
+      data.otp,
+    );
   }
 
   @SkipDeviceCheck()
