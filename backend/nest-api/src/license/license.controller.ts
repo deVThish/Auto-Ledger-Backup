@@ -8,7 +8,10 @@ import {
   UseGuards,
   Param,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { LicenseService } from './license.service';
 import {
   ApiTags,
@@ -21,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { DeviceGuard } from '../common/guard/device.guard';
 import {
   IsString,
   IsNotEmpty,
@@ -34,6 +38,12 @@ import { Type } from 'class-transformer';
 
 export interface AuthRequest {
   user: { id: string };
+}
+
+interface UploadedFileType {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
 }
 
 export class VehicleCategoryDto {
@@ -127,7 +137,7 @@ export class UpdateLicenseDto extends PartialType(CreateLicenseDto) {}
 
 @ApiTags('Driving License')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, DeviceGuard)
 @Controller('license')
 export class LicenseController {
   constructor(private readonly licenseService: LicenseService) {}
@@ -166,7 +176,7 @@ export class LicenseController {
     return this.licenseService.getMyLicense(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Generate QR Code for License' })
+  @ApiOperation({ summary: 'Generate QR Code for License (10min expiry)' })
   @Get('generate-qr')
   async generateQR(@Request() req: AuthRequest) {
     return this.licenseService.generateLicenseQR(req.user.id);
@@ -179,7 +189,7 @@ export class LicenseController {
   }
 
   @Roles('TRAFFIC_OFFICER')
-  @ApiOperation({ summary: 'Scan License QR Code' })
+  @ApiOperation({ summary: 'Scan License QR Code (validates JWT expiry)' })
   @Post('scan-qr')
   async scanQR(@Request() req: AuthRequest, @Body() data: ScanQRDto) {
     return this.licenseService.scanLicenseQR(
@@ -227,5 +237,27 @@ export class LicenseController {
   @Get('with-fines')
   async getLicensesWithFines(@Query('nic') nic?: string) {
     return this.licenseService.getLicensesWithFines(nic);
+  }
+
+  @Roles('DMT_ADMIN')
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload license image via backend (No CORS)' })
+  uploadImage(@UploadedFile() file: UploadedFileType) {
+    return this.licenseService.uploadImageToS3(file);
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Patch(':id/resolve-revoked')
+  async resolveRevokedLicense(
+    @Param('id') id: string,
+    @Body('verdict') verdict: 'ACTIVE' | 'REVOKED',
+    @Request() req: AuthRequest,
+  ) {
+    return await this.licenseService.resolveRevokedLicense(
+      id,
+      verdict,
+      req.user.id,
+    );
   }
 }

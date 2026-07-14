@@ -6,10 +6,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { JwtService } from '@nestjs/jwt';
+import { License_Status } from '@prisma/client';
 
 export interface VehicleCategoryData {
   vehicleClass: string;
@@ -39,6 +39,12 @@ export interface UpdateLicenseData {
   dateOfBirth?: string | Date;
   issueDate?: string | Date;
   categories?: VehicleCategoryData[];
+}
+
+interface MulterFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
 }
 
 @Injectable()
@@ -87,7 +93,7 @@ export class LicenseService {
         where: {
           license_Id: { in: licensesToActivate.map((l) => l.license_Id) },
         },
-        data: { status: 'ACTIVE', points: 0 },
+        data: { status: 'ACTIVE' },
       });
     }
   }
@@ -117,6 +123,31 @@ export class LicenseService {
     };
   }
 
+  async uploadImageToS3(file: MulterFile) {
+    const bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME') ||
+      'auto-ledger-images-handling';
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
+
+    const cleanFileName = file.originalname.replace(/\s+/g, '-');
+    const uniqueFileName = `licenses/${Date.now()}-${cleanFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: uniqueFileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    });
+
+    await this.s3Client.send(command);
+
+    const publicFileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${uniqueFileName}`;
+    return {
+      fileUrl: publicFileUrl,
+      message: 'Image uploaded successfully',
+    };
+  }
+
   async createLicense(data: CreateLicenseData) {
     let user = await this.prisma.user.findUnique({
       where: { nic_No: data.nicNo },
@@ -128,7 +159,7 @@ export class LicenseService {
           nic_No: data.nicNo,
           name: 'Pending App Registration',
           password: 'NOT_REGISTERED',
-          mobile_Phone_No: `PENDING_${data.nicNo}`,
+          email: `pending_${data.nicNo}@example.com`,
           device_Id: 'PENDING',
         },
       });
@@ -146,6 +177,9 @@ export class LicenseService {
         user_Id: user.user_Id,
         dmt_Admin_Id: data.dmtAdminId,
         image: data.image,
+        has_24_Suspension: false,
+        has_50_Suspension: false,
+        has_100_Revoke: false,
         vehicleCategories: {
           create: data.categories.map((cat) => ({
             vehicle_Class: cat.vehicleClass,
@@ -173,7 +207,7 @@ export class LicenseService {
         vehicleCategories: true,
       },
     });
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found');
     return license;
   }
 
@@ -184,53 +218,55 @@ export class LicenseService {
       include: {
         temporaryLicenses: true,
         fines: {
-          where: { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+          where: { status: { in: ['OVERDUE', 'COURT_CASE'] } },
         },
       },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found.');
 
-    if (license.status === 'REVOKED' || license.status === 'EXPIRED') {
-      throw new BadRequestException();
+    const blockedStatuses: License_Status[] = [
+      'SUSPENDED',
+      'REVOKED',
+      'EXPIRED',
+    ];
+    if (blockedStatuses.includes(license.status)) {
+      throw new BadRequestException(
+        `License is ${license.status}. QR cannot be generated.`,
+      );
     }
 
-    if (license.status === 'SUSPENDED') {
-      if (license.temporaryLicenses.length > 0) {
-        const tempLicense = license.temporaryLicenses[0];
-        const now = new Date();
-
-        if (now > new Date(tempLicense.expiry_Date)) {
-          for (const fine of license.fines) {
-            await this.prisma.fine.update({
-              where: { fine_Id: fine.fine_Id },
-              data: { status: 'OVERDUE' },
-            });
-          }
-          await this.prisma.temporary_License.deleteMany({
-            where: { license_Id: license.license_Id },
-          });
-          throw new BadRequestException();
-        }
-      } else {
-        throw new BadRequestException();
-      }
+    const hasCourtOrOverdue = license.fines.some(
+      (f) => f.status === 'OVERDUE' || f.status === 'COURT_CASE',
+    );
+    if (hasCourtOrOverdue) {
+      throw new BadRequestException(
+        'License has overdue or court case fines. QR cannot be generated.',
+      );
     }
 
-    const randomToken = crypto.randomBytes(16).toString('hex');
-    const qrToken = `${license.license_Id}:${randomToken}`;
+    const qrToken = this.jwtService.sign(
+      { licenseId: license.license_Id },
+      { expiresIn: '10m' },
+    );
 
-    return { qrToken };
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    return { qrToken, expiresAt };
   }
 
   async checkScanStatus(qrToken: string) {
-    if (!qrToken) throw new BadRequestException();
+    if (!qrToken) throw new BadRequestException('QR token required.');
 
     const scan = await this.prisma.qR_Scan_History.findFirst({
       where: { qr_Token: qrToken },
     });
 
-    return { scanned: !!scan };
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    return {
+      scanned: !!scan,
+      expiresAt: expiresAt,
+    };
   }
 
   async scanLicenseQR(
@@ -238,29 +274,37 @@ export class LicenseService {
     trafficOfficerId: string,
     location?: string,
   ) {
-    const parts = qrToken.split(':');
-    if (parts.length !== 2) throw new BadRequestException();
-
-    const licenseId = parts[0];
+    let licenseId: string;
+    try {
+      const payload = this.jwtService.verify<{ licenseId: string }>(qrToken);
+      licenseId = payload.licenseId;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired QR code.');
+    }
 
     await this.autoActivateLicenses();
+
     const license = await this.prisma.driving_License.findUnique({
       where: { license_Id: licenseId },
-      include: { user: true },
+      include: {
+        user: true,
+        vehicleCategories: true,
+      },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found.');
 
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { traffic_Officer_Id: trafficOfficerId },
     });
 
-    if (!officer) throw new UnauthorizedException();
+    if (!officer) throw new UnauthorizedException('Officer not found.');
 
     await this.prisma.qR_Scan_History.create({
       data: {
         qr_Token: qrToken,
         traffic_Officer_Id: trafficOfficerId,
+        head_Id: officer.divisional_Head_Id,
         traffic_Officer_Name: officer.name,
         driver_Name: license.user.name,
         location: location || null,
@@ -268,17 +312,39 @@ export class LicenseService {
       },
     });
 
+    const newExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
     const scanToken = this.jwtService.sign(
       { licenseId: license.license_Id },
-      { expiresIn: '3m' },
+      { expiresIn: '10m' },
     );
 
     return {
-      driverName: license.user.name,
-      licenseNo: license.license_No,
-      status: license.status,
-      points: license.points,
+      license: {
+        licenseNo: license.license_No,
+        fullName: license.full_Name,
+        nicNo: license.nic_No,
+        address: license.address,
+        bloodGroup: license.blood_Group,
+        dateOfBirth: license.date_of_birth,
+        issueDate: license.issue_Date,
+        status: license.status,
+        points: license.points,
+        image: license.image,
+        vehicleCategories: license.vehicleCategories.map((vc) => ({
+          vehicleClass: vc.vehicle_Class,
+          issueDate: vc.issue_Date,
+          expiryDate: vc.expiry_Date,
+          restriction: vc.restriction,
+        })),
+      },
       scanToken: scanToken,
+      expiresAt: newExpiresAt,
+      driverName: license.user.name,
+      officer: {
+        name: officer.name,
+        badgeNo: officer.badge_No,
+      },
     };
   }
 
@@ -308,7 +374,7 @@ export class LicenseService {
       },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found');
     return license;
   }
 
@@ -328,17 +394,27 @@ export class LicenseService {
       where: { license_Id: licenseId },
     });
 
-    if (!license) throw new NotFoundException();
+    if (!license) throw new NotFoundException('License not found');
 
-    const updatePayload: {
+    interface UpdatePayload {
       full_Name?: string;
       address?: string;
       blood_Group?: string;
       image?: string;
       date_of_birth?: Date;
       issue_Date?: Date;
-      vehicleCategories?: any;
-    } = {};
+      vehicleCategories?: {
+        deleteMany: Record<string, never>;
+        create: Array<{
+          vehicle_Class: string;
+          issue_Date: Date;
+          expiry_Date: Date;
+          restriction: string | null;
+        }>;
+      };
+    }
+
+    const updatePayload: UpdatePayload = {};
 
     if (data.fullName) updatePayload.full_Name = data.fullName;
     if (data.address) updatePayload.address = data.address;
@@ -353,6 +429,7 @@ export class LicenseService {
         where: { license_Id: licenseId },
       });
       updatePayload.vehicleCategories = {
+        deleteMany: {},
         create: data.categories.map((cat) => ({
           vehicle_Class: cat.vehicleClass,
           issue_Date: new Date(cat.issueDate),
@@ -386,5 +463,61 @@ export class LicenseService {
         },
       },
     });
+  }
+
+  async resolveRevokedLicense(
+    licenseId: string,
+    verdict: 'ACTIVE' | 'REVOKED',
+    headId: string,
+  ) {
+    const license = await this.prisma.driving_License.findUnique({
+      where: { license_Id: licenseId },
+      include: {
+        triggering_Fine: true,
+      },
+    });
+    if (!license) throw new NotFoundException('License not found');
+    if (license.status !== 'REVOKED') {
+      throw new BadRequestException('License is not in REVOKED status');
+    }
+
+    if (license.triggering_Fine && license.triggering_Fine.head_Id !== headId) {
+      throw new UnauthorizedException(
+        'This revocation belongs to the previous Divisional Head.',
+      );
+    }
+
+    if (verdict === 'ACTIVE') {
+      const pendingFines = await this.prisma.fine.count({
+        where: {
+          license_Id: licenseId,
+          status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
+        },
+      });
+
+      if (pendingFines > 0) {
+        throw new BadRequestException(
+          'Cannot activate: There are pending/overdue/court case fines.',
+        );
+      }
+
+      return this.prisma.driving_License.update({
+        where: { license_Id: licenseId },
+        data: {
+          status: 'ACTIVE',
+          points: 0,
+          suspended_Until: null,
+          has_24_Suspension: false,
+          has_50_Suspension: false,
+          has_100_Revoke: false,
+          triggering_Fine_Id: null,
+        },
+      });
+    } else {
+      return this.prisma.driving_License.update({
+        where: { license_Id: licenseId },
+        data: { status: 'REVOKED' },
+      });
+    }
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Users,
   CreditCard,
@@ -16,15 +17,91 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import axios from "axios";
+import { AxiosError } from "axios";
 
-export default function ManageLicensesPage() {
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+interface CategoryData {
+  checked?: boolean;
+  issue?: string;
+  expiry?: string;
+  restriction?: string;
+  transmission?: string;
+}
 
-  const [formData, setFormData] = useState({
+interface FormData {
+  nicNo: string;
+  fullName: string;
+  dob: string;
+  address: string;
+  bloodGroup: string;
+  licenseNo: string;
+  issueDate: string;
+  profilePic: string;
+  categories: Record<string, CategoryData>;
+}
+
+interface StoredDriver {
+  license_Id: string;
+  license_No: string;
+  nic_No: string;
+  full_Name: string;
+  address: string;
+  blood_Group: string;
+  date_of_birth?: string;
+  issue_Date?: string;
+  image?: string;
+  vehicleCategories?: {
+    vehicle_Class: string;
+    issue_Date?: string;
+    expiry_Date?: string;
+    restriction?: string;
+  }[];
+}
+
+interface LicensePayload {
+  licenseNo?: string;
+  nicNo?: string;
+  fullName: string;
+  address: string;
+  bloodGroup: string;
+  dateOfBirth: string;
+  issueDate: string;
+  image?: string;
+  categories: {
+    vehicleClass: string;
+    issueDate: string;
+    expiryDate: string;
+    restriction?: string;
+  }[];
+}
+
+const getInitialFormData = (): FormData => {
+  if (typeof window !== "undefined") {
+    const editData = localStorage.getItem("editDriver");
+    if (editData) {
+      const driver: StoredDriver = JSON.parse(editData);
+      const mappedCategories: Record<string, CategoryData> = {};
+      driver.vehicleCategories?.forEach((cat) => {
+        mappedCategories[cat.vehicle_Class] = {
+          checked: true,
+          issue: cat.issue_Date ? cat.issue_Date.split("T")[0] : "",
+          expiry: cat.expiry_Date ? cat.expiry_Date.split("T")[0] : "",
+          restriction: cat.restriction || "",
+        };
+      });
+      return {
+        nicNo: driver.nic_No,
+        fullName: driver.full_Name,
+        dob: driver.date_of_birth ? driver.date_of_birth.split("T")[0] : "",
+        address: driver.address,
+        bloodGroup: driver.blood_Group,
+        licenseNo: driver.license_No,
+        issueDate: driver.issue_Date ? driver.issue_Date.split("T")[0] : "",
+        profilePic: driver.image || "",
+        categories: mappedCategories,
+      };
+    }
+  }
+  return {
     nicNo: "",
     fullName: "",
     dob: "",
@@ -33,8 +110,34 @@ export default function ManageLicensesPage() {
     licenseNo: "",
     issueDate: "",
     profilePic: "",
-    categories: {} as any,
-  });
+    categories: {},
+  };
+};
+
+const getInitialEditingId = (): string | null => {
+  if (typeof window !== "undefined") {
+    const editData = localStorage.getItem("editDriver");
+    if (editData) {
+      const driver: StoredDriver = JSON.parse(editData);
+      return driver.license_Id;
+    }
+  }
+  return null;
+};
+
+export default function ManageLicensesPage() {
+  const [editingId, setEditingId] = useState<string | null>(
+    getInitialEditingId,
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [formData, setFormData] = useState<FormData>(getInitialFormData);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("editDriver");
+    }
+  }, []);
 
   const vehicleCategories = [
     { class: "A1", desc: "Light Motor Cycles", icon: <Bike size={16} /> },
@@ -58,53 +161,10 @@ export default function ManageLicensesPage() {
     },
   ];
 
-  useEffect(() => {
-    // Component එක ලෝඩ් වෙද්දී Backend එකෙන් Drivers ලව අරගන්නවා
-    const fetchDrivers = async () => {
-      try {
-        const res = await api.get("/license/all");
-        setDrivers(res.data);
-      } catch (err) {
-        console.error("Failed to load drivers", err);
-      }
-    };
-    fetchDrivers();
-
-    const editData = localStorage.getItem("editDriver");
-    if (editData) {
-      const driver = JSON.parse(editData);
-
-      // Backend format එක UI format එකට හරවනවා
-      const mappedCategories: any = {};
-      driver.vehicleCategories?.forEach((cat: any) => {
-        mappedCategories[cat.vehicle_Class] = {
-          checked: true,
-          issue: cat.issue_Date ? cat.issue_Date.split("T")[0] : "",
-          expiry: cat.expiry_Date ? cat.expiry_Date.split("T")[0] : "",
-          restriction: cat.restriction || "",
-        };
-      });
-
-      setFormData({
-        nicNo: driver.nic_No,
-        fullName: driver.full_Name,
-        dob: driver.date_of_birth ? driver.date_of_birth.split("T")[0] : "",
-        address: driver.address,
-        bloodGroup: driver.blood_Group,
-        licenseNo: driver.license_No,
-        issueDate: driver.issue_Date ? driver.issue_Date.split("T")[0] : "",
-        profilePic: driver.image || "",
-        categories: mappedCategories,
-      });
-      setEditingId(driver.license_Id);
-      localStorage.removeItem("editDriver");
-    }
-  }, []);
-
   const handleCategoryChange = (
     catClass: string,
     field: string,
-    value: any,
+    value: string | boolean,
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -132,36 +192,35 @@ export default function ManageLicensesPage() {
     try {
       let finalImageUrl = formData.profilePic;
 
-      // 1. Image එකක් අලුතින් තේරුවා නම් S3 Upload එක කරනවා
       if (imageFile) {
-        const urlResponse = await api.get("/license/get-upload-url", {
-          params: { fileName: imageFile.name, fileType: imageFile.type },
-        });
-        const { uploadUrl, fileUrl } = urlResponse.data;
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", imageFile);
 
-        await axios.put(uploadUrl, imageFile, {
-          headers: { "Content-Type": imageFile.type },
-        });
-        finalImageUrl = fileUrl; // අලුත් S3 ලින්ක් එක
+        const uploadResponse = await api.post<{ fileUrl: string }>(
+          "/license/upload-image",
+          formDataUpload,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          },
+        );
+        finalImageUrl = uploadResponse.data.fileUrl;
       }
 
-      // 2. Categories object එක Backend Array එකට හරවනවා
       const categoryArray = Object.keys(formData.categories)
         .filter((key) => formData.categories[key]?.checked)
         .map((key) => {
           const cat = formData.categories[key];
           return {
             vehicleClass: key,
-            issueDate: new Date(cat.issue).toISOString(),
-            expiryDate: new Date(cat.expiry).toISOString(),
+            issueDate: new Date(cat.issue || "").toISOString(),
+            expiryDate: new Date(cat.expiry || "").toISOString(),
             restriction:
               cat.restriction ||
               (cat.transmission === "Auto" ? "AT" : undefined),
           };
         });
 
-      // 3. Backend එකට යවන Payload එක
-      const payload: any = {
+      const payload: LicensePayload = {
         fullName: formData.fullName,
         address: formData.address,
         bloodGroup: formData.bloodGroup,
@@ -172,11 +231,9 @@ export default function ManageLicensesPage() {
       };
 
       if (editingId) {
-        // Update කරද්දී NIC/License No යවන්නේ නෑ
         await api.patch(`/license/${editingId}/update`, payload);
         alert("License Successfully Updated!");
       } else {
-        // අලුතින් හදද්දී NIC/License No යවනවා
         payload.licenseNo = formData.licenseNo;
         payload.nicNo = formData.nicNo;
         await api.post("/license", payload);
@@ -184,13 +241,11 @@ export default function ManageLicensesPage() {
       }
 
       handleClear();
-      // අලුත් ඩේටා ටික ආයෙත් ගන්නවා
-      const res = await api.get("/license/all");
-      setDrivers(res.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      const error = err as AxiosError<{ message?: string }>;
       alert(
-        err.response?.data?.message ||
+        error.response?.data?.message ||
           "An error occurred while saving the license.",
       );
     } finally {
@@ -224,7 +279,6 @@ export default function ManageLicensesPage() {
         onSubmit={handleSubmit}
         className="bg-[#0a0f16]/60 p-8 rounded-[2.5rem] border border-white/5 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative overflow-hidden"
       >
-        {/* Glow Orb */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
         <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-6 relative z-10">
@@ -262,10 +316,13 @@ export default function ManageLicensesPage() {
                 onChange={handleImageUpload}
               />
               {formData.profilePic ? (
-                <img
+                <Image
                   src={formData.profilePic}
                   alt="Profile"
+                  width={160}
+                  height={192}
                   className="w-full h-full object-cover"
+                  unoptimized
                 />
               ) : (
                 <>
@@ -312,7 +369,7 @@ export default function ManageLicensesPage() {
                   setFormData({ ...formData, nicNo: e.target.value })
                 }
                 type="text"
-                disabled={!!editingId} // Update එකේදී Disable කරනවා
+                disabled={!!editingId}
                 className={`${inputClass} ${editingId ? "opacity-50 cursor-not-allowed text-gray-500" : ""}`}
               />
             </div>
@@ -384,7 +441,7 @@ export default function ManageLicensesPage() {
                   setFormData({ ...formData, licenseNo: e.target.value })
                 }
                 type="text"
-                disabled={!!editingId} // Update එකේදී Disable කරනවා
+                disabled={!!editingId}
                 className={`${inputClass} font-mono tracking-wider font-bold text-cyan-300 drop-shadow-[0_0_2px_rgba(34,211,238,0.5)] ${editingId ? "opacity-50 cursor-not-allowed" : ""}`}
               />
             </div>

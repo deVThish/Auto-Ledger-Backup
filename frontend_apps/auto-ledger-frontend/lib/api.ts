@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://47.129.144.60:3000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

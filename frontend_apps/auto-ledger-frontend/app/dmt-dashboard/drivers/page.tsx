@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Users,
   Search,
@@ -22,13 +23,72 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import axios from "axios";
+import { AxiosError } from "axios";
+
+interface VehicleCategory {
+  checked?: boolean;
+  transmission?: string;
+  issue?: string;
+  expiry?: string;
+  restriction?: string;
+}
+
+interface Driver {
+  id: string;
+  fullName: string;
+  nicNo: string;
+  dob: string;
+  bloodGroup: string;
+  address: string;
+  licenseNo: string;
+  issueDate: string;
+  profilePic: string;
+  categories: Record<string, VehicleCategory>;
+}
+
+interface BackendVehicleCategory {
+  vehicle_Class: string;
+  issue_Date?: string;
+  expiry_Date?: string;
+  restriction?: string;
+}
+
+interface BackendDriver {
+  license_Id?: string;
+  licenseId?: string;
+  id?: string;
+  full_Name: string;
+  nic_No: string;
+  date_of_birth?: string;
+  blood_Group: string;
+  address: string;
+  license_No: string;
+  issue_Date?: string;
+  image?: string;
+  vehicleCategories?: BackendVehicleCategory[];
+}
+
+interface LicensePayload {
+  fullName: string;
+  address: string;
+  bloodGroup: string;
+  dateOfBirth: string;
+  issueDate: string;
+  image?: string;
+  categories: {
+    vehicleClass: string;
+    issueDate: string;
+    expiryDate: string;
+    restriction?: string;
+  }[];
+}
 
 export default function IssuedLicensesPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDriver, setSelectedDriver] = useState<any>(null);
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editFormData, setEditFormData] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editFormData, setEditFormData] = useState<Driver | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   const vehicleCategoriesList = [
@@ -55,20 +115,22 @@ export default function IssuedLicensesPage() {
 
   const fetchDrivers = async () => {
     try {
-      const res = await api.get("/license/all");
-      const mapped = res.data.map((d: any) => {
-        const mappedCategories: any = {};
-        d.vehicleCategories?.forEach((cat: any) => {
-          mappedCategories[cat.vehicle_Class] = {
-            checked: true,
-            transmission: cat.restriction === "AT" ? "Auto" : "Manual",
-            issue: cat.issue_Date ? cat.issue_Date.split("T")[0] : "",
-            expiry: cat.expiry_Date ? cat.expiry_Date.split("T")[0] : "",
-            restriction: cat.restriction || "",
-          };
-        });
+      const res = await api.get<BackendDriver[]>("/license/all");
+      const mapped: Driver[] = res.data.map((d: BackendDriver) => {
+        const mappedCategories: Record<string, VehicleCategory> = {};
+        if (d.vehicleCategories) {
+          d.vehicleCategories.forEach((cat: BackendVehicleCategory) => {
+            mappedCategories[cat.vehicle_Class] = {
+              checked: true,
+              transmission: cat.restriction === "AT" ? "Auto" : "Manual",
+              issue: cat.issue_Date ? cat.issue_Date.split("T")[0] : "",
+              expiry: cat.expiry_Date ? cat.expiry_Date.split("T")[0] : "",
+              restriction: cat.restriction || "",
+            };
+          });
+        }
         return {
-          id: d.license_Id || d.licenseId || d.id,
+          id: d.license_Id || d.licenseId || d.id || "",
           fullName: d.full_Name,
           nicNo: d.nic_No,
           dob: d.date_of_birth ? d.date_of_birth.split("T")[0] : "",
@@ -87,10 +149,21 @@ export default function IssuedLicensesPage() {
   };
 
   useEffect(() => {
-    fetchDrivers();
+    let isMounted = true;
+    const loadData = async () => {
+      try {
+        await fetchDrivers();
+      } catch (err) {
+        if (isMounted) console.error(err);
+      }
+    };
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const openModal = (driver: any) => {
+  const openModal = (driver: Driver) => {
     setSelectedDriver(driver);
     setEditFormData(JSON.parse(JSON.stringify(driver)));
     setImageFile(null);
@@ -102,39 +175,57 @@ export default function IssuedLicensesPage() {
     setIsEditing(false);
   };
 
-  const handleEditChange = (field: string, value: any) =>
-    setEditFormData({ ...editFormData, [field]: value });
+  const handleEditChange = (field: keyof Driver, value: string) => {
+    if (editFormData) {
+      setEditFormData({ ...editFormData, [field]: value });
+    }
+  };
 
-  const handleCategoryEdit = (catClass: string, field: string, value: any) =>
-    setEditFormData((prev: any) => ({
-      ...prev,
-      categories: {
-        ...prev.categories,
-        [catClass]: { ...prev.categories[catClass], [field]: value },
-      },
-    }));
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setImageFile(e.target.files[0]);
+  const handleCategoryEdit = (
+    catClass: string,
+    field: string,
+    value: string | boolean,
+  ) => {
+    if (editFormData) {
       setEditFormData({
         ...editFormData,
-        profilePic: URL.createObjectURL(e.target.files[0]),
+        categories: {
+          ...editFormData.categories,
+          [catClass]: { ...editFormData.categories[catClass], [field]: value },
+        },
       });
     }
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setImageFile(e.target.files[0]);
+      if (editFormData) {
+        setEditFormData({
+          ...editFormData,
+          profilePic: URL.createObjectURL(e.target.files[0]),
+        });
+      }
+    }
+  };
+
   const saveUpdates = async () => {
+    if (!editFormData) return;
+
     try {
       let finalImageUrl = editFormData.profilePic;
 
       if (imageFile) {
-        const urlResponse = await api.get("/license/get-upload-url", {
+        const urlResponse = await api.get<{
+          uploadUrl: string;
+          fileUrl: string;
+        }>("/license/get-upload-url", {
           params: { fileName: imageFile.name, fileType: imageFile.type },
         });
         const { uploadUrl, fileUrl } = urlResponse.data;
         await axios.put(uploadUrl, imageFile, {
           headers: { "Content-Type": imageFile.type },
+          withCredentials: false,
         });
         finalImageUrl = fileUrl;
       }
@@ -145,15 +236,15 @@ export default function IssuedLicensesPage() {
           const cat = editFormData.categories[key];
           return {
             vehicleClass: key,
-            issueDate: new Date(cat.issue).toISOString(),
-            expiryDate: new Date(cat.expiry).toISOString(),
+            issueDate: new Date(cat.issue || "").toISOString(),
+            expiryDate: new Date(cat.expiry || "").toISOString(),
             restriction:
               cat.restriction ||
               (cat.transmission === "Auto" ? "AT" : undefined),
           };
         });
 
-      const payload = {
+      const payload: LicensePayload = {
         fullName: editFormData.fullName,
         address: editFormData.address,
         bloodGroup: editFormData.bloodGroup,
@@ -169,7 +260,8 @@ export default function IssuedLicensesPage() {
       fetchDrivers();
     } catch (err) {
       console.error(err);
-      alert("Failed to update license");
+      const error = err as AxiosError<{ message?: string }>;
+      alert(error.response?.data?.message || "Failed to update license");
     }
   };
 
@@ -236,10 +328,13 @@ export default function IssuedLicensesPage() {
                 >
                   <td className="p-5 font-bold text-slate-200 flex items-center group-hover:text-white">
                     {driver.profilePic ? (
-                      <img
+                      <Image
                         src={driver.profilePic}
                         alt={driver.fullName}
+                        width={36}
+                        height={36}
                         className="w-9 h-9 rounded-full mr-4 object-cover border border-cyan-500/30 shadow-[0_0_10px_rgba(34,211,238,0.1)]"
+                        unoptimized
                       />
                     ) : (
                       <div className="w-9 h-9 rounded-full mr-4 bg-cyan-900/30 border border-cyan-500/30 flex items-center justify-center font-black text-xs text-cyan-300">
@@ -257,7 +352,7 @@ export default function IssuedLicensesPage() {
                   <td className="p-5">
                     <div className="flex flex-wrap gap-1.5">
                       {Object.entries(driver.categories || {})
-                        .filter(([_, data]: any) => data.checked)
+                        .filter(([, data]) => data.checked)
                         .map(([catClass]) => (
                           <span
                             key={catClass}
@@ -292,7 +387,7 @@ export default function IssuedLicensesPage() {
         </table>
       </div>
 
-      {selectedDriver && (
+      {selectedDriver && editFormData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030407]/90 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-[#0a0f16]/95 border border-cyan-500/20 rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-[0_0_50px_rgba(34,211,238,0.1)] custom-scrollbar relative">
             <div className="sticky top-0 bg-[#050810]/80 backdrop-blur-xl p-6 border-b border-white/5 flex justify-between items-center z-10">
@@ -349,10 +444,13 @@ export default function IssuedLicensesPage() {
                         onChange={handleImageUpload}
                       />
                       {editFormData.profilePic && (
-                        <img
+                        <Image
                           src={editFormData.profilePic}
                           alt="Pic"
+                          width={144}
+                          height={176}
                           className="w-full h-full object-cover opacity-40"
+                          unoptimized
                         />
                       )}
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]">
@@ -365,10 +463,13 @@ export default function IssuedLicensesPage() {
                   ) : selectedDriver.profilePic ? (
                     <div className="relative">
                       <div className="absolute inset-0 bg-gradient-to-tr from-cyan-400 to-purple-500 rounded-2xl blur-md opacity-30"></div>
-                      <img
+                      <Image
                         src={selectedDriver.profilePic}
                         alt={selectedDriver.fullName}
+                        width={144}
+                        height={176}
                         className="w-36 h-44 object-cover rounded-2xl border border-white/10 shadow-xl relative z-10"
+                        unoptimized
                       />
                     </div>
                   ) : (
@@ -507,13 +608,22 @@ export default function IssuedLicensesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {vehicleCategoriesList.map((cat) => {
                     const dataObj = isEditing ? editFormData : selectedDriver;
-                    const catData = (dataObj.categories || {})[cat.class] || {};
+                    const catData =
+                      (dataObj?.categories || {})[cat.class] || {};
                     const isAuthorized = catData.checked || false;
 
                     return (
                       <div
                         key={cat.class}
-                        className={`border rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 ${isAuthorized ? "bg-gradient-to-br from-cyan-900/20 to-transparent border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.05)]" : "bg-[#050810]/30 border-white/5 opacity-40"} ${isEditing && !isAuthorized ? "hover:opacity-100 cursor-pointer border-dashed border-cyan-500/30" : ""}`}
+                        className={`border rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 ${
+                          isAuthorized
+                            ? "bg-gradient-to-br from-cyan-900/20 to-transparent border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.05)]"
+                            : "bg-[#050810]/30 border-white/5 opacity-40"
+                        } ${
+                          isEditing && !isAuthorized
+                            ? "hover:opacity-100 cursor-pointer border-dashed border-cyan-500/30"
+                            : ""
+                        }`}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex items-center">
@@ -532,13 +642,21 @@ export default function IssuedLicensesPage() {
                               />
                             )}
                             <span
-                              className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${isAuthorized ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.2)]" : "bg-[#030508] text-slate-600 border-transparent"}`}
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
+                                isAuthorized
+                                  ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                                  : "bg-[#030508] text-slate-600 border-transparent"
+                              }`}
                             >
                               {cat.icon}
                             </span>
                             <div className="ml-3">
                               <span
-                                className={`font-black text-lg block leading-none tracking-wide ${isAuthorized ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]" : ""}`}
+                                className={`font-black text-lg block leading-none tracking-wide ${
+                                  isAuthorized
+                                    ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]"
+                                    : ""
+                                }`}
                               >
                                 {cat.class}
                               </span>

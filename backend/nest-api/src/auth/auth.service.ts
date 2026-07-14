@@ -21,7 +21,7 @@ import { ChangePasswordDto } from './auth.controller';
 export interface RegisterData {
   nicNo: string;
   name: string;
-  mobilePhoneNo: string;
+  email: string;
   password: string;
   deviceId: string;
 }
@@ -33,7 +33,11 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  private async sendOtpEmail(email: string, otp: string) {
+  private async sendOtpEmail(
+    email: string,
+    otp: string,
+    type: 'registration' | 'reset' | 'device_verification',
+  ): Promise<void> {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -42,11 +46,69 @@ export class AuthService {
       },
     });
 
+    let subject = '';
+    let text = '';
+    let html = '';
+
+    if (type === 'registration') {
+      subject = '✅ Auto-Ledger: Verify Your Email Address';
+      text = `Welcome to Auto-Ledger!\n\nYour verification OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nPlease enter this OTP in the app to complete your registration.\n\nIf you didn't register, please ignore this email.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #00bcd4; text-align: center;">✅ Auto-Ledger</h2>
+          <h3 style="text-align: center;">Verify Your Email Address</h3>
+          <p style="text-align: center; color: #cccccc;">Welcome to Auto-Ledger! Please verify your email address to complete registration.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #00bcd4; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    } else if (type === 'reset') {
+      subject = '🔑 Auto-Ledger: Password Reset OTP';
+      text = `You requested to reset your Auto-Ledger password.\n\nYour password reset OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf you didn't request a password reset, please ignore this email.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #ff6f00; text-align: center;">🔑 Auto-Ledger</h2>
+          <h3 style="text-align: center;">Password Reset Request</h3>
+          <p style="text-align: center; color: #cccccc;">You requested to reset your Auto-Ledger password.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #ff6f00; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    } else if (type === 'device_verification') {
+      subject = '📱 Auto-Ledger: New Device Verification';
+      text = `A new device is trying to access your Auto-Ledger account.\n\nYour device verification OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf this wasn't you, please change your password immediately.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #4caf50; text-align: center;">📱 Auto-Ledger</h2>
+          <h3 style="text-align: center;">New Device Verification</h3>
+          <p style="text-align: center; color: #cccccc;">A new device is attempting to log into your account. Please use the OTP below to verify it.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #4caf50; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't attempt to log in from a new device, please secure your account immediately.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    }
+
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: `"Auto-Ledger" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Auto-Ledger: Password Reset OTP',
-      text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
+      subject: subject,
+      text: text,
+      html: html,
     };
 
     await transporter.sendMail(mailOptions);
@@ -219,15 +281,31 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.divisional_Head.update({
       where: { username: username },
       data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
     });
 
-    await this.sendOtpEmail(email, otp);
+    await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyHeadResetOtp(username: string, email: string, otp: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || head.email !== email) {
+      throw new BadRequestException('Invalid Username or Email.');
+    }
+    if (head.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!head.reset_Otp_Expires_At || new Date() > head.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
   }
 
   async resetHeadPassword(
@@ -262,6 +340,26 @@ export class AuthService {
     return { message: 'Divisional Head password reset successfully.' };
   }
 
+  async resendHeadOtp(
+    username: string,
+    email: string,
+  ): Promise<{ message: string }> {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+    if (!head || head.email !== email || !head.is_Active) {
+      throw new BadRequestException('Invalid Username or Email.');
+    }
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.prisma.divisional_Head.update({
+      where: { username: username },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP resent successfully to your email.' };
+  }
+
   async requestOfficerPasswordReset(badgeNo: string, email: string) {
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { badge_No: badgeNo },
@@ -272,15 +370,35 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.traffic_Officer.update({
       where: { badge_No: badgeNo },
       data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
     });
 
-    await this.sendOtpEmail(email, otp);
+    await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyOfficerResetOtp(badgeNo: string, email: string, otp: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email.');
+    }
+    if (officer.reset_Otp !== otp)
+      throw new BadRequestException('Invalid OTP.');
+    if (
+      !officer.reset_Otp_Expires_At ||
+      new Date() > officer.reset_Otp_Expires_At
+    ) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
   }
 
   async resetOfficerPassword(
@@ -318,6 +436,26 @@ export class AuthService {
     return { message: 'Traffic Officer password reset successfully.' };
   }
 
+  async resendOfficerOtp(
+    badgeNo: string,
+    email: string,
+  ): Promise<{ message: string }> {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email.');
+    }
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.prisma.traffic_Officer.update({
+      where: { badge_No: badgeNo },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP resent successfully to your email.' };
+  }
+
   private generateUserToken(user: User) {
     const payload = { sub: user.user_Id, nic: user.nic_No, role: 'USER' };
     return {
@@ -326,8 +464,8 @@ export class AuthService {
         id: user.user_Id,
         name: user.name,
         nic: user.nic_No,
-        phoneNumber: user.mobile_Phone_No,
-        isPhoneVerified: user.isPhoneVerified,
+        email: user.email,
+        isEmailVerified: user.isEmailVerified,
       },
     };
   }
@@ -339,7 +477,7 @@ export class AuthService {
 
     if (!user) {
       throw new BadRequestException(
-        'Registration Failed: No driving license found for this NIC.',
+        'Registration Failed: No user found for this NIC.',
       );
     }
 
@@ -354,31 +492,51 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.user.update({
       where: { nic_No: data.nicNo },
       data: {
         name: data.name,
-        mobile_Phone_No: data.mobilePhoneNo,
+        email: data.email,
         password: hashedPassword,
         device_Id: data.deviceId,
-        isPhoneVerified: false,
+        isEmailVerified: false,
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
       },
     });
 
+    await this.sendOtpEmail(data.email, otp, 'registration');
+
     return {
-      message: 'User details saved. Please verify phone number.',
+      message: 'OTP sent to your email. Please verify.',
       success: true,
     };
   }
 
-  async verifyRegistration(nicNo: string) {
-    const user = await this.prisma.user.update({
+  async verifyRegistration(nicNo: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
       where: { nic_No: nicNo },
-      data: { isPhoneVerified: true },
     });
 
-    return this.generateUserToken(user);
+    if (!user) throw new BadRequestException('User not found.');
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        isEmailVerified: true,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
+    });
+
+    return this.generateUserToken(updatedUser);
   }
 
   async loginUser(nicNo: string, pass: string, deviceId: string) {
@@ -388,10 +546,8 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Invalid NIC or password.');
 
-    if (!user.isPhoneVerified) {
-      throw new ForbiddenException(
-        'Please verify your phone number using OTP first.',
-      );
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Please verify your email using OTP first.');
     }
 
     const isPasswordValid = await bcrypt.compare(pass, user.password);
@@ -399,27 +555,38 @@ export class AuthService {
       throw new UnauthorizedException('Invalid NIC or password.');
 
     if (user.device_Id !== deviceId) {
-      // Return specific error structure for new device matching
       throw new ForbiddenException({
         code: 'DEVICE_MISMATCH',
         message: 'New device detected. OTP verification required.',
-        phone: user.mobile_Phone_No,
+        email: user.email,
       });
     }
 
     return this.generateUserToken(user);
   }
 
-  async verifyNewDevice(nicNo: string, newDeviceId: string) {
-    const user = await this.prisma.user.update({
+  async verifyNewDevice(nicNo: string, newDeviceId: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) throw new BadRequestException('User not found.');
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
       where: { nic_No: nicNo },
       data: {
         device_Id: newDeviceId,
-        isPhoneVerified: true,
+        isEmailVerified: true,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
       },
     });
 
-    return this.generateUserToken(user);
+    return this.generateUserToken(updatedUser);
   }
 
   async biometricLogin(nicNo: string, deviceId: string) {
@@ -429,10 +596,8 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Invalid user.');
 
-    if (!user.isPhoneVerified) {
-      throw new ForbiddenException(
-        'Please verify your phone number using OTP first.',
-      );
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Please verify your email using OTP first.');
     }
 
     if (user.device_Id !== deviceId) {
@@ -472,43 +637,160 @@ export class AuthService {
     return { message: 'User password changed successfully' };
   }
 
-  async requestPasswordReset(nicNo: string, mobilePhoneNo: string) {
+  async requestPasswordReset(nicNo: string, email: string) {
     const user = await this.prisma.user.findUnique({
       where: { nic_No: nicNo },
     });
 
-    if (!user || user.mobile_Phone_No !== mobilePhoneNo) {
-      throw new BadRequestException('Invalid NIC or Mobile Number provided.');
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email provided.');
     }
 
-    return {
-      message: 'NIC and Phone Match.',
-      success: true,
-    };
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyUserResetOtp(nicNo: string, email: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
   }
 
   async resetPassword(
     nicNo: string,
-    mobilePhoneNo: string,
+    email: string,
+    otp: string,
     newPasswordStr: string,
   ) {
     const user = await this.prisma.user.findUnique({
       where: { nic_No: nicNo },
     });
 
-    if (!user || user.mobile_Phone_No !== mobilePhoneNo) {
-      throw new BadRequestException('Invalid NIC or Mobile Number provided.');
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
     }
 
     const hashedNewPassword = await bcrypt.hash(newPasswordStr, 10);
 
     await this.prisma.user.update({
       where: { nic_No: nicNo },
-      data: { password: hashedNewPassword },
+      data: {
+        password: hashedNewPassword,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
     });
 
     return {
       message: 'Password has been reset successfully. You can now login.',
+    };
+  }
+
+  async resendRegistrationOtp(nicNo: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found.');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email already verified.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(user.email, otp, 'registration');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+
+  async resendResetOtp(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+
+  async resendDeviceOtp(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(email, otp, 'device_verification');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
     };
   }
 }
