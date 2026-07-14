@@ -465,6 +465,30 @@ export class LicenseService {
     });
   }
 
+  async getRevokedLicenses(headId: string) {
+    await this.autoActivateLicenses();
+    return this.prisma.driving_License.findMany({
+      where: {
+        status: 'REVOKED',
+        triggering_Fine: {
+          head_Id: headId,
+        },
+      },
+      include: {
+        user: {
+          select: { name: true, email: true },
+        },
+        triggering_Fine: {
+          include: {
+            offenses: { include: { offenceCategory: true } },
+            trafficOfficer: { select: { name: true, badge_No: true } },
+          },
+        },
+      },
+      orderBy: { issue_Date: 'desc' },
+    });
+  }
+
   async resolveRevokedLicense(
     licenseId: string,
     verdict: 'ACTIVE' | 'REVOKED',
