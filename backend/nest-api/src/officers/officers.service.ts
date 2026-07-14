@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -306,11 +307,25 @@ export class OfficersService {
     });
   }
 
-  async transferOfficer(officerId: string, newHeadId: string) {
+  async transferOfficer(
+    officerId: string,
+    newHeadId: string,
+    requesterRole?: string,
+    requesterId?: string,
+  ) {
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { traffic_Officer_Id: officerId },
     });
     if (!officer) throw new NotFoundException('Officer not found');
+
+    if (
+      requesterRole === 'DIVISIONAL_HEAD' &&
+      officer.divisional_Head_Id !== requesterId
+    ) {
+      throw new UnauthorizedException(
+        'You can only transfer officers from your own division.',
+      );
+    }
 
     const newHead = await this.prisma.divisional_Head.findUnique({
       where: { divisional_Head_Id: newHeadId },

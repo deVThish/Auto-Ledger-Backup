@@ -247,6 +247,15 @@ export class LicenseController {
     return this.licenseService.uploadImageToS3(file);
   }
 
+  @ApiOperation({
+    summary: 'Divisional Head: Get revoked licenses for their division',
+  })
+  @Roles('DIVISIONAL_HEAD')
+  @Get('revoked')
+  async getRevokedLicenses(@Request() req: AuthRequest) {
+    return this.licenseService.getRevokedLicenses(req.user.id);
+  }
+
   @Roles('DIVISIONAL_HEAD')
   @Patch(':id/resolve-revoked')
   async resolveRevokedLicense(
