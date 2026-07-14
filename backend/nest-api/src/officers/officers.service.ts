@@ -55,17 +55,50 @@ export class OfficersService {
       });
 
       if (currentActiveHead) {
+        // පරණ DH ව Disable කිරීම
         await tx.divisional_Head.update({
           where: { divisional_Head_Id: currentActiveHead.divisional_Head_Id },
           data: { is_Active: false },
         });
+
+        // 1. විසඳලා නැති (Unresolved) Fines සහ Court Cases ටික අලුත් DH ට මාරු කිරීම
+        const unresolvedFines = await tx.fine.findMany({
+          where: {
+            head_Id: currentActiveHead.divisional_Head_Id,
+            OR: [
+              { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+              { revokedLicense: { status: { in: ['REVOKED', 'SUSPENDED'] } } },
+            ],
+          },
+          select: { fine_Id: true },
+        });
+
+        const fineIdsToTransfer = unresolvedFines.map((f) => f.fine_Id);
+
+        if (fineIdsToTransfer.length > 0) {
+          await tx.fine.updateMany({
+            where: { fine_Id: { in: fineIdsToTransfer } },
+            data: { head_Id: headId },
+          });
+        }
+
+        // 2. කල් ඉකුත් වෙලා නැති Active Temporary Licenses ටික අලුත් DH ට මාරු කිරීම
+        await tx.temporary_License.updateMany({
+          where: {
+            head_Id: currentActiveHead.divisional_Head_Id,
+            expiry_Date: { gte: new Date() },
+          },
+          data: { head_Id: headId },
+        });
       }
 
+      // අලුත් DH ව Active කිරීම
       const activatedHead = await tx.divisional_Head.update({
         where: { divisional_Head_Id: headId },
         data: { is_Active: true },
       });
 
+      // Officers ලාව අලුත් DH යටතට මාරු කිරීම
       await tx.traffic_Officer.updateMany({
         where: {
           divisionalHead: {
@@ -78,7 +111,8 @@ export class OfficersService {
       });
 
       return {
-        message: 'Head activated successfully, and officers reassigned.',
+        message:
+          'Head activated successfully, unresolved records and officers reassigned.',
         activatedHead,
       };
     });
