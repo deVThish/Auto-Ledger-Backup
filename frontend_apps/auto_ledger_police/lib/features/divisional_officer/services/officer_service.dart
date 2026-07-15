@@ -111,6 +111,11 @@ class OfficerService {
     required String officerId,
     required String newHeadId,
   }) async {
+    print('==================== TRANSFER OFFICER ====================');
+    print('URL: ${ApiConstants.officerTransfer}/$officerId');
+    print('Body: {"newHeadId": "$newHeadId"}');
+    print('==========================================================');
+
     await _apiClient.patch(
       '/officers/transfer/$officerId',
       body: {
@@ -120,19 +125,38 @@ class OfficerService {
   }
 
   Future<List<DivisionalHeadModel>> getDivisionalHeads() async {
-    final response = await _apiClient.get(
-      ApiConstants.divisionalHeads,
-    );
+    print('==================== GET DIVISIONAL HEADS ====================');
+    print('URL: ${ApiConstants.divisionalHeads}');
+    print('==============================================================');
 
-    final rawList = _extractList(response);
-    return rawList.map(DivisionalHeadModel.fromJson).toList();
+    try {
+      final response = await _apiClient.get(
+        ApiConstants.divisionalHeads,
+      );
+
+      print('📥 RESPONSE: $response');
+
+      final rawList = _extractList(response);
+      print('Extracted count: ${rawList.length}');
+
+      final result = rawList.map(DivisionalHeadModel.fromJson).toList();
+      print('Divisional heads loaded: ${result.length}');
+      return result;
+    } catch (e) {
+      print('ERROR: $e');
+      rethrow;
+    }
   }
 
   List<Map<String, dynamic>> _extractList(dynamic response) {
+    print('_extractList called with: ${response.runtimeType}');
+
     if (response is List) {
+      print('Response is List, count: ${response.length}');
       return response.whereType<Map<String, dynamic>>().toList();
     }
     if (response is Map<String, dynamic>) {
+      print('Response is Map');
       final keys = <String>[
         'data',
         'items',
@@ -140,15 +164,20 @@ class OfficerService {
         'officers',
         'list',
         'divisionalHeads',
+        'divisional_heads',
       ];
       for (final key in keys) {
         final candidate = response[key];
+        print('Checking key: $key -> ${candidate.runtimeType}');
         final extracted = _extractList(candidate);
         if (extracted.isNotEmpty) {
+          print('Found data in key: $key, count: ${extracted.length}');
           return extracted;
         }
       }
+      print('No data found in any key');
     }
+    print('No data found, returning empty list');
     return <Map<String, dynamic>>[];
   }
 
@@ -192,6 +221,7 @@ class DivisionalHeadModel {
   final bool isActive;
 
   factory DivisionalHeadModel.fromJson(Map<String, dynamic> json) {
+    print('🔍 DivisionalHeadModel.fromJson: $json');
     final division = json['division'] as Map<String, dynamic>? ?? {};
     return DivisionalHeadModel(
       id: json['divisional_Head_Id']?.toString() ?? json['id']?.toString() ?? '',

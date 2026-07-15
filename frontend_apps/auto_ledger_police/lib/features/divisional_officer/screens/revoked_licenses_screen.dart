@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:async';
 import '../../../core/network/api_client.dart';
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
 import '../../../models/license_model.dart';
-import '../../../models/fine_model.dart';
 
 class RevokedLicensesScreen extends StatefulWidget {
   const RevokedLicensesScreen({super.key});
@@ -15,6 +15,7 @@ class RevokedLicensesScreen extends StatefulWidget {
 }
 
 class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
+  final ApiClient _apiClient = ApiClient();
   late Future<List<LicenseModel>> _revokedLicensesFuture;
   List<LicenseModel> _cachedLicenses = [];
   bool _isResolving = false;
@@ -26,34 +27,14 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
   }
 
   Future<List<LicenseModel>> _loadRevokedLicenses() async {
-    // TODO: Replace with actual API call when endpoint is ready
-    // final response = await _apiClient.get('/license/revoked');
-    // return (response as List).map((e) => LicenseModel.fromJson(e)).toList();
-    
-    // Temporary mock data for UI testing
-    await Future.delayed(const Duration(seconds: 1));
-    return [
-      LicenseModel(
-        id: '1',
-        licenseNumber: 'B1234567',
-        status: 'REVOKED',
-        points: 120,
-        driverName: 'K.V.V. Thishan',
-        recentFines: [],
-        issueDate: DateTime.now().subtract(const Duration(days: 30)),
-        expiryDate: DateTime.now().add(const Duration(days: 365)),
-      ),
-      LicenseModel(
-        id: '2',
-        licenseNumber: 'B7654321',
-        status: 'REVOKED',
-        points: 105,
-        driverName: 'Nimal Perera',
-        recentFines: [],
-        issueDate: DateTime.now().subtract(const Duration(days: 15)),
-        expiryDate: DateTime.now().add(const Duration(days: 365)),
-      ),
-    ];
+    try {
+      final response = await _apiClient.get(ApiConstants.revokedLicenses);
+      return (response as List)
+          .map((e) => LicenseModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<void> _refreshLicenses() async {
@@ -68,7 +49,7 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
     required String verdict,
   }) async {
     final isActive = verdict == 'ACTIVE';
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -103,13 +84,13 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
                       width: 62,
                       height: 62,
                       decoration: BoxDecoration(
-                        color: isActive 
+                        color: isActive
                             ? AppTheme.successGreen.withValues(alpha: 0.12)
                             : AppTheme.errorRed.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(22),
                       ),
                       child: Icon(
-                        isActive 
+                        isActive
                             ? Icons.check_circle_outline_rounded
                             : Icons.cancel_outlined,
                         color: isActive ? AppTheme.successGreen : AppTheme.errorRed,
@@ -128,7 +109,7 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      isActive 
+                      isActive
                           ? 'This will reactivate the license and reset all points to 0.'
                           : 'This will keep the license revoked permanently.',
                       textAlign: TextAlign.center,
@@ -164,7 +145,7 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(dialogContext, true),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isActive 
+                              backgroundColor: isActive
                                   ? AppTheme.successGreen
                                   : AppTheme.errorRed,
                               foregroundColor: Colors.white,
@@ -198,19 +179,16 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
     setState(() => _isResolving = true);
 
     try {
-      // TODO: Replace with actual API call when endpoint is ready
-      // await _apiClient.patch('/license/${license.id}/resolve-revoked', {
-      //   'verdict': verdict,
-      // });
-
-      // Mock success
-      await Future.delayed(const Duration(seconds: 1));
+      await _apiClient.patch(
+        '${ApiConstants.resolveRevokedLicense}/$license.id/resolve-revoked',
+        body: {'verdict': verdict},
+      );
 
       if (!mounted) return;
 
       AppErrorHandler.showPopup(
         context,
-        message: isActive 
+        message: isActive
             ? 'License activated successfully. Points reset to 0.'
             : 'License remains revoked.',
         isError: false,
@@ -358,8 +336,8 @@ class _HeaderCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6B1A30),
+          colors: const [
+            Color(0xFF6B1A30),
             AppTheme.policeBlueDark,
           ],
         ),
@@ -530,8 +508,8 @@ class _RevokedLicenseCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      license.licenseNumber.isEmpty 
-                          ? 'Unknown License' 
+                      license.licenseNumber.isEmpty
+                          ? 'Unknown License'
                           : license.licenseNumber,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -543,8 +521,8 @@ class _RevokedLicenseCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      license.driverName.isEmpty 
-                          ? 'Unknown Driver' 
+                      license.driverName.isEmpty
+                          ? 'Unknown Driver'
                           : license.driverName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -619,7 +597,7 @@ class _RevokedLicenseCard extends StatelessWidget {
                     foregroundColor: AppTheme.successGreen,
                     disabledForegroundColor: AppTheme.textGray,
                     side: BorderSide(
-                      color: isResolving 
+                      color: isResolving
                           ? AppTheme.primaryBlack.withValues(alpha: 0.12)
                           : AppTheme.successGreen,
                     ),

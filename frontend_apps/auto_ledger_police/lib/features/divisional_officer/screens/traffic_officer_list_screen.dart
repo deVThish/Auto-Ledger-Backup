@@ -286,17 +286,24 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
   }
 
   Future<void> _transferOfficer(OfficerModel officer) async {
+    print('==================== TRANSFER OFFICER START ====================');
+    print('Officer: ${officer.name} (${officer.id})');
+    print('Division: ${officer.divisionId}');
     if (_cachedHeads.isEmpty) {
-      try {
-        _cachedHeads = await _officerService.getDivisionalHeads();
-      } catch (_) {
-        AppErrorHandler.showPopup(
-          context,
-          message: 'Unable to load divisional heads. Please try again.',
-        );
-        return;
-      }
+    print('Loading divisional heads...');
+    try {
+      _cachedHeads = await _officerService.getDivisionalHeads();
+      print('Loaded ${_cachedHeads.length} heads');
+    } catch (e) {
+      print('Error loading heads: $e');
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Unable to load divisional heads. Please try again.',
+      );
+      return;
     }
+  }
+
 
     final availableHeads = _cachedHeads.where((h) => h.id != officer.id).toList();
     if (availableHeads.isEmpty) {

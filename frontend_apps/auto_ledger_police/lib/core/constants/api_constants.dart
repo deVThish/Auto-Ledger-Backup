@@ -32,6 +32,8 @@ class ApiConstants {
   static const String getAllLicenses = '/license/all';
   static const String getLicensesWithFines = '/license/with-fines';
   static const String getUploadUrl = '/license/get-upload-url';
+  static const String revokedLicenses = '/license/revoked';
+  static const String resolveRevokedLicense = '/license';
 
   static const String officersBase = '/officers';
   static const String createDivision = '/officers/division';
@@ -42,6 +44,7 @@ class ApiConstants {
   static const String divisions = '/officers/divisions';
   static const String divisionalHeads = '/officers/divisional-heads';
   static const String officerShifts = '/officers';
+  static const String officerTransfer = '/officers/transfer';
 
   static const String finesBase = '/fines';
   static const String issueFine = '/fines';
