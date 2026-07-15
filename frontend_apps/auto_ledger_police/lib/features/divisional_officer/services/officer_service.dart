@@ -75,7 +75,6 @@ class OfficerService {
     if (data != null) {
       return ShiftModel.fromJson(data);
     }
-
     return ShiftModel.fromJson(response as Map<String, dynamic>);
   }
 
@@ -96,7 +95,7 @@ class OfficerService {
     }
 
     final response = await _apiClient.patch(
-      '${ApiConstants.assignShift}/$shiftId',
+      '/officers/shift/$shiftId',
       body: payload,
     );
 
@@ -108,11 +107,31 @@ class OfficerService {
     return ShiftModel.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<void> transferOfficer({
+    required String officerId,
+    required String newHeadId,
+  }) async {
+    await _apiClient.patch(
+      '/officers/transfer/$officerId',
+      body: {
+        'newHeadId': newHeadId,
+      },
+    );
+  }
+
+  Future<List<DivisionalHeadModel>> getDivisionalHeads() async {
+    final response = await _apiClient.get(
+      ApiConstants.divisionalHeads,
+    );
+
+    final rawList = _extractList(response);
+    return rawList.map(DivisionalHeadModel.fromJson).toList();
+  }
+
   List<Map<String, dynamic>> _extractList(dynamic response) {
     if (response is List) {
       return response.whereType<Map<String, dynamic>>().toList();
     }
-
     if (response is Map<String, dynamic>) {
       final keys = <String>[
         'data',
@@ -120,8 +139,8 @@ class OfficerService {
         'results',
         'officers',
         'list',
+        'divisionalHeads',
       ];
-
       for (final key in keys) {
         final candidate = response[key];
         final extracted = _extractList(candidate);
@@ -130,7 +149,6 @@ class OfficerService {
         }
       }
     }
-
     return <Map<String, dynamic>>[];
   }
 
@@ -140,18 +158,49 @@ class OfficerService {
         'data',
         'result',
         'item',
+        'officer',
       ];
-
       for (final key in dataKeys) {
         final candidate = response[key];
         if (candidate is Map<String, dynamic>) {
           return candidate;
         }
       }
-
       return response;
     }
-
     return null;
+  }
+}
+
+class DivisionalHeadModel {
+  const DivisionalHeadModel({
+    required this.id,
+    required this.name,
+    required this.username,
+    required this.email,
+    required this.divisionId,
+    required this.divisionName,
+    required this.isActive,
+  });
+
+  final String id;
+  final String name;
+  final String username;
+  final String email;
+  final String divisionId;
+  final String divisionName;
+  final bool isActive;
+
+  factory DivisionalHeadModel.fromJson(Map<String, dynamic> json) {
+    final division = json['division'] as Map<String, dynamic>? ?? {};
+    return DivisionalHeadModel(
+      id: json['divisional_Head_Id']?.toString() ?? json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      divisionId: json['division_Id']?.toString() ?? division['division_Id']?.toString() ?? '',
+      divisionName: division['division_Name']?.toString() ?? '',
+      isActive: json['is_Active'] == true || json['isActive'] == true,
+    );
   }
 }
