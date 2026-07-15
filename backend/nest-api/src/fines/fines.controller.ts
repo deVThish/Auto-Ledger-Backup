@@ -16,6 +16,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { DeviceGuard } from '../common/guard/device.guard';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 export interface AuthRequest {
@@ -57,19 +58,19 @@ export class FinesController {
     return this.finesService.getOfficerFines(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, DeviceGuard)
   @Get('my-fines')
   getMyFines(@Request() req: AuthRequest) {
     return this.finesService.getMyFines(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, DeviceGuard)
   @Post(':id/pay')
   payFine(@Param('id') id: string, @Body() body: { amount: number }) {
     return this.finesService.payFine(id, body.amount);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, DeviceGuard)
   @Post('pay-bulk')
   payBulkFines(@Body() body: { fineIds: string[]; totalAmount: number }) {
     return this.finesService.payBulkFines(body.fineIds, body.totalAmount);
@@ -77,12 +78,13 @@ export class FinesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DIVISIONAL_HEAD')
-  @Patch(':id/court-verdict')
-  updateCourtVerdict(
+  @Patch(':id/resolve-overdue')
+  resolveOverdueCourtCase(
     @Param('id') id: string,
     @Body('verdict') verdict: 'ACTIVE' | 'REVOKED',
+    @Request() req: AuthRequest,
   ) {
-    return this.finesService.updateCourtCase(id, verdict);
+    return this.finesService.resolveOverdueCourtCase(id, verdict, req.user.id);
   }
 
   @Get('offenses')

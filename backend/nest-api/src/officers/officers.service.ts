@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -54,17 +55,50 @@ export class OfficersService {
       });
 
       if (currentActiveHead) {
+        // පරණ DH ව Disable කිරීම
         await tx.divisional_Head.update({
           where: { divisional_Head_Id: currentActiveHead.divisional_Head_Id },
           data: { is_Active: false },
         });
+
+        // 1. විසඳලා නැති (Unresolved) Fines සහ Court Cases ටික අලුත් DH ට මාරු කිරීම
+        const unresolvedFines = await tx.fine.findMany({
+          where: {
+            head_Id: currentActiveHead.divisional_Head_Id,
+            OR: [
+              { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+              { revokedLicense: { status: { in: ['REVOKED', 'SUSPENDED'] } } },
+            ],
+          },
+          select: { fine_Id: true },
+        });
+
+        const fineIdsToTransfer = unresolvedFines.map((f) => f.fine_Id);
+
+        if (fineIdsToTransfer.length > 0) {
+          await tx.fine.updateMany({
+            where: { fine_Id: { in: fineIdsToTransfer } },
+            data: { head_Id: headId },
+          });
+        }
+
+        // 2. කල් ඉකුත් වෙලා නැති Active Temporary Licenses ටික අලුත් DH ට මාරු කිරීම
+        await tx.temporary_License.updateMany({
+          where: {
+            head_Id: currentActiveHead.divisional_Head_Id,
+            expiry_Date: { gte: new Date() },
+          },
+          data: { head_Id: headId },
+        });
       }
 
+      // අලුත් DH ව Active කිරීම
       const activatedHead = await tx.divisional_Head.update({
         where: { divisional_Head_Id: headId },
         data: { is_Active: true },
       });
 
+      // Officers ලාව අලුත් DH යටතට මාරු කිරීම
       await tx.traffic_Officer.updateMany({
         where: {
           divisionalHead: {
@@ -77,7 +111,8 @@ export class OfficersService {
       });
 
       return {
-        message: 'Head activated successfully, and officers reassigned.',
+        message:
+          'Head activated successfully, unresolved records and officers reassigned.',
         activatedHead,
       };
     });
@@ -202,6 +237,7 @@ export class OfficersService {
     return this.prisma.shift.create({
       data: {
         traffic_Officer_Id: data.officerId,
+        head_Id: officer.divisional_Head_Id,
         date: data.date,
         start_Time: data.startTime,
         end_Time: data.endTime,
@@ -303,5 +339,51 @@ export class OfficersService {
         is_Active: 'desc',
       },
     });
+  }
+
+  async transferOfficer(
+    officerId: string,
+    newHeadId: string,
+    requesterRole?: string,
+    requesterId?: string,
+  ) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { traffic_Officer_Id: officerId },
+    });
+    if (!officer) throw new NotFoundException('Officer not found');
+
+    if (
+      requesterRole === 'DIVISIONAL_HEAD' &&
+      officer.divisional_Head_Id !== requesterId
+    ) {
+      throw new UnauthorizedException(
+        'You can only transfer officers from your own division.',
+      );
+    }
+
+    const newHead = await this.prisma.divisional_Head.findUnique({
+      where: { divisional_Head_Id: newHeadId },
+    });
+    if (!newHead) throw new NotFoundException('New Head not found');
+    if (!newHead.is_Active)
+      throw new BadRequestException('New Head is not active');
+
+    const updatedOfficer = await this.prisma.traffic_Officer.update({
+      where: { traffic_Officer_Id: officerId },
+      data: { divisional_Head_Id: newHeadId },
+    });
+
+    await this.prisma.shift.updateMany({
+      where: {
+        traffic_Officer_Id: officerId,
+        is_Active: true,
+      },
+      data: { is_Active: false },
+    });
+
+    return {
+      message: `Officer ${officer.name} transferred to ${newHead.name} successfully.`,
+      officer: updatedOfficer,
+    };
   }
 }

@@ -36,7 +36,7 @@ export class AuthService {
   private async sendOtpEmail(
     email: string,
     otp: string,
-    type: 'registration' | 'reset',
+    type: 'registration' | 'reset' | 'device_verification',
   ): Promise<void> {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -67,7 +67,7 @@ export class AuthService {
           <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
         </div>
       `;
-    } else {
+    } else if (type === 'reset') {
       subject = '🔑 Auto-Ledger: Password Reset OTP';
       text = `You requested to reset your Auto-Ledger password.\n\nYour password reset OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf you didn't request a password reset, please ignore this email.`;
       html = `
@@ -81,6 +81,23 @@ export class AuthService {
           <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
           <hr style="border-color: #333;">
           <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    } else if (type === 'device_verification') {
+      subject = '📱 Auto-Ledger: New Device Verification';
+      text = `A new device is trying to access your Auto-Ledger account.\n\nYour device verification OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf this wasn't you, please change your password immediately.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #4caf50; text-align: center;">📱 Auto-Ledger</h2>
+          <h3 style="text-align: center;">New Device Verification</h3>
+          <p style="text-align: center; color: #cccccc;">A new device is attempting to log into your account. Please use the OTP below to verify it.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #4caf50; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't attempt to log in from a new device, please secure your account immediately.</p>
           <p style="text-align: center; color: #666666; font-size: 12px;">© 2026 Auto-Ledger</p>
         </div>
       `;
@@ -275,6 +292,22 @@ export class AuthService {
     return { message: 'OTP sent successfully to your email.' };
   }
 
+  async verifyHeadResetOtp(username: string, email: string, otp: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || head.email !== email) {
+      throw new BadRequestException('Invalid Username or Email.');
+    }
+    if (head.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!head.reset_Otp_Expires_At || new Date() > head.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
+  }
+
   async resetHeadPassword(
     username: string,
     email: string,
@@ -346,6 +379,26 @@ export class AuthService {
 
     await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyOfficerResetOtp(badgeNo: string, email: string, otp: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email.');
+    }
+    if (officer.reset_Otp !== otp)
+      throw new BadRequestException('Invalid OTP.');
+    if (
+      !officer.reset_Otp_Expires_At ||
+      new Date() > officer.reset_Otp_Expires_At
+    ) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
   }
 
   async resetOfficerPassword(
@@ -512,16 +565,28 @@ export class AuthService {
     return this.generateUserToken(user);
   }
 
-  async verifyNewDevice(nicNo: string, newDeviceId: string) {
-    const user = await this.prisma.user.update({
+  async verifyNewDevice(nicNo: string, newDeviceId: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) throw new BadRequestException('User not found.');
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
       where: { nic_No: nicNo },
       data: {
         device_Id: newDeviceId,
         isEmailVerified: true,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
       },
     });
 
-    return this.generateUserToken(user);
+    return this.generateUserToken(updatedUser);
   }
 
   async biometricLogin(nicNo: string, deviceId: string) {
@@ -591,6 +656,22 @@ export class AuthService {
 
     await this.sendOtpEmail(email, otp, 'reset');
     return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyUserResetOtp(nicNo: string, email: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
   }
 
   async resetPassword(
@@ -706,7 +787,7 @@ export class AuthService {
       },
     });
 
-    await this.sendOtpEmail(email, otp, 'reset');
+    await this.sendOtpEmail(email, otp, 'device_verification');
     return {
       message: 'OTP resent successfully. Please check your email.',
       success: true,
