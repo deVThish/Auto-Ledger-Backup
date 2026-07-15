@@ -428,14 +428,15 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    head.name,
+                                    head.divisionName,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       color: AppTheme.primaryBlack,
                                     ),
                                   ),
+                                  const SizedBox(height: 2),
                                   Text(
-                                    head.divisionName,
+                                    head.name,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppTheme.textGray,

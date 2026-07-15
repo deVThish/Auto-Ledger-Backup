@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../core/storage/token_storage.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
 import '../../../models/fine_model.dart';
@@ -12,7 +11,6 @@ import '../../divisional_officer/services/fine_service.dart';
 import 'add_traffic_officer_screen.dart';
 import 'assign_shift_screen.dart';
 import 'court_cases_screen.dart';
-import 'district_statistics_screen.dart';
 import 'traffic_officer_list_screen.dart';
 import 'settings_screen.dart';
 import 'revoked_licenses_screen.dart';
@@ -61,10 +59,10 @@ class _DoDashboardScreenState extends State<DoDashboardScreen> {
       route: 'revoked_licenses',
     ),
     MenuItem(
-      icon: Icons.bar_chart_rounded,
-      title: 'District Statistics',
-      subtitle: 'View district level fine summary',
-      route: 'district_stats',
+      icon: Icons.settings_outlined,
+      title: 'Settings',
+      subtitle: 'App settings and preferences',
+      route: 'settings',
     ),
   ];
 
@@ -279,8 +277,8 @@ class _DoDashboardScreenState extends State<DoDashboardScreen> {
                   case 'revoked_licenses':
                     _openScreen(context, const RevokedLicensesScreen());
                     break;
-                  case 'district_stats':
-                    _openScreen(context, const DistrictStatisticsScreen());
+                  case 'settings':
+                    _openScreen(context, const SettingsScreen());
                     break;
                   case 'logout':
                     _handleLogout(context);
