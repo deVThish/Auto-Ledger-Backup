@@ -55,13 +55,11 @@ export class OfficersService {
       });
 
       if (currentActiveHead) {
-        // පරණ DH ව Disable කිරීම
         await tx.divisional_Head.update({
           where: { divisional_Head_Id: currentActiveHead.divisional_Head_Id },
           data: { is_Active: false },
         });
 
-        // 1. විසඳලා නැති (Unresolved) Fines සහ Court Cases ටික අලුත් DH ට මාරු කිරීම
         const unresolvedFines = await tx.fine.findMany({
           where: {
             head_Id: currentActiveHead.divisional_Head_Id,
@@ -82,7 +80,6 @@ export class OfficersService {
           });
         }
 
-        // 2. කල් ඉකුත් වෙලා නැති Active Temporary Licenses ටික අලුත් DH ට මාරු කිරීම
         await tx.temporary_License.updateMany({
           where: {
             head_Id: currentActiveHead.divisional_Head_Id,
@@ -92,13 +89,11 @@ export class OfficersService {
         });
       }
 
-      // අලුත් DH ව Active කිරීම
       const activatedHead = await tx.divisional_Head.update({
         where: { divisional_Head_Id: headId },
         data: { is_Active: true },
       });
 
-      // Officers ලාව අලුත් DH යටතට මාරු කිරීම
       await tx.traffic_Officer.updateMany({
         where: {
           divisionalHead: {
@@ -330,10 +325,20 @@ export class OfficersService {
     });
   }
 
+  // මෙතන අලුත් select filter එක දැම්මා
   async getAllDivisionalHeads() {
     return this.prisma.divisional_Head.findMany({
-      include: {
-        division: true,
+      select: {
+        divisional_Head_Id: true,
+        name: true,
+        username: true,
+        email: true,
+        is_Active: true,
+        division: {
+          select: {
+            division_Name: true,
+          },
+        },
       },
       orderBy: {
         is_Active: 'desc',
