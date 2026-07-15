@@ -170,13 +170,13 @@ export class OfficersController {
     return this.officersService.getAllDivisions();
   }
 
-  @Roles('POLICE_ADMIN')
+  @Roles('POLICE_ADMIN', 'DIVISIONAL_HEAD')
   @Get('divisional-heads')
   async getAllDivisionalHeads() {
     return this.officersService.getAllDivisionalHeads();
   }
 
-  @Roles('POLICE_ADMIN', 'DIVISIONAL_HEAD')
+  @Roles('DIVISIONAL_HEAD')
   @Patch('transfer/:id')
   async transferOfficer(
     @Param('id') id: string,
