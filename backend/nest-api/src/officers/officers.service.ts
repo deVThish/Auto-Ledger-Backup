@@ -325,7 +325,6 @@ export class OfficersService {
     });
   }
 
-  // මෙතන අලුත් select filter එක දැම්මා
   async getAllDivisionalHeads() {
     return this.prisma.divisional_Head.findMany({
       select: {
@@ -373,22 +372,42 @@ export class OfficersService {
     if (!newHead.is_Active)
       throw new BadRequestException('New Head is not active');
 
-    const updatedOfficer = await this.prisma.traffic_Officer.update({
-      where: { traffic_Officer_Id: officerId },
-      data: { divisional_Head_Id: newHeadId },
-    });
+    const now = new Date();
 
-    await this.prisma.shift.updateMany({
+    const activeShifts = await this.prisma.shift.findMany({
       where: {
         traffic_Officer_Id: officerId,
+        start_Time: { lte: now },
+        end_Time: { gt: now },
         is_Active: true,
       },
-      data: { is_Active: false },
     });
 
-    return {
-      message: `Officer ${officer.name} transferred to ${newHead.name} successfully.`,
-      officer: updatedOfficer,
-    };
+    if (activeShifts.length > 0) {
+      throw new BadRequestException(
+        'Cannot transfer officer while they are currently on an active shift. Please wait until the shift ends.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedOfficer = await tx.traffic_Officer.update({
+        where: { traffic_Officer_Id: officerId },
+        data: { divisional_Head_Id: newHeadId },
+      });
+
+      await tx.shift.updateMany({
+        where: {
+          traffic_Officer_Id: officerId,
+          start_Time: { gt: now },
+          is_Active: true,
+        },
+        data: { is_Active: false },
+      });
+
+      return {
+        message: `Officer ${officer.name} transferred to ${newHead.name} successfully. Future shifts cancelled.`,
+        officer: updatedOfficer,
+      };
+    });
   }
 }
