@@ -6,16 +6,89 @@ import '../../../core/storage/token_storage.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
+import '../../../models/fine_model.dart';
 import '../../auth/services/auth_service.dart';
+import '../../divisional_officer/services/fine_service.dart';
 import 'add_traffic_officer_screen.dart';
 import 'assign_shift_screen.dart';
 import 'court_cases_screen.dart';
 import 'district_statistics_screen.dart';
 import 'traffic_officer_list_screen.dart';
 import 'settings_screen.dart';
+import 'revoked_licenses_screen.dart';
 
-class DoDashboardScreen extends StatelessWidget {
+class DoDashboardScreen extends StatefulWidget {
   const DoDashboardScreen({super.key});
+
+  @override
+  State<DoDashboardScreen> createState() => _DoDashboardScreenState();
+}
+
+class _DoDashboardScreenState extends State<DoDashboardScreen> {
+  final FineService _fineService = FineService();
+  DistrictStatisticsModel? _stats;
+  bool _isLoading = true;
+
+  final List<MenuItem> _menuItems = const [
+    MenuItem(
+      icon: Icons.person_add_alt_1_outlined,
+      title: 'Add Traffic Officer',
+      subtitle: 'Create a new traffic officer account',
+      route: 'add_officer',
+    ),
+    MenuItem(
+      icon: Icons.groups_2_outlined,
+      title: 'Traffic Officer List',
+      subtitle: 'View officers assigned to your district',
+      route: 'officer_list',
+    ),
+    MenuItem(
+      icon: Icons.schedule_outlined,
+      title: 'Assign Shift',
+      subtitle: 'Set active duty time for an officer',
+      route: 'assign_shift',
+    ),
+    MenuItem(
+      icon: Icons.gavel_outlined,
+      title: 'Court Cases',
+      subtitle: 'Review and resolve court pending fines',
+      route: 'court_cases',
+    ),
+    MenuItem(
+      icon: Icons.cancel_outlined,
+      title: 'Revoked Licenses',
+      subtitle: 'View and resolve revoked licenses',
+      route: 'revoked_licenses',
+    ),
+    MenuItem(
+      icon: Icons.bar_chart_rounded,
+      title: 'District Statistics',
+      subtitle: 'View district level fine summary',
+      route: 'district_stats',
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await _fineService.getDistrictStatistics();
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   Future<void> _handleLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -143,206 +216,317 @@ class DoDashboardScreen extends StatelessWidget {
     );
   }
 
-  void _openSettings(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-    );
-  }
-
   void _openScreen(BuildContext context, Widget screen) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => screen),
     );
   }
 
+  String _formatRevenue(double value) {
+    return 'LKR ${value.toStringAsFixed(0)}';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final stats = _stats;
+    final isLoading = _isLoading;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      // ✅ Fix 1: Status Bar - Background Transparent, Icons Dark
       value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: AppTheme.backgroundWhite,
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
-
-              return SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 22),
-                      _DashboardHeader(
-                        onLogout: () => _handleLogout(context),
-                        onSettings: () => _openSettings(context),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text(
+            'Dashboard',
+            style: TextStyle(
+              color: AppTheme.policeBlue,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          actions: [
+            PopupMenuButton<String>(
+              icon: const Icon(
+                Icons.menu_rounded,
+                color: AppTheme.policeBlue,
+                size: 28,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              offset: const Offset(0, 16),
+              color: Colors.white,
+              elevation: 4,
+              onSelected: (value) {
+                switch (value) {
+                  case 'add_officer':
+                    _openScreen(context, const AddTrafficOfficerScreen());
+                    break;
+                  case 'officer_list':
+                    _openScreen(context, const TrafficOfficerListScreen());
+                    break;
+                  case 'assign_shift':
+                    _openScreen(context, const AssignShiftScreen());
+                    break;
+                  case 'court_cases':
+                    _openScreen(context, const CourtCasesScreen());
+                    break;
+                  case 'revoked_licenses':
+                    _openScreen(context, const RevokedLicensesScreen());
+                    break;
+                  case 'district_stats':
+                    _openScreen(context, const DistrictStatisticsScreen());
+                    break;
+                  case 'logout':
+                    _handleLogout(context);
+                    break;
+                }
+              },
+              itemBuilder: (context) {
+                return [
+                  ..._menuItems.map((item) {
+                    return PopupMenuItem<String>(
+                      value: item.route,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
                       ),
-                      const SizedBox(height: 26),
-                      const _WelcomeCard(),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Divisional Head Actions',
-                        style: TextStyle(
-                          color: AppTheme.policeBlue,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: AppTheme.policeBlue.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              item.icon,
+                              color: AppTheme.policeBlue,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  item.title,
+                                  style: const TextStyle(
+                                    color: AppTheme.policeBlue,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  item.subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppTheme.textGray,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  const PopupMenuDivider(height: 1),
+                  PopupMenuItem<String>(
+                    value: 'logout',
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorRed.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.logout_rounded,
+                            color: AppTheme.errorRed,
+                            size: 18,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      _DashboardActionCard(
-                        icon: Icons.person_add_alt_1_outlined,
-                        title: 'Add Traffic Officer',
-                        subtitle: 'Create a new traffic officer account.',
-                        onTap: () => _openScreen(context, const AddTrafficOfficerScreen()),
-                      ),
-                      const SizedBox(height: 12),
-                      _DashboardActionCard(
-                        icon: Icons.groups_2_outlined,
-                        title: 'Traffic Officer List',
-                        subtitle: 'View officers assigned to your district.',
-                        onTap: () => _openScreen(context, const TrafficOfficerListScreen()),
-                      ),
-                      const SizedBox(height: 12),
-                      _DashboardActionCard(
-                        icon: Icons.schedule_outlined,
-                        title: 'Assign Shift',
-                        subtitle: 'Set active duty time for an officer.',
-                        onTap: () => _openScreen(context, const AssignShiftScreen()),
-                      ),
-                      const SizedBox(height: 12),
-                      _DashboardActionCard(
-                        icon: Icons.gavel_outlined,
-                        title: 'Court Cases',
-                        subtitle: 'Review and resolve court pending fines.',
-                        onTap: () => _openScreen(context, const CourtCasesScreen()),
-                      ),
-                      const SizedBox(height: 12),
-                      _DashboardActionCard(
-                        icon: Icons.bar_chart_rounded,
-                        title: 'District Statistics',
-                        subtitle: 'View district level fine summary.',
-                        onTap: () => _openScreen(context, const DistrictStatisticsScreen()),
-                      ),
-                      const SizedBox(height: 28),
-                    ],
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Logout',
+                            style: TextStyle(
+                              color: AppTheme.errorRed,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ];
+              },
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                const _WelcomeCard(),
+                const SizedBox(height: 24),
+                const Text(
+                  'Quick Statistics',
+                  style: TextStyle(
+                    color: AppTheme.policeBlue,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              );
-            },
+                const SizedBox(height: 12),
+                if (isLoading)
+                  _buildShimmerStats()
+                else if (stats != null)
+                  _buildStatsGrid(stats)
+                else
+                  const SizedBox.shrink(),
+                const SizedBox(height: 28),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}
 
-class _DashboardHeader extends StatelessWidget {
-  const _DashboardHeader({
-    required this.onLogout,
-    required this.onSettings,
-  });
+  Widget _buildStatsGrid(DistrictStatisticsModel stats) {
+    final items = [
+      _StatData(
+        icon: Icons.groups_outlined,
+        value: stats.totalOfficers.toString(),
+        label: 'Total Officers',
+        color: Colors.blue.shade700,
+      ),
+      _StatData(
+        icon: Icons.local_police_outlined,
+        value: stats.activeOfficersOnDuty.toString(),
+        label: 'On Duty',
+        color: Colors.green.shade700,
+      ),
+      _StatData(
+        icon: Icons.receipt_long_outlined,
+        value: stats.totalFinesIssued.toString(),
+        label: 'Total Fines',
+        color: Colors.orange.shade700,
+      ),
+      _StatData(
+        icon: Icons.payments_outlined,
+        value: _formatRevenue(stats.totalRevenue),
+        label: 'Revenue',
+        color: Colors.green.shade700,
+      ),
+      _StatData(
+        icon: Icons.pending_actions_outlined,
+        value: stats.pendingFinesCount.toString(),
+        label: 'Pending',
+        color: Colors.orange.shade700,
+      ),
+      _StatData(
+        icon: Icons.gavel_outlined,
+        value: stats.overdueCourtCases.toString(),
+        label: 'Court Cases',
+        color: Colors.red.shade700,
+      ),
+    ];
 
-  final VoidCallback onLogout;
-  final VoidCallback onSettings;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 1.1,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final data = items[index];
+        return _QuickStatCard(data: data);
+      },
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          height: 56,
-          width: 56,
+  Widget _buildShimmerStats() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 1.1,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        return Container(
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppTheme.policeBlue,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: Image.asset(
-              'assets/images/sl_police_logo.png',
-              width: 56,
-              height: 56,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(
-                  Icons.local_police_outlined,
-                  color: Colors.white,
-                  size: 28,
-                );
-              },
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.policeBlue.withValues(alpha: 0.06),
             ),
           ),
-        ),
-        const SizedBox(width: 14),
-        const Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'Police Portal',
-                style: TextStyle(
-                  color: AppTheme.policeBlue,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGray,
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              SizedBox(height: 2),
-              Text(
-                'Divisional Head Dashboard',
-                style: TextStyle(
-                  color: AppTheme.textGray,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGray,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: 50,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGray,
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
             ],
           ),
-        ),
-        PopupMenuButton<String>(
-          icon: const Icon(
-            Icons.more_vert_rounded,
-            color: AppTheme.policeBlue,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          onSelected: (value) {
-            if (value == 'settings') {
-              onSettings();
-            }
-            if (value == 'logout') {
-              onLogout();
-            }
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: 'settings',
-              child: Row(
-                children: [
-                  Icon(Icons.settings_rounded),
-                  SizedBox(width: 10),
-                  Text('Settings'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'logout',
-              child: Row(
-                children: [
-                  Icon(Icons.logout_rounded),
-                  SizedBox(width: 10),
-                  Text('Logout'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -371,7 +555,6 @@ class _WelcomeCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                // ✅ Fix 2: Welcome Card - Darker Navy + Shiny (Gradient + Stronger Shadow)
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -391,7 +574,6 @@ class _WelcomeCard extends StatelessWidget {
                     blurRadius: 25,
                     offset: const Offset(0, 12),
                   ),
-                  // Shiny highlight
                   BoxShadow(
                     color: Colors.white.withValues(alpha: 0.05),
                     blurRadius: 10,
@@ -409,7 +591,7 @@ class _WelcomeCard extends StatelessWidget {
                           TextSpan(
                             text: 'Welcome, $officerName ',
                             style: const TextStyle(
-                              color: Colors.white, // Pure White
+                              color: Colors.white,
                               fontSize: 23,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.3,
@@ -462,101 +644,91 @@ class _WelcomeCard extends StatelessWidget {
   }
 }
 
-class _DashboardActionCard extends StatelessWidget {
-  const _DashboardActionCard({
+class _QuickStatCard extends StatelessWidget {
+  const _QuickStatCard({required this.data});
+
+  final _StatData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.policeBlue.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: data.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              data.icon,
+              color: data.color,
+              size: 18,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppTheme.policeBlue,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            data.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppTheme.textGray,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatData {
+  const _StatData({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+}
+
+class MenuItem {
+  const MenuItem({
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.onTap,
+    required this.route,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            splashColor: Colors.white.withValues(alpha: 0.1),
-            highlightColor: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-              decoration: BoxDecoration(
-                color: AppTheme.policeBlue.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.policeBlue.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white, // Pure White
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white, // Pure White
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.75), // Increased from 0.7
-                            fontSize: 13,
-                            height: 1.35,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white.withValues(alpha: 0.3),
-                    size: 16,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  final String route;
 }

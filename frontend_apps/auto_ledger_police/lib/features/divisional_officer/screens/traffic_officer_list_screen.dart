@@ -23,11 +23,13 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
 
   late Future<List<OfficerModel>> _officersFuture;
   List<OfficerModel> _cachedOfficers = [];
+  List<DivisionalHeadModel> _cachedHeads = [];
 
   final Map<String, List<ShiftModel>> _shiftCache = {};
   final Map<String, bool> _shiftLoadingMap = {};
 
   Timer? _clockTimer;
+  bool _isTransferring = false;
 
   @override
   void initState() {
@@ -62,6 +64,13 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
     for (final officer in officers) {
       unawaited(_loadOfficerShifts(officer.id));
     }
+
+    if (_cachedHeads.isEmpty) {
+      try {
+        _cachedHeads = await _officerService.getDivisionalHeads();
+      } catch (_) {}
+    }
+
     return officers;
   }
 
@@ -276,6 +285,264 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
     return null;
   }
 
+  Future<void> _transferOfficer(OfficerModel officer) async {
+    if (_cachedHeads.isEmpty) {
+      try {
+        _cachedHeads = await _officerService.getDivisionalHeads();
+      } catch (_) {
+        AppErrorHandler.showPopup(
+          context,
+          message: 'Unable to load divisional heads. Please try again.',
+        );
+        return;
+      }
+    }
+
+    final availableHeads = _cachedHeads.where((h) => h.id != officer.id).toList();
+    if (availableHeads.isEmpty) {
+      AppErrorHandler.showPopup(
+        context,
+        message: 'No other divisional heads available for transfer.',
+      );
+      return;
+    }
+
+    DivisionalHeadModel? selectedHead = availableHeads.first;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                  child: Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.65),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 36,
+                          offset: const Offset(0, 18),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 62,
+                          height: 62,
+                          decoration: BoxDecoration(
+                            color: AppTheme.policeBlue,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: const Icon(
+                            Icons.swap_horiz_rounded,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Transfer Officer',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.policeBlue,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${officer.name} (${officer.badgeNumber})',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppTheme.primaryBlack,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.policeBlue.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Current Division: ${_cachedHeads.firstWhere((h) => h.id == officer.divisionId, orElse: () => availableHeads.first).divisionName}',
+                            style: const TextStyle(
+                              color: AppTheme.textGray,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        DropdownButtonFormField<DivisionalHeadModel>(
+                          value: selectedHead,
+                          decoration: InputDecoration(
+                            labelText: 'New Divisional Head',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              borderSide: BorderSide(
+                                color: AppTheme.policeBlue.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              borderSide: BorderSide(
+                                color: AppTheme.policeBlue.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              borderSide: BorderSide(
+                                color: AppTheme.policeBlue,
+                                width: 1.8,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                          ),
+                          items: availableHeads.map((head) {
+                            return DropdownMenuItem(
+                              value: head,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    head.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.primaryBlack,
+                                    ),
+                                  ),
+                                  Text(
+                                    head.divisionName,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textGray,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              selectedHead = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(dialogContext, false),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.policeBlue,
+                                  side: const BorderSide(color: AppTheme.borderGray),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(22),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: selectedHead == null
+                                    ? null
+                                    : () => Navigator.pop(dialogContext, true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.policeBlue,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(22),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: const Text(
+                                  'Transfer',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || selectedHead == null) return;
+
+    setState(() => _isTransferring = true);
+
+    try {
+      await _officerService.transferOfficer(
+        officerId: officer.id,
+        newHeadId: selectedHead!.id,
+      );
+
+      if (!mounted) return;
+
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Officer transferred to ${selectedHead!.name} successfully.',
+        isError: false,
+      );
+
+      await _refreshOfficers();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      AppErrorHandler.showPopup(
+        context,
+        message: error.message,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Unable to transfer officer. Please try again.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isTransferring = false);
+      }
+    }
+  }
+
   Future<void> _refreshOfficers() async {
     setState(() {
       _officersFuture = _loadOfficers(clearCache: true);
@@ -384,6 +651,8 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                                     statusIcon: _getStatusIcon(status),
                                     showAssignButton: isOffDuty,
                                     onAssignShift: () => _openAssignShift(officer),
+                                    onTransfer: () => _transferOfficer(officer),
+                                    isTransferring: _isTransferring,
                                   ),
                                 );
                               },
@@ -518,6 +787,8 @@ class _OfficerListCard extends StatelessWidget {
     required this.statusIcon,
     required this.showAssignButton,
     required this.onAssignShift,
+    required this.onTransfer,
+    required this.isTransferring,
   });
 
   final OfficerModel officer;
@@ -528,6 +799,8 @@ class _OfficerListCard extends StatelessWidget {
   final IconData statusIcon;
   final bool showAssignButton;
   final VoidCallback onAssignShift;
+  final VoidCallback onTransfer;
+  final bool isTransferring;
 
   @override
   Widget build(BuildContext context) {
@@ -699,30 +972,82 @@ class _OfficerListCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (showAssignButton) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: OutlinedButton(
-                    onPressed: onAssignShift,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0B1A30),
-                      side: BorderSide(
-                        color: const Color(0xFF0B1A30).withValues(alpha: 0.25),
-                      ),
-                      backgroundColor: const Color(0xFF0B1A30).withValues(alpha: 0.02),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (showAssignButton)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onAssignShift,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0B1A30),
+                          side: BorderSide(
+                            color: const Color(0xFF0B1A30).withValues(alpha: 0.25),
+                          ),
+                          backgroundColor: const Color(0xFF0B1A30).withValues(alpha: 0.02),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Assign Shift',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     ),
-                    child: const Text(
-                      'Assign Shift',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                  if (showAssignButton) const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: isTransferring ? null : onTransfer,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.policeBlue,
+                        side: BorderSide(
+                          color: isTransferring
+                              ? Colors.grey.shade300
+                              : AppTheme.policeBlue.withValues(alpha: 0.3),
+                        ),
+                        backgroundColor: isTransferring
+                            ? Colors.grey.shade50
+                            : AppTheme.policeBlue.withValues(alpha: 0.05),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: isTransferring
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.policeBlue,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.swap_horiz_rounded,
+                                  size: 16,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Transfer',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ],
           ),
         ),

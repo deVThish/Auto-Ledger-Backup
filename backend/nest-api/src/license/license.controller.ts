@@ -24,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { DeviceGuard } from '../common/guard/device.guard';
 import {
   IsString,
   IsNotEmpty,
@@ -136,7 +137,7 @@ export class UpdateLicenseDto extends PartialType(CreateLicenseDto) {}
 
 @ApiTags('Driving License')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, DeviceGuard)
 @Controller('license')
 export class LicenseController {
   constructor(private readonly licenseService: LicenseService) {}
@@ -178,7 +179,6 @@ export class LicenseController {
   @ApiOperation({ summary: 'Generate QR Code for License (10min expiry)' })
   @Get('generate-qr')
   async generateQR(@Request() req: AuthRequest) {
-    // Returns { qrToken, expiresAt } - service handles JWT with 10m expiry
     return this.licenseService.generateLicenseQR(req.user.id);
   }
 
@@ -245,5 +245,28 @@ export class LicenseController {
   @ApiOperation({ summary: 'Upload license image via backend (No CORS)' })
   uploadImage(@UploadedFile() file: UploadedFileType) {
     return this.licenseService.uploadImageToS3(file);
+  }
+
+  @ApiOperation({
+    summary: 'Divisional Head: Get revoked licenses for their division',
+  })
+  @Roles('DIVISIONAL_HEAD')
+  @Get('revoked')
+  async getRevokedLicenses(@Request() req: AuthRequest) {
+    return this.licenseService.getRevokedLicenses(req.user.id);
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Patch(':id/resolve-revoked')
+  async resolveRevokedLicense(
+    @Param('id') id: string,
+    @Body('verdict') verdict: 'ACTIVE' | 'REVOKED',
+    @Request() req: AuthRequest,
+  ) {
+    return await this.licenseService.resolveRevokedLicense(
+      id,
+      verdict,
+      req.user.id,
+    );
   }
 }
