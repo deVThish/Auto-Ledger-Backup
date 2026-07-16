@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -58,6 +59,34 @@ export class OfficersService {
           where: { divisional_Head_Id: currentActiveHead.divisional_Head_Id },
           data: { is_Active: false },
         });
+
+        const unresolvedFines = await tx.fine.findMany({
+          where: {
+            head_Id: currentActiveHead.divisional_Head_Id,
+            OR: [
+              { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+              { revokedLicense: { status: { in: ['REVOKED', 'SUSPENDED'] } } },
+            ],
+          },
+          select: { fine_Id: true },
+        });
+
+        const fineIdsToTransfer = unresolvedFines.map((f) => f.fine_Id);
+
+        if (fineIdsToTransfer.length > 0) {
+          await tx.fine.updateMany({
+            where: { fine_Id: { in: fineIdsToTransfer } },
+            data: { head_Id: headId },
+          });
+        }
+
+        await tx.temporary_License.updateMany({
+          where: {
+            head_Id: currentActiveHead.divisional_Head_Id,
+            expiry_Date: { gte: new Date() },
+          },
+          data: { head_Id: headId },
+        });
       }
 
       const activatedHead = await tx.divisional_Head.update({
@@ -77,7 +106,8 @@ export class OfficersService {
       });
 
       return {
-        message: 'Head activated successfully, and officers reassigned.',
+        message:
+          'Head activated successfully, unresolved records and officers reassigned.',
         activatedHead,
       };
     });
@@ -297,8 +327,17 @@ export class OfficersService {
 
   async getAllDivisionalHeads() {
     return this.prisma.divisional_Head.findMany({
-      include: {
-        division: true,
+      select: {
+        divisional_Head_Id: true,
+        name: true,
+        username: true,
+        email: true,
+        is_Active: true,
+        division: {
+          select: {
+            division_Name: true,
+          },
+        },
       },
       orderBy: {
         is_Active: 'desc',
@@ -306,11 +345,25 @@ export class OfficersService {
     });
   }
 
-  async transferOfficer(officerId: string, newHeadId: string) {
+  async transferOfficer(
+    officerId: string,
+    newHeadId: string,
+    requesterRole?: string,
+    requesterId?: string,
+  ) {
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { traffic_Officer_Id: officerId },
     });
     if (!officer) throw new NotFoundException('Officer not found');
+
+    if (
+      requesterRole === 'DIVISIONAL_HEAD' &&
+      officer.divisional_Head_Id !== requesterId
+    ) {
+      throw new UnauthorizedException(
+        'You can only transfer officers from your own division.',
+      );
+    }
 
     const newHead = await this.prisma.divisional_Head.findUnique({
       where: { divisional_Head_Id: newHeadId },
@@ -319,22 +372,42 @@ export class OfficersService {
     if (!newHead.is_Active)
       throw new BadRequestException('New Head is not active');
 
-    const updatedOfficer = await this.prisma.traffic_Officer.update({
-      where: { traffic_Officer_Id: officerId },
-      data: { divisional_Head_Id: newHeadId },
-    });
+    const now = new Date();
 
-    await this.prisma.shift.updateMany({
+    const activeShifts = await this.prisma.shift.findMany({
       where: {
         traffic_Officer_Id: officerId,
+        start_Time: { lte: now },
+        end_Time: { gt: now },
         is_Active: true,
       },
-      data: { is_Active: false },
     });
 
-    return {
-      message: `Officer ${officer.name} transferred to ${newHead.name} successfully.`,
-      officer: updatedOfficer,
-    };
+    if (activeShifts.length > 0) {
+      throw new BadRequestException(
+        'Cannot transfer officer while they are currently on an active shift. Please wait until the shift ends.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedOfficer = await tx.traffic_Officer.update({
+        where: { traffic_Officer_Id: officerId },
+        data: { divisional_Head_Id: newHeadId },
+      });
+
+      await tx.shift.updateMany({
+        where: {
+          traffic_Officer_Id: officerId,
+          start_Time: { gt: now },
+          is_Active: true,
+        },
+        data: { is_Active: false },
+      });
+
+      return {
+        message: `Officer ${officer.name} transferred to ${newHead.name} successfully. Future shifts cancelled.`,
+        officer: updatedOfficer,
+      };
+    });
   }
 }
