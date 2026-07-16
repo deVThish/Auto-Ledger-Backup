@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../utils/secure_storage.dart';
 import '../widgets/qr_dialog.dart';
@@ -67,7 +68,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
         if (isApproachingSuspension) {
           _hasShownPointsWarning = true;
-          Future.microtask(() => _showPointsWarning(points));
+
+          String warningLevel = '';
+          if (points >= 80) {
+            warningLevel = 'CRITICAL';
+          } else if (points >= 45) {
+            warningLevel = 'SEVERE';
+          } else if (points >= 20) {
+            warningLevel = 'WARNING';
+          }
+
+          Future.microtask(() => _showInAppPushNotification(points));
+
+          SharedPreferences.getInstance().then((prefs) {
+            bool hasSeenBigDialog =
+                prefs.getBool('seen_big_dialog_$warningLevel') ?? false;
+
+            if (!hasSeenBigDialog) {
+              prefs.setBool('seen_big_dialog_$warningLevel', true);
+              Future.microtask(() => _showPointsWarning(points));
+            }
+          });
         }
       }
     } on DioException catch (e) {
@@ -167,6 +188,120 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  void _showInAppPushNotification(int points) {
+    final (color, icon, title, message) = _getWarningData(points);
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    OverlayEntry? entry;
+
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: topPadding + 10,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(0, -150 * (1 - value)),
+                child: Opacity(
+                  opacity: value.clamp(0.0, 1.0),
+                  child: child,
+                ),
+              );
+            },
+            child: GestureDetector(
+              onVerticalDragUpdate: (details) {
+                if (details.primaryDelta! < -5) {
+                  entry?.remove();
+                  entry = null;
+                }
+              },
+              onTap: () {
+                entry?.remove();
+                entry = null;
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B0F19).withAlpha(220),
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: color.withAlpha(150), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withAlpha(40),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: color.withAlpha(40),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(icon, color: color, size: 28),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  color: color,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                message,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Navigator.of(context, rootNavigator: true).overlay?.insert(entry!);
+
+    Future.delayed(const Duration(seconds: 6), () {
+      if (entry != null && entry!.mounted) {
+        entry!.remove();
+        entry = null;
+      }
+    });
   }
 
   (Color, IconData, String, String) _getWarningData(int points) {
@@ -851,20 +986,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           _buildTableRow('9.', '10.', '11.', '12.',
                               isHeader: true),
-                          _buildCategoryRow('A1', '🛺'),
-                          _buildCategoryRow('A', '🏍️'),
-                          _buildCategoryRow('B1', '🛺'),
-                          _buildCategoryRow('B', '🚗'),
-                          _buildCategoryRow('C1', '🚚'),
-                          _buildCategoryRow('C', '🚛'),
-                          _buildCategoryRow('CE', '🚛'),
-                          _buildCategoryRow('D1', '🚐'),
-                          _buildCategoryRow('D', '🚌'),
-                          _buildCategoryRow('DE', '🚌'),
-                          _buildCategoryRow('G1', '🚜'),
-                          _buildCategoryRow('G', '🚜'),
-                          _buildCategoryRow('J', '🏗️'),
-                          _buildCategoryRow('H', '♿'),
+                          _buildCategoryRow('A1', 'ðŸ›º'),
+                          _buildCategoryRow('A', 'ðŸ  ï¸ '),
+                          _buildCategoryRow('B1', 'ðŸ›º'),
+                          _buildCategoryRow('B', 'ðŸš—'),
+                          _buildCategoryRow('C1', 'ðŸšš'),
+                          _buildCategoryRow('C', 'ðŸš›'),
+                          _buildCategoryRow('CE', 'ðŸš›'),
+                          _buildCategoryRow('D1', 'ðŸš '),
+                          _buildCategoryRow('D', 'ðŸšŒ'),
+                          _buildCategoryRow('DE', 'ðŸšŒ'),
+                          _buildCategoryRow('G1', 'ðŸšœ'),
+                          _buildCategoryRow('G', 'ðŸšœ'),
+                          _buildCategoryRow('J', 'ðŸ —ï¸ '),
+                          _buildCategoryRow('H', 'â™¿'),
                         ],
                       ),
                     ),
