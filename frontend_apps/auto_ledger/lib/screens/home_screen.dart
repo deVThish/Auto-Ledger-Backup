@@ -20,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  int _finesInitialTab = 0;
   bool _isFront = true;
   bool _isSelectionMode = false;
 
@@ -404,6 +405,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     onPressed: () {
                       HapticFeedback.mediumImpact();
+                      _addRecentActivity(
+                          'Closed Temporary License', Icons.close);
                       Navigator.pop(context);
                     },
                     child: const Text('Close',
@@ -424,17 +427,22 @@ class _HomeScreenState extends State<HomeScreen> {
       {bool isHighlight = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title,
             style: const TextStyle(
                 fontSize: 15,
                 color: Colors.white70,
                 fontWeight: FontWeight.w600)),
-        Text(value,
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isHighlight ? Colors.redAccent : Colors.white)),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isHighlight ? Colors.redAccent : Colors.white)),
+        ),
       ],
     );
   }
@@ -451,7 +459,9 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (BuildContext context) => QRDialog(
               qrToken: _currentQrToken!,
               initialExpiresAt: _currentQrExpiry!,
-              onClose: () {},
+              onClose: () {
+                _addRecentActivity('Closed QR Code Dialog', Icons.close);
+              },
               onExpired: () {
                 setState(() {
                   _currentQrToken = null;
@@ -491,7 +501,9 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (BuildContext context) => QRDialog(
             qrToken: token,
             initialExpiresAt: expiresAt,
-            onClose: () {},
+            onClose: () {
+              _addRecentActivity('Closed QR Code Dialog', Icons.close);
+            },
             onExpired: () {
               setState(() {
                 _currentQrToken = null;
@@ -1168,6 +1180,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white.withAlpha(30)),
                 onPressed: () {
+                  _addRecentActivity('Retried loading license', Icons.refresh);
                   setState(() {
                     _isLoading = true;
                     _errorMessage = '';
@@ -1186,7 +1199,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<dynamic> tempLicenses = _licenseData?['temporaryLicenses'] ?? [];
 
     return RefreshIndicator(
-      onRefresh: _fetchLicenseData,
+      onRefresh: () async {
+        _addRecentActivity('Retried loading license', Icons.refresh);
+        await _fetchLicenseData();
+      },
       color: Colors.cyanAccent,
       backgroundColor: Colors.white.withAlpha(20),
       child: SingleChildScrollView(
@@ -1206,6 +1222,8 @@ class _HomeScreenState extends State<HomeScreen> {
             GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
+                _addRecentActivity(
+                    'Flipped License Card', Icons.flip); // Card flip activity
                 setState(() => _isFront = !_isFront);
               },
               child: AnimatedSwitcher(
@@ -1254,6 +1272,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (index == 0) {
           _addRecentActivity('Viewed License Dashboard', Icons.credit_card);
         } else if (index == 1) {
+          _finesInitialTab = 0;
           _addRecentActivity('Navigated to Fines', Icons.receipt_long);
         } else if (index == 2) {
           _addRecentActivity('Navigated to Profile', Icons.person);
@@ -1374,7 +1393,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: EdgeInsets.zero,
                           icon: const Icon(Icons.logout_rounded,
                               color: Colors.redAccent, size: 20),
-                          onPressed: _logout,
+                          onPressed: () {
+                            _addRecentActivity(
+                                'Initiated Logout', Icons.logout);
+                            _logout();
+                          },
                           tooltip: 'Logout',
                         ),
                       ),
@@ -1386,11 +1409,20 @@ class _HomeScreenState extends State<HomeScreen> {
               ? _buildDashboard()
               : _currentIndex == 1
                   ? FinesScreen(
+                      initialTab: _finesInitialTab,
                       onLogActivity: _addRecentActivity,
                       onSelectionModeChanged: (isSelected) =>
                           setState(() => _isSelectionMode = isSelected),
                     )
-                  : ProfileScreen(onLogActivity: _addRecentActivity),
+                  : ProfileScreen(
+                      onLogActivity: _addRecentActivity,
+                      onPointsClicked: () {
+                        setState(() {
+                          _finesInitialTab = 2;
+                          _currentIndex = 1;
+                        });
+                      },
+                    ),
           bottomNavigationBar: AnimatedSlide(
             offset: _isSelectionMode ? const Offset(0, 2) : Offset.zero,
             duration: const Duration(milliseconds: 300),

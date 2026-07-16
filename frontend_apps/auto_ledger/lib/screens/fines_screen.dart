@@ -8,11 +8,13 @@ import '../services/pdf_service.dart';
 class FinesScreen extends StatefulWidget {
   final void Function(String, IconData) onLogActivity;
   final ValueChanged<bool> onSelectionModeChanged;
+  final int initialTab;
 
   const FinesScreen({
     super.key,
     required this.onLogActivity,
     required this.onSelectionModeChanged,
+    this.initialTab = 0,
   });
 
   @override
@@ -33,7 +35,8 @@ class _FinesScreenState extends State<FinesScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController =
+        TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
     _tabController.addListener(_handleTabChange);
     _fetchFines();
   }
@@ -265,6 +268,7 @@ class _FinesScreenState extends State<FinesScreen>
   }
 
   void _showReceiptDialog(Map<String, dynamic> fine) {
+    widget.onLogActivity('Viewed Fine Receipt', Icons.receipt);
     showDialog(
       context: context,
       barrierColor: Colors.black.withAlpha(160),
@@ -332,6 +336,10 @@ class _FinesScreenState extends State<FinesScreen>
                           ),
                           onPressed: () {
                             Navigator.pop(context);
+                            // PDF එක Download කරද්දි අනිවාර්යයෙන්ම Log වෙන්න හැදුවා
+                            widget.onLogActivity(
+                                'Downloaded Receipt #${_formatId(fine['id'])}',
+                                Icons.picture_as_pdf);
                             PdfService.generateAndPrintReceipt(fine);
                           },
                           child: const Text('Download',
@@ -1062,7 +1070,8 @@ class _FinesScreenState extends State<FinesScreen>
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.orangeAccent.withAlpha(180),
+                                color: Colors.redAccent
+                                    .withAlpha(180), // Danger color
                               ),
                             ),
                         ],
@@ -1101,7 +1110,8 @@ class _FinesScreenState extends State<FinesScreen>
                               '+${fine['points']} points',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.orangeAccent.withAlpha(150),
+                                color: Colors.redAccent
+                                    .withAlpha(180), // Danger Color
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1268,7 +1278,10 @@ class _FinesScreenState extends State<FinesScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: _fetchFines,
+      onRefresh: () async {
+        widget.onLogActivity('Retried loading fines', Icons.refresh);
+        await _fetchFines();
+      },
       color: Colors.cyanAccent,
       backgroundColor: Colors.white.withAlpha(20),
       child: ListView.builder(
@@ -1353,10 +1366,8 @@ class _FinesScreenState extends State<FinesScreen>
                         children: [
                           Text(
                             '+${item['points']}',
-                            style: TextStyle(
-                              color: isPending
-                                  ? Colors.orangeAccent
-                                  : Colors.greenAccent,
+                            style: const TextStyle(
+                              color: Colors.redAccent,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1428,7 +1439,11 @@ class _FinesScreenState extends State<FinesScreen>
                           ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white.withAlpha(30)),
-                              onPressed: _fetchFines,
+                              onPressed: () {
+                                widget.onLogActivity(
+                                    'Retried loading fines', Icons.refresh);
+                                _fetchFines();
+                              },
                               child: const Text('Retry',
                                   style: TextStyle(color: Colors.white))),
                         ],
@@ -1447,7 +1462,12 @@ class _FinesScreenState extends State<FinesScreen>
                                             color: Colors.white70,
                                             fontWeight: FontWeight.w500)))
                                 : RefreshIndicator(
-                                    onRefresh: _fetchFines,
+                                    onRefresh: () async {
+                                      widget.onLogActivity(
+                                          'Retried loading fines',
+                                          Icons.refresh);
+                                      await _fetchFines();
+                                    },
                                     color: Colors.cyanAccent,
                                     backgroundColor: Colors.white.withAlpha(20),
                                     child: ListView.builder(
@@ -1474,7 +1494,12 @@ class _FinesScreenState extends State<FinesScreen>
                                             color: Colors.white70,
                                             fontWeight: FontWeight.w500)))
                                 : RefreshIndicator(
-                                    onRefresh: _fetchFines,
+                                    onRefresh: () async {
+                                      widget.onLogActivity(
+                                          'Retried loading fines',
+                                          Icons.refresh);
+                                      await _fetchFines();
+                                    },
                                     color: Colors.cyanAccent,
                                     backgroundColor: Colors.white.withAlpha(20),
                                     child: ListView.builder(
