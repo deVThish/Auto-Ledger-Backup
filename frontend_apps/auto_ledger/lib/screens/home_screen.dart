@@ -366,6 +366,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
+    } on DioException catch (e) {
+      if (mounted) Navigator.pop(context);
+      final errorMsg =
+          e.response?.data['message'] ?? 'Failed to generate QR Code.';
+      _showGlassToast(errorMsg, isError: true);
     } catch (e) {
       if (mounted) Navigator.pop(context);
       _showGlassToast('Failed to generate QR Code.', isError: true);

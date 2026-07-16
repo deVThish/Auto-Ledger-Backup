@@ -67,7 +67,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _checkBiometricStatus();
       _checkBiometricAvailability();
-      _autoBiometricLogin();
     }
   }
 
@@ -86,59 +85,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       setState(() {
         _isBiometricAvailable = available;
       });
-    }
-  }
-
-  Future<void> _autoBiometricLogin() async {
-    if (_isAuthenticating) return;
-
-    final isEnabled = await SettingsUtil.isBiometricEnabled();
-    if (!isEnabled) return;
-    if (!_isBiometricAvailable) return;
-
-    final String? savedNic = await SecureStorage.getNic();
-    if (savedNic == null || savedNic.isEmpty) return;
-
-    _isAuthenticating = true;
-    final authenticated = await _biometricService.authenticate();
-
-    if (!authenticated) {
-      _isAuthenticating = false;
-      return;
-    }
-
-    if (!mounted) {
-      _isAuthenticating = false;
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final deviceId = await DeviceInfoUtil.getDeviceId();
-      final result = await AuthService.biometricLogin(savedNic, deviceId);
-
-      if (!context.mounted) return;
-
-      if (result['success'] == true) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      } else if (result['isDeviceMismatch'] == true) {
-        final String email = result['email'] ?? '';
-        if (email.isNotEmpty) {
-          _showDeviceVerificationDialog(email, savedNic);
-        }
-      } else {
-        _showToast('Biometric login failed. Please try again.', isError: true);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showToast('Biometric login failed. Please try again.', isError: true);
-      }
-    } finally {
-      _isAuthenticating = false;
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
