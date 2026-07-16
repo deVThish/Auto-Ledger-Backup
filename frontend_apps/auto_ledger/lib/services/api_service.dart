@@ -1,6 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/secure_storage.dart';
+import '../utils/device_info.dart';
+import '../screens/login_screen.dart';
+import '../../main.dart';
 
 class ApiService {
   static final Dio _dio = Dio(BaseOptions(
@@ -16,7 +20,25 @@ class ApiService {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
+
+        try {
+          final deviceId = await DeviceInfoUtil.getDeviceId();
+          options.headers['device-id'] = deviceId;
+        } catch (_) {}
+
         return handler.next(options);
+      },
+      onError: (DioException error, handler) async {
+        if (error.response?.statusCode == 403 &&
+            error.response?.data['code'] == 'DEVICE_MISMATCH') {
+          await SecureStorage.deleteToken();
+          await SecureStorage.deleteNic();
+          navigatorKey.currentState?.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+        return handler.next(error);
       },
     ));
   }
