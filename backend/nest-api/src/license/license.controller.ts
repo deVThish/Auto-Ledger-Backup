@@ -137,7 +137,7 @@ export class UpdateLicenseDto extends PartialType(CreateLicenseDto) {}
 
 @ApiTags('Driving License')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard, DeviceGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('license')
 export class LicenseController {
   constructor(private readonly licenseService: LicenseService) {}
@@ -171,12 +171,14 @@ export class LicenseController {
   }
 
   @ApiOperation({ summary: 'Get current user active license' })
+  @UseGuards(DeviceGuard)
   @Get('my-license')
   async getMyLicense(@Request() req: AuthRequest) {
     return this.licenseService.getMyLicense(req.user.id);
   }
 
   @ApiOperation({ summary: 'Generate QR Code for License (10min expiry)' })
+  @UseGuards(DeviceGuard)
   @Get('generate-qr')
   async generateQR(@Request() req: AuthRequest) {
     return this.licenseService.generateLicenseQR(req.user.id);
