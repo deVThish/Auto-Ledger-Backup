@@ -40,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    debugPrint('[DEBUG] LoginScreen -> initState');
     WidgetsBinding.instance.addObserver(this);
     _checkBiometricStatus();
     _checkBiometricAvailability();
@@ -48,7 +47,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    debugPrint('[DEBUG] LoginScreen -> dispose');
     WidgetsBinding.instance.removeObserver(this);
     _overlayEntry?.remove();
     _nicController.dispose();
@@ -63,7 +61,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint('[DEBUG] LoginScreen -> Lifecycle changed to: $state');
     if (state == AppLifecycleState.resumed) {
       _checkBiometricStatus();
       _checkBiometricAvailability();
@@ -90,8 +87,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   void _showToast(String message, {bool isError = false}) {
     if (!mounted) return;
-
-    debugPrint('[DEBUG] Showing Toast -> Error: $isError | Message: $message');
 
     _overlayEntry?.remove();
     _overlayEntry = null;
@@ -172,7 +167,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _showGlassySuccessToast(OverlayState overlay, String message) {
-    debugPrint('[DEBUG] Showing Glassy Toast -> Message: $message');
     late OverlayEntry entry;
     entry = OverlayEntry(
       builder: (context) => Positioned(
@@ -249,7 +243,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _handleBiometricLogin() async {
-    debugPrint('[DEBUG] _handleBiometricLogin triggered');
     if (_isAuthenticating) return;
     if (!mounted) return;
 
@@ -289,7 +282,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       if (!context.mounted) return;
 
       if (result['success'] == true) {
-        debugPrint('[DEBUG] Biometric Login Success');
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
         Navigator.pushReplacement(
           context,
@@ -299,7 +291,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           _showGlassySuccessToast(overlay, 'Biometric Login Successful!');
         }
       } else if (result['isDeviceMismatch'] == true) {
-        debugPrint('[DEBUG] Biometric Login -> Device Mismatch');
         final String email = result['email'] ?? '';
         if (email.isNotEmpty) {
           _showDeviceVerificationDialog(email, savedNic);
@@ -312,7 +303,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (mounted) {
-        debugPrint('[DEBUG] Biometric Error: $e');
         _showToast('An error occurred during biometric login.', isError: true);
       }
     } finally {
@@ -322,7 +312,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _handleLogin() async {
-    debugPrint('[DEBUG] _handleLogin triggered');
     if (!mounted) return;
 
     FocusManager.instance.primaryFocus?.unfocus();
@@ -347,7 +336,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       if (!context.mounted) return;
 
       if (result['success'] == true) {
-        debugPrint('[DEBUG] Normal Login Success');
         await SecureStorage.saveNic(nic);
 
         if (!context.mounted) return;
@@ -361,7 +349,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           _showGlassySuccessToast(overlay, 'Login Successful!');
         }
       } else if (result['isDeviceMismatch'] == true) {
-        debugPrint('[DEBUG] Normal Login -> Device Mismatch');
         final String email = result['email'] ?? '';
         if (email.isNotEmpty) {
           _showDeviceVerificationDialog(email, nic);
@@ -371,12 +358,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         }
         setState(() => _isLoading = false);
       } else {
-        debugPrint('[DEBUG] Normal Login -> Failed');
         _showToast('Login Failed. Check credentials.', isError: true);
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      debugPrint('[DEBUG] Normal Login -> Exception: $e');
       if (mounted) {
         _showToast('Login Failed. Check credentials or connection.',
             isError: true);
@@ -386,7 +371,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _showDeviceVerificationDialog(String email, String nic) {
-    debugPrint('[DEBUG] _showDeviceVerificationDialog opened');
     final localOtpController = TextEditingController();
 
     bool isResending = false;
@@ -518,8 +502,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                 onPressed: isResending || isVerifying
                                     ? null
                                     : () async {
-                                        debugPrint(
-                                            '[DEBUG] Device Verify -> Resend OTP clicked');
                                         FocusManager.instance.primaryFocus
                                             ?.unfocus();
                                         setModalState(() {
@@ -579,20 +561,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                         ),
                                       ),
                                       onPressed: () {
-                                        debugPrint(
-                                            '[DEBUG] Device Verify -> Cancel clicked');
-                                        FocusManager.instance.primaryFocus
-                                            ?.unfocus();
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                          if (dialogContext.mounted) {
-                                            debugPrint(
-                                                '[DEBUG] Popping DialogContext from PostFrame');
-                                            Navigator.of(dialogContext).pop();
-                                          }
-                                        });
-                                        if (mounted)
+                                        if (dialogContext.mounted) {
+                                          Navigator.pop(dialogContext);
+                                        }
+                                        if (mounted) {
                                           setState(() => _isLoading = false);
+                                        }
                                       },
                                       child: const Text('Cancel',
                                           style:
@@ -619,8 +593,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                       onPressed: isVerifying || isResending
                                           ? null
                                           : () async {
-                                              debugPrint(
-                                                  '[DEBUG] Device Verify -> Verify clicked');
                                               FocusManager.instance.primaryFocus
                                                   ?.unfocus();
                                               final otp = localOtpController
@@ -652,44 +624,34 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                                   return;
 
                                                 if (result['success'] == true) {
-                                                  debugPrint(
-                                                      '[DEBUG] Device Verify -> Success');
-                                                  WidgetsBinding.instance
-                                                      .addPostFrameCallback(
-                                                          (_) {
-                                                    if (dialogContext.mounted) {
-                                                      Navigator.of(
-                                                              dialogContext)
-                                                          .pop();
-                                                    }
-                                                    if (!this.context.mounted)
-                                                      return;
-                                                    final overlay =
-                                                        Navigator.of(
-                                                                this.context,
-                                                                rootNavigator:
-                                                                    true)
-                                                            .overlay;
-                                                    Navigator.pushReplacement(
-                                                      this.context,
-                                                      MaterialPageRoute(
-                                                          builder: (_) =>
-                                                              const HomeScreen()),
-                                                    );
-                                                    if (overlay != null) {
-                                                      _showGlassySuccessToast(
-                                                          overlay,
-                                                          'Device verified successfully!');
-                                                    }
-                                                  });
+                                                  if (dialogContext.mounted) {
+                                                    Navigator.pop(
+                                                        dialogContext);
+                                                  }
+                                                  if (!this.context.mounted) {
+                                                    return;
+                                                  }
+                                                  final overlay = Navigator.of(
+                                                          this.context,
+                                                          rootNavigator: true)
+                                                      .overlay;
+                                                  Navigator.pushReplacement(
+                                                    this.context,
+                                                    MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            const HomeScreen()),
+                                                  );
+                                                  if (overlay != null) {
+                                                    _showGlassySuccessToast(
+                                                        overlay,
+                                                        'Device verified successfully!');
+                                                  }
                                                 } else {
                                                   setModalState(() => errorMsg =
                                                       result['message'] ??
                                                           'Invalid OTP. Please try again.');
                                                 }
                                               } catch (e) {
-                                                debugPrint(
-                                                    '[DEBUG] Device Verify -> Exception: $e');
                                                 if (dialogContext.mounted) {
                                                   setModalState(() => errorMsg =
                                                       'Verification failed. Please try again.');
@@ -724,14 +686,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           );
         },
       ).then((_) {
-        debugPrint('[DEBUG] Device Verification Dialog closed');
-        localOtpController.dispose();
+        Future.delayed(const Duration(milliseconds: 500), () {
+          localOtpController.dispose();
+        });
       });
     });
   }
 
   void _showForgotPasswordInitialDialog() {
-    debugPrint('[DEBUG] _showForgotPasswordInitialDialog opened');
     _forgotNicController.clear();
     _forgotEmailController.clear();
     bool isChecking = false;
@@ -849,15 +811,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                   ),
                                 ),
                                 onPressed: () {
-                                  debugPrint(
-                                      '[DEBUG] Forgot Password Initial -> Cancel clicked');
-                                  FocusManager.instance.primaryFocus?.unfocus();
-                                  WidgetsBinding.instance
-                                      .addPostFrameCallback((_) {
-                                    if (dialogContext.mounted) {
-                                      Navigator.of(dialogContext).pop();
-                                    }
-                                  });
+                                  if (dialogContext.mounted) {
+                                    Navigator.pop(dialogContext);
+                                  }
                                 },
                                 child: const Text('Cancel',
                                     style: TextStyle(color: Colors.white)),
@@ -880,8 +836,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                 onPressed: isChecking
                                     ? null
                                     : () async {
-                                        debugPrint(
-                                            '[DEBUG] Forgot Password Initial -> Next clicked');
                                         FocusManager.instance.primaryFocus
                                             ?.unfocus();
                                         final nic =
@@ -906,24 +860,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                           final isValid = await AuthService
                                               .forgotPasswordCheck(nic, email);
                                           if (isValid) {
-                                            debugPrint(
-                                                '[DEBUG] Forgot Password Initial -> Success');
-                                            WidgetsBinding.instance
-                                                .addPostFrameCallback((_) {
-                                              if (dialogContext.mounted) {
-                                                Navigator.of(dialogContext)
-                                                    .pop();
-                                              }
-                                              _showForgotPasswordOTPDialog(
-                                                  nic, email);
-                                            });
+                                            if (dialogContext.mounted) {
+                                              Navigator.pop(dialogContext);
+                                            }
+                                            _showForgotPasswordOTPDialog(
+                                                nic, email);
                                           } else {
                                             setModalState(() => errorMsg =
                                                 'Verification failed. Check NIC and Email.');
                                           }
                                         } catch (e) {
-                                          debugPrint(
-                                              '[DEBUG] Forgot Password Initial -> Exception: $e');
                                           setModalState(() => errorMsg =
                                               'Verification failed. Check NIC and Email.');
                                         } finally {
@@ -953,7 +899,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _showForgotPasswordOTPDialog(String nic, String email) {
-    debugPrint('[DEBUG] _showForgotPasswordOTPDialog opened');
     _resetOtpController.clear();
     bool isResending = false;
     bool isVerifying = false;
@@ -1054,8 +999,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             onPressed: isResending || isVerifying
                                 ? null
                                 : () async {
-                                    debugPrint(
-                                        '[DEBUG] Forgot Password OTP -> Resend clicked');
                                     FocusManager.instance.primaryFocus
                                         ?.unfocus();
                                     setModalState(() {
@@ -1112,16 +1055,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                     ),
                                   ),
                                   onPressed: () {
-                                    debugPrint(
-                                        '[DEBUG] Forgot Password OTP -> Cancel clicked');
-                                    FocusManager.instance.primaryFocus
-                                        ?.unfocus();
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                      if (dialogContext.mounted) {
-                                        Navigator.of(dialogContext).pop();
-                                      }
-                                    });
+                                    if (dialogContext.mounted) {
+                                      Navigator.pop(dialogContext);
+                                    }
                                   },
                                   child: const Text('Cancel',
                                       style: TextStyle(color: Colors.white)),
@@ -1144,8 +1080,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                   onPressed: isVerifying || isResending
                                       ? null
                                       : () async {
-                                          debugPrint(
-                                              '[DEBUG] Forgot Password OTP -> Verify clicked');
                                           FocusManager.instance.primaryFocus
                                               ?.unfocus();
                                           final otp =
@@ -1173,24 +1107,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                             if (!dialogContext.mounted) return;
 
                                             if (isVerified) {
-                                              debugPrint(
-                                                  '[DEBUG] Forgot Password OTP -> Success');
-                                              WidgetsBinding.instance
-                                                  .addPostFrameCallback((_) {
-                                                if (dialogContext.mounted) {
-                                                  Navigator.of(dialogContext)
-                                                      .pop();
-                                                }
-                                                _showResetPasswordDialog(
-                                                    nic, email, otp);
-                                              });
+                                              if (dialogContext.mounted) {
+                                                Navigator.pop(dialogContext);
+                                              }
+                                              _showResetPasswordDialog(
+                                                  nic, email, otp);
                                             } else {
                                               setModalState(() => errorMsg =
                                                   'Invalid OTP. Please try again.');
                                             }
                                           } catch (e) {
-                                            debugPrint(
-                                                '[DEBUG] Forgot Password OTP -> Exception: $e');
                                             if (dialogContext.mounted) {
                                               setModalState(() => errorMsg =
                                                   'OTP Verification Failed.');
@@ -1224,7 +1150,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _showResetPasswordDialog(String nic, String email, String otp) {
-    debugPrint('[DEBUG] _showResetPasswordDialog opened');
     _newPasswordController.clear();
     _confirmNewPasswordController.clear();
     bool isSaving = false;
@@ -1369,16 +1294,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                     ),
                                   ),
                                   onPressed: () {
-                                    debugPrint(
-                                        '[DEBUG] Reset Password -> Cancel clicked');
-                                    FocusManager.instance.primaryFocus
-                                        ?.unfocus();
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                      if (dialogContext.mounted) {
-                                        Navigator.of(dialogContext).pop();
-                                      }
-                                    });
+                                    if (dialogContext.mounted) {
+                                      Navigator.pop(dialogContext);
+                                    }
                                   },
                                   child: const Text('Cancel',
                                       style: TextStyle(color: Colors.white)),
@@ -1401,8 +1319,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                   onPressed: isSaving
                                       ? null
                                       : () async {
-                                          debugPrint(
-                                              '[DEBUG] Reset Password -> Save clicked');
                                           FocusManager.instance.primaryFocus
                                               ?.unfocus();
                                           final newPassword =
@@ -1453,33 +1369,23 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                             if (!dialogContext.mounted) return;
 
                                             if (success) {
-                                              debugPrint(
-                                                  '[DEBUG] Reset Password -> Success');
-                                              WidgetsBinding.instance
-                                                  .addPostFrameCallback((_) {
-                                                if (dialogContext.mounted) {
-                                                  Navigator.of(dialogContext)
-                                                      .pop();
-                                                }
-                                                if (!this.context.mounted)
-                                                  return;
-                                                final overlay = Navigator.of(
-                                                        this.context,
-                                                        rootNavigator: true)
-                                                    .overlay;
-                                                if (overlay != null) {
-                                                  _showGlassySuccessToast(
-                                                      overlay,
-                                                      'Password reset successfully! Please login.');
-                                                }
-                                              });
+                                              if (dialogContext.mounted) {
+                                                Navigator.pop(dialogContext);
+                                              }
+                                              if (!this.context.mounted) return;
+                                              final overlay = Navigator.of(
+                                                      this.context,
+                                                      rootNavigator: true)
+                                                  .overlay;
+                                              if (overlay != null) {
+                                                _showGlassySuccessToast(overlay,
+                                                    'Password reset successfully! Please login.');
+                                              }
                                             } else {
                                               setModalState(() => errorMsg =
                                                   'Failed to save password. Try again.');
                                             }
                                           } catch (e) {
-                                            debugPrint(
-                                                '[DEBUG] Reset Password -> Exception: $e');
                                             if (dialogContext.mounted) {
                                               setModalState(() => errorMsg =
                                                   'Failed to reset password. Try again.');
