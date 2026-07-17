@@ -336,7 +336,6 @@ class _FinesScreenState extends State<FinesScreen>
                           ),
                           onPressed: () {
                             Navigator.pop(context);
-                            // PDF එක Download කරද්දි අනිවාර්යයෙන්ම Log වෙන්න හැදුවා
                             widget.onLogActivity(
                                 'Downloaded Receipt #${_formatId(fine['id'])}',
                                 Icons.picture_as_pdf);
@@ -801,6 +800,9 @@ class _FinesScreenState extends State<FinesScreen>
   }
 
   Widget _buildFineCard(Map<String, dynamic> fine, bool isPending) {
+    final bool hasPayment = fine['payment'] != null;
+    final bool isPendingDH =
+        isPending && hasPayment; // Pending Tab එකේ තියෙන, ගෙවපු ඒවා
     final isSelected = _selectedFines.contains(fine['id']);
     final isOverdue = fine['dueDate'] != null &&
         DateTime.parse(fine['dueDate']).isBefore(DateTime.now());
@@ -817,7 +819,9 @@ class _FinesScreenState extends State<FinesScreen>
         : Colors.white.withAlpha(40);
 
     return GestureDetector(
-      onTap: isPending ? () => _toggleSelection(fine['id']) : null,
+      onTap: (isPending && !isPendingDH)
+          ? () => _toggleSelection(fine['id'])
+          : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 16),
@@ -850,7 +854,7 @@ class _FinesScreenState extends State<FinesScreen>
                     children: [
                       Row(
                         children: [
-                          if (isPending) ...[
+                          if (isPending && !isPendingDH) ...[
                             Icon(
                                 isSelected
                                     ? Icons.check_circle
@@ -872,34 +876,42 @@ class _FinesScreenState extends State<FinesScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: isPending
-                              ? Colors.red.withAlpha(30)
-                              : Colors.green.withAlpha(30),
+                          color: isPendingDH
+                              ? Colors.blue.withAlpha(30)
+                              : (isPending
+                                  ? Colors.red.withAlpha(30)
+                                  : Colors.green.withAlpha(30)),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: isPending
-                                  ? (isOverdue
-                                      ? Colors.red.shade400.withAlpha(80)
-                                      : Colors.red.withAlpha(80))
-                                  : Colors.green.withAlpha(80)),
+                              color: isPendingDH
+                                  ? Colors.blue.withAlpha(80)
+                                  : (isPending
+                                      ? (isOverdue
+                                          ? Colors.red.shade400.withAlpha(80)
+                                          : Colors.red.withAlpha(80))
+                                      : Colors.green.withAlpha(80))),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              fine['status'],
+                              isPendingDH
+                                  ? 'PAID - PENDING DH'
+                                  : fine['status'],
                               style: TextStyle(
-                                color: isPending
-                                    ? (isOverdue
-                                        ? Colors.red.shade400
-                                        : Colors.red.shade300)
-                                    : Colors.green.shade300,
+                                color: isPendingDH
+                                    ? Colors.blue.shade300
+                                    : (isPending
+                                        ? (isOverdue
+                                            ? Colors.red.shade400
+                                            : Colors.red.shade300)
+                                        : Colors.green.shade300),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 10,
                                 letterSpacing: 0.5,
                               ),
                             ),
-                            if (isOverdue && isPending) ...[
+                            if (isOverdue && isPending && !isPendingDH) ...[
                               const SizedBox(width: 4),
                               const Icon(
                                 Icons.warning_rounded,
@@ -989,7 +1001,7 @@ class _FinesScreenState extends State<FinesScreen>
                       ],
                     ),
                   ],
-                  if (!isPending && fine['payment'] != null) ...[
+                  if (hasPayment) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -997,7 +1009,7 @@ class _FinesScreenState extends State<FinesScreen>
                             size: 14, color: Colors.green.shade300),
                         const SizedBox(width: 8),
                         Text(
-                          'Paid: ${_formatDateTime(fine['payment']['paidTime'])}',
+                          'Paid on: ${_formatDateTime(fine['payment']['created_At'] ?? fine['payment']['createdAt'] ?? fine['payment']['paidTime'] ?? DateTime.now().toIso8601String())}',
                           style: TextStyle(
                               color: Colors.green.shade300,
                               fontSize: 12,
@@ -1070,8 +1082,7 @@ class _FinesScreenState extends State<FinesScreen>
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.redAccent
-                                    .withAlpha(180), // Danger color
+                                color: Colors.redAccent.withAlpha(180),
                               ),
                             ),
                         ],
@@ -1098,7 +1109,7 @@ class _FinesScreenState extends State<FinesScreen>
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
-                              color: isPending
+                              color: (isPending && !isPendingDH)
                                   ? (isOverdue
                                       ? Colors.red.shade400
                                       : Colors.redAccent)
@@ -1110,14 +1121,13 @@ class _FinesScreenState extends State<FinesScreen>
                               '+${fine['points']} points',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.redAccent
-                                    .withAlpha(180), // Danger Color
+                                color: Colors.redAccent.withAlpha(180),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                         ],
                       ),
-                      if (isPending && !isSelected)
+                      if (isPending && !isSelected && !isPendingDH)
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white.withAlpha(25),
@@ -1138,7 +1148,7 @@ class _FinesScreenState extends State<FinesScreen>
                               style: TextStyle(
                                   fontWeight: FontWeight.w900, fontSize: 12)),
                         ),
-                      if (!isPending)
+                      if (hasPayment)
                         TextButton.icon(
                           onPressed: () => _showReceiptDialog(fine),
                           icon: const Icon(Icons.picture_as_pdf,
