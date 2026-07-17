@@ -485,15 +485,15 @@ class _FinesScreenState extends State<FinesScreen>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.white.withAlpha(40),
-                        Colors.white.withAlpha(15)
+                        Colors.white.withAlpha(50),
+                        Colors.white.withAlpha(20)
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(30),
                     border: Border.all(
-                        color: Colors.white.withAlpha(60), width: 1.0),
+                        color: Colors.white.withAlpha(70), width: 1.0),
                     boxShadow: [
                       BoxShadow(
                           color: Colors.black.withAlpha(30),
@@ -519,10 +519,10 @@ class _FinesScreenState extends State<FinesScreen>
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(15),
+                            color: Colors.white.withAlpha(20),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: Colors.white.withAlpha(40), width: 1),
+                                color: Colors.white.withAlpha(50), width: 1),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -607,7 +607,7 @@ class _FinesScreenState extends State<FinesScreen>
                                           child: Container(
                                               height: 1.2,
                                               color: index % 2 == 0
-                                                  ? Colors.white.withAlpha(40)
+                                                  ? Colors.white.withAlpha(50)
                                                   : Colors.transparent))),
                                 ),
                               ),
@@ -643,6 +643,7 @@ class _FinesScreenState extends State<FinesScreen>
                                     true,
                                     isObscure: isCvvObscured,
                                     suffixIcon: IconButton(
+                                      padding: EdgeInsets.zero,
                                       icon: Icon(
                                         isCvvObscured
                                             ? Icons.visibility_off_rounded
@@ -689,13 +690,13 @@ class _FinesScreenState extends State<FinesScreen>
                                 style: ElevatedButton.styleFrom(
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 14),
-                                  backgroundColor: Colors.white.withAlpha(40),
+                                  backgroundColor: Colors.white.withAlpha(50),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
                                       side: BorderSide(
-                                          color: Colors.white.withAlpha(60))),
+                                          color: Colors.white.withAlpha(80))),
                                 ),
                                 onPressed: () =>
                                     _processPayment(finesToPay, totalAmount),
@@ -731,9 +732,9 @@ class _FinesScreenState extends State<FinesScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(15),
+        color: Colors.white.withAlpha(20),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withAlpha(40), width: 1.0),
+        border: Border.all(color: Colors.white.withAlpha(50), width: 1.0),
       ),
       child: TextField(
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
@@ -749,10 +750,14 @@ class _FinesScreenState extends State<FinesScreen>
           labelStyle: const TextStyle(
               color: Colors.white60, fontWeight: FontWeight.w600, fontSize: 12),
           prefixIcon: Icon(icon, color: Colors.white70, size: 18),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 34, minHeight: 34),
           suffixIcon: suffixIcon,
+          suffixIconConstraints:
+              const BoxConstraints(minWidth: 34, minHeight: 34),
           border: InputBorder.none,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         ),
       ),
     );
@@ -801,8 +806,7 @@ class _FinesScreenState extends State<FinesScreen>
 
   Widget _buildFineCard(Map<String, dynamic> fine, bool isPending) {
     final bool hasPayment = fine['payment'] != null;
-    final bool isPendingDH =
-        isPending && hasPayment; // Pending Tab එකේ තියෙන, ගෙවපු ඒවා
+    final bool isPendingDH = isPending && hasPayment;
     final isSelected = _selectedFines.contains(fine['id']);
     final isOverdue = fine['dueDate'] != null &&
         DateTime.parse(fine['dueDate']).isBefore(DateTime.now());
@@ -812,11 +816,11 @@ class _FinesScreenState extends State<FinesScreen>
             const Color(0xFF1A2980).withAlpha(45),
             const Color(0xFF1A2980).withAlpha(15)
           ]
-        : [Colors.white.withAlpha(20), Colors.white.withAlpha(6)];
+        : [Colors.white.withAlpha(35), Colors.white.withAlpha(15)];
 
     final borderColor = isSelected
         ? const Color(0xFF1A2980).withAlpha(150)
-        : Colors.white.withAlpha(40);
+        : Colors.white.withAlpha(60);
 
     return GestureDetector(
       onTap: (isPending && !isPendingDH)
@@ -928,11 +932,11 @@ class _FinesScreenState extends State<FinesScreen>
                   Row(
                     children: [
                       Icon(Icons.calendar_month_rounded,
-                          size: 14, color: Colors.white60),
+                          size: 14, color: Colors.white70),
                       const SizedBox(width: 8),
                       Text(_formatDate(fine['date']),
                           style: const TextStyle(
-                              color: Colors.white70,
+                              color: Colors.white,
                               fontWeight: FontWeight.w600,
                               fontSize: 13)),
                     ],
@@ -945,14 +949,13 @@ class _FinesScreenState extends State<FinesScreen>
                             size: 14,
                             color: isOverdue
                                 ? Colors.red.shade300
-                                : Colors.white60),
+                                : Colors.white70),
                         const SizedBox(width: 8),
                         Text(
                           'Due: ${_formatDate(fine['dueDate'])}',
                           style: TextStyle(
-                            color: isOverdue
-                                ? Colors.red.shade300
-                                : Colors.white60,
+                            color:
+                                isOverdue ? Colors.red.shade300 : Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -964,13 +967,13 @@ class _FinesScreenState extends State<FinesScreen>
                   Row(
                     children: [
                       Icon(Icons.person_outline_rounded,
-                          size: 14, color: Colors.white60),
+                          size: 14, color: Colors.white70),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           fine['officer'],
                           style: const TextStyle(
-                              color: Colors.white70,
+                              color: Colors.white,
                               fontWeight: FontWeight.w600,
                               fontSize: 13),
                           maxLines: 1,
@@ -986,13 +989,13 @@ class _FinesScreenState extends State<FinesScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(Icons.comment_outlined,
-                            size: 14, color: Colors.white60),
+                            size: 14, color: Colors.white70),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             fine['comment'],
                             style: const TextStyle(
-                                color: Colors.white54,
+                                color: Colors.white70,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 12,
                                 fontStyle: FontStyle.italic),
@@ -1021,12 +1024,12 @@ class _FinesScreenState extends State<FinesScreen>
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child:
-                        Container(height: 1, color: Colors.white.withAlpha(40)),
+                        Container(height: 1, color: Colors.white.withAlpha(50)),
                   ),
                   const Text('OFFENSES',
                       style: TextStyle(
                           fontSize: 10,
-                          color: Colors.white60,
+                          color: Colors.white70,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.0)),
                   const SizedBox(height: 8),
@@ -1068,7 +1071,7 @@ class _FinesScreenState extends State<FinesScreen>
                                     offense['name'],
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.white70,
+                                        color: Colors.white,
                                         fontSize: 13),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1100,7 +1103,7 @@ class _FinesScreenState extends State<FinesScreen>
                           const Text('TOTAL AMOUNT',
                               style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.white60,
+                                  color: Colors.white70,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1.0)),
                           const SizedBox(height: 2),
@@ -1130,7 +1133,7 @@ class _FinesScreenState extends State<FinesScreen>
                       if (isPending && !isSelected && !isPendingDH)
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withAlpha(25),
+                            backgroundColor: Colors.white.withAlpha(35),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14)),
@@ -1138,7 +1141,7 @@ class _FinesScreenState extends State<FinesScreen>
                                 horizontal: 20, vertical: 10),
                             elevation: 0,
                             side: BorderSide(
-                                color: Colors.white.withAlpha(60), width: 1.0),
+                                color: Colors.white.withAlpha(70), width: 1.0),
                           ),
                           onPressed: () {
                             HapticFeedback.lightImpact();
@@ -1152,11 +1155,11 @@ class _FinesScreenState extends State<FinesScreen>
                         TextButton.icon(
                           onPressed: () => _showReceiptDialog(fine),
                           icon: const Icon(Icons.picture_as_pdf,
-                              color: Colors.white60, size: 16),
+                              color: Colors.white70, size: 16),
                           label: const Text(
                             'Receipt',
                             style:
-                                TextStyle(color: Colors.white60, fontSize: 11),
+                                TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1218,7 +1221,7 @@ class _FinesScreenState extends State<FinesScreen>
                       children: [
                         Text('${_selectedFines.length} Selected',
                             style: const TextStyle(
-                                color: Colors.white60,
+                                color: Colors.white70,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600)),
                         Text('Rs. ${total.toStringAsFixed(2)}',
@@ -1230,12 +1233,12 @@ class _FinesScreenState extends State<FinesScreen>
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withAlpha(40),
+                        backgroundColor: Colors.white.withAlpha(50),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                             side:
-                                BorderSide(color: Colors.white.withAlpha(60))),
+                                BorderSide(color: Colors.white.withAlpha(70))),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 0),
                         elevation: 0,
@@ -1293,7 +1296,7 @@ class _FinesScreenState extends State<FinesScreen>
         await _fetchFines();
       },
       color: Colors.cyanAccent,
-      backgroundColor: Colors.white.withAlpha(20),
+      backgroundColor: Colors.white.withAlpha(30),
       child: ListView.builder(
         padding: const EdgeInsets.only(
             top: kToolbarHeight + kTextTabBarHeight + 40,
@@ -1315,12 +1318,12 @@ class _FinesScreenState extends State<FinesScreen>
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(isPending ? 15 : 8),
+                    color: Colors.white.withAlpha(isPending ? 25 : 15),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isPending
-                          ? Colors.white.withAlpha(40)
-                          : Colors.white.withAlpha(20),
+                          ? Colors.white.withAlpha(50)
+                          : Colors.white.withAlpha(30),
                       width: 1.0,
                     ),
                   ),
@@ -1344,17 +1347,17 @@ class _FinesScreenState extends State<FinesScreen>
                             Text(
                               _formatDate(item['date']),
                               style: const TextStyle(
-                                  color: Colors.white70, fontSize: 12),
+                                  color: Colors.white, fontSize: 12),
                             ),
                             Text(
                               '#${_formatId(item['id'])}',
                               style: const TextStyle(
-                                  color: Colors.white60, fontSize: 10),
+                                  color: Colors.white70, fontSize: 10),
                             ),
                             Text(
                               item['officer'] ?? '',
                               style: const TextStyle(
-                                  color: Colors.white54, fontSize: 10),
+                                  color: Colors.white60, fontSize: 10),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1385,7 +1388,7 @@ class _FinesScreenState extends State<FinesScreen>
                           Text(
                             'Total: ${item['cumulative']}',
                             style: const TextStyle(
-                                color: Colors.white60, fontSize: 11),
+                                color: Colors.white70, fontSize: 11),
                           ),
                         ],
                       ),
@@ -1448,7 +1451,7 @@ class _FinesScreenState extends State<FinesScreen>
                           const SizedBox(height: 16),
                           ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white.withAlpha(30)),
+                                  backgroundColor: Colors.white.withAlpha(40)),
                               onPressed: () {
                                 widget.onLogActivity(
                                     'Retried loading fines', Icons.refresh);
@@ -1479,7 +1482,7 @@ class _FinesScreenState extends State<FinesScreen>
                                       await _fetchFines();
                                     },
                                     color: Colors.cyanAccent,
-                                    backgroundColor: Colors.white.withAlpha(20),
+                                    backgroundColor: Colors.white.withAlpha(30),
                                     child: ListView.builder(
                                       padding: const EdgeInsets.only(
                                           top: kToolbarHeight +
@@ -1511,7 +1514,7 @@ class _FinesScreenState extends State<FinesScreen>
                                       await _fetchFines();
                                     },
                                     color: Colors.cyanAccent,
-                                    backgroundColor: Colors.white.withAlpha(20),
+                                    backgroundColor: Colors.white.withAlpha(30),
                                     child: ListView.builder(
                                       padding: const EdgeInsets.only(
                                           top: kToolbarHeight +
