@@ -59,6 +59,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _licenseData = Map<String, dynamic>.from(response.data);
         _isLoading = false;
         _errorMessage = '';
+
+        final status = _licenseData?['status'];
+        if (status == 'SUSPENDED' || status == 'REVOKED') {
+          _currentQrToken = null;
+          _currentQrExpiry = null;
+        }
       });
 
       if (!_hasShownPointsWarning) {
@@ -448,6 +454,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _generateQR() async {
+    final status = _licenseData?['status'];
+    if (status == 'SUSPENDED' || status == 'REVOKED') {
+      _showGlassToast('Access Denied: Your license is $status.', isError: true);
+      return;
+    }
+
     if (_currentQrToken != null && _currentQrExpiry != null) {
       final now = DateTime.now();
       if (_currentQrExpiry!.isAfter(now)) {
@@ -1197,6 +1209,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final List<dynamic> tempLicenses = _licenseData?['temporaryLicenses'] ?? [];
+    final String licenseStatus = _licenseData?['status'] ?? 'UNKNOWN';
+    final bool isQrBlocked =
+        licenseStatus == 'SUSPENDED' || licenseStatus == 'REVOKED';
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -1222,8 +1237,7 @@ class _HomeScreenState extends State<HomeScreen> {
             GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
-                _addRecentActivity(
-                    'Flipped License Card', Icons.flip); // Card flip activity
+                _addRecentActivity('Flipped License Card', Icons.flip);
                 setState(() => _isFront = !_isFront);
               },
               child: AnimatedSwitcher(
@@ -1246,12 +1260,20 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
             ],
             _buildGlassButton(
-              label: 'SHOW QR TO OFFICER',
-              icon: Icons.qr_code_scanner,
-              color: Colors.blueAccent,
+              label: isQrBlocked
+                  ? 'QR BLOCKED ($licenseStatus)'
+                  : 'SHOW QR TO OFFICER',
+              icon: isQrBlocked ? Icons.block : Icons.qr_code_scanner,
+              color: isQrBlocked ? Colors.redAccent : Colors.blueAccent,
               onPressed: () {
                 HapticFeedback.lightImpact();
-                _generateQR();
+                if (isQrBlocked) {
+                  _showGlassToast(
+                      'Access Denied: Your license is $licenseStatus.',
+                      isError: true);
+                } else {
+                  _generateQR();
+                }
               },
             ),
             const SizedBox(height: 24),
