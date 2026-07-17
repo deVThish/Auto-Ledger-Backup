@@ -351,10 +351,12 @@ export class FinesService {
   async payFine(fineId: string, amount: number) {
     const fine = await this.prisma.fine.findUnique({
       where: { fine_Id: fineId },
-      include: { license: true },
+      include: { license: true, payment: true },
     });
     if (!fine) throw new NotFoundException('Fine not found');
-    if (fine.status === 'PAID')
+
+    // Check if payment already exists
+    if (fine.status === 'PAID' || fine.payment)
       throw new BadRequestException('Fine already paid');
 
     const now = new Date();
@@ -412,14 +414,14 @@ export class FinesService {
   async payBulkFines(fineIds: string[], totalAmount: number) {
     const fines = await this.prisma.fine.findMany({
       where: { fine_Id: { in: fineIds } },
-      include: { license: true },
+      include: { license: true, payment: true },
     });
     if (fines.length !== fineIds.length)
       throw new BadRequestException('Invalid fines');
 
     for (const fine of fines) {
-      if (fine.status === 'PAID')
-        throw new BadRequestException('Fine already paid');
+      if (fine.status === 'PAID' || fine.payment)
+        throw new BadRequestException('One or more fines are already paid');
     }
 
     const licenseId = fines[0].license_Id;
