@@ -112,18 +112,6 @@ export class CreateLicenseDto {
   categories: VehicleCategoryDto[];
 }
 
-export class ScanQRDto {
-  @ApiProperty({ example: 'License_ID:RandomHash' })
-  @IsString()
-  @IsNotEmpty()
-  qrToken: string;
-
-  @ApiPropertyOptional({ example: 'Galle Fort' })
-  @IsString()
-  @IsOptional()
-  location?: string;
-}
-
 export class UpdateStatusDto {
   @ApiProperty({
     example: 'SUSPENDED',
@@ -174,29 +162,6 @@ export class LicenseController {
   @Get('my-license')
   async getMyLicense(@Request() req: AuthRequest) {
     return this.licenseService.getMyLicense(req.user.id);
-  }
-
-  @ApiOperation({ summary: 'Generate QR Code for License (10min expiry)' })
-  @Get('generate-qr')
-  async generateQR(@Request() req: AuthRequest) {
-    return this.licenseService.generateLicenseQR(req.user.id);
-  }
-
-  @ApiOperation({ summary: 'Check if QR code has been scanned' })
-  @Get('check-scan-status')
-  async checkScanStatus(@Query('qrToken') qrToken: string) {
-    return this.licenseService.checkScanStatus(qrToken);
-  }
-
-  @Roles('TRAFFIC_OFFICER')
-  @ApiOperation({ summary: 'Scan License QR Code (validates JWT expiry)' })
-  @Post('scan-qr')
-  async scanQR(@Request() req: AuthRequest, @Body() data: ScanQRDto) {
-    return this.licenseService.scanLicenseQR(
-      data.qrToken,
-      req.user.id,
-      data.location,
-    );
   }
 
   @Roles('DMT_ADMIN')
