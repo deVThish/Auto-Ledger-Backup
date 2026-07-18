@@ -46,22 +46,26 @@ class PdfService {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('Receipt ID:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Receipt ID:',
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                   pw.Text('#${fineId.substring(0, 8).toUpperCase()}'),
                 ],
               ),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('Date:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Date:',
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                   pw.Text(_formatDate(issueDate)),
                 ],
               ),
               pw.SizedBox(height: 20),
-              pw.Text('OFFICER', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              pw.Text('OFFICER',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
               pw.Text(officer),
               pw.SizedBox(height: 20),
-              pw.Text('OFFENSES', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              pw.Text('OFFENSES',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 8),
               ...offenses.map((o) {
                 return pw.Row(
@@ -71,7 +75,7 @@ class PdfService {
                     pw.Text('+${o['points']} pts'),
                   ],
                 );
-              }).toList(),
+              }), // removed .toList()
               pw.SizedBox(height: 20),
               pw.Divider(thickness: 1),
               pw.SizedBox(height: 10),
@@ -80,11 +84,15 @@ class PdfService {
                 children: [
                   pw.Text(
                     'TOTAL AMOUNT',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
+                    style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold, fontSize: 16),
                   ),
                   pw.Text(
                     'Rs. ${totalAmount.toStringAsFixed(2)}',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16, color: PdfColors.green700),
+                    style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 16,
+                        color: PdfColors.green700),
                   ),
                 ],
               ),

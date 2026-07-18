@@ -11,6 +11,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 interface AuthenticatedRequest extends Request {
   user: {
     id: string;
+    role?: string;
   };
 }
 
@@ -35,6 +36,11 @@ export class DeviceGuard implements CanActivate {
 
     if (!user || !user.id) {
       throw new UnauthorizedException('Unauthorized');
+    }
+
+    // Skip device check for non-USER roles
+    if (user.role && user.role !== 'USER') {
+      return true;
     }
 
     const deviceIdFromHeader = request.headers['device-id'];
