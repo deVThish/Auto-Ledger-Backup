@@ -6,14 +6,14 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../services/api_service.dart';
 
 class QRDialog extends StatefulWidget {
-  final String qrToken;
+  final String sessionId;
   final DateTime initialExpiresAt;
   final VoidCallback onClose;
   final VoidCallback onExpired;
 
   const QRDialog({
     super.key,
-    required this.qrToken,
+    required this.sessionId,
     required this.initialExpiresAt,
     required this.onClose,
     required this.onExpired,
@@ -47,11 +47,10 @@ class _QRDialogState extends State<QRDialog> {
       }
       try {
         final response = await ApiService.dio.get(
-          '/license/check-scan-status',
-          queryParameters: {'qrToken': widget.qrToken},
+          '/qr/status/${widget.sessionId}',
         );
 
-        final scanned = response.data['scanned'] == true;
+        final status = response.data['status'];
         final expiresAt = DateTime.parse(response.data['expiresAt']);
 
         if (mounted) {
@@ -60,7 +59,13 @@ class _QRDialogState extends State<QRDialog> {
           });
         }
 
-        if (scanned) {
+        if (status == 'EXPIRED') {
+          timer.cancel();
+          if (mounted) {
+            setState(() => _isExpired = true);
+            widget.onExpired();
+          }
+        } else if (status == 'ACTIVE') {
           timer.cancel();
           _onQrScanned(expiresAt);
         }
@@ -170,13 +175,12 @@ class _QRDialogState extends State<QRDialog> {
                         color: Colors.white.withAlpha(80), width: 1.5),
                   ),
                   child: QrImageView(
-                    data: widget.qrToken,
+                    data: widget.sessionId,
                     version: QrVersions.auto,
                     size: 200.0,
                   ),
                 ),
                 const SizedBox(height: 12),
-
                 if (_isScanned && !_isExpired) ...[
                   Text(
                     'Valid for: $_formattedTime',
@@ -190,37 +194,30 @@ class _QRDialogState extends State<QRDialog> {
                   ),
                   const SizedBox(height: 2),
                 ] else if (!_isScanned && !_isExpired) ...[
-
-                  const Text(
-                    'Valid for: 10:00',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                ],
-
-                if (!_isExpired) ...[
-                  Text(
-                    'QR code will expire at ${_formatTime(displayExpiresAt)}',
-                    style: const TextStyle(color: Colors.white60, fontSize: 13),
-                  ),
-                  const SizedBox(height: 2),
-                ],
-
-                if (!_isScanned && !_isExpired) ...[
                   const Text(
                     'Waiting for officer to scan...',
                     style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                       color: Colors.cyanAccent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'QR code will remain valid until scanned.',
+                    style: TextStyle(color: Colors.white60, fontSize: 13),
+                  ),
                 ],
-
+                if (!_isExpired) ...[
+                  if (_isScanned) ...[
+                    Text(
+                      'QR code will expire at ${_formatTime(displayExpiresAt)}',
+                      style:
+                          const TextStyle(color: Colors.white60, fontSize: 13),
+                    ),
+                  ],
+                  const SizedBox(height: 2),
+                ],
                 if (_isScanned && !_isExpired) ...[
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -239,8 +236,6 @@ class _QRDialogState extends State<QRDialog> {
                     ],
                   ),
                 ],
-
-                // Expired State
                 if (_isExpired) ...[
                   const Icon(Icons.timer_off,
                       color: Colors.redAccent, size: 32),
@@ -260,7 +255,6 @@ class _QRDialogState extends State<QRDialog> {
                     textAlign: TextAlign.center,
                   ),
                 ],
-
                 const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,

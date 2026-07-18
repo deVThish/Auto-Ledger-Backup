@@ -3,7 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service'; // Path eka hariyata danna
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class QrService {
@@ -49,6 +49,7 @@ export class QrService {
         success: true,
         message: 'Scan successful. Timer started.',
         userId: updatedSession.userId,
+        expiresAt: updatedSession.expiresAt,
       };
     }
 
@@ -65,6 +66,7 @@ export class QrService {
         success: true,
         message: 'Scan successful. Valid within 10 mins.',
         userId: session.userId,
+        expiresAt: session.expiresAt,
       };
     }
   }
