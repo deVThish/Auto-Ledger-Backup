@@ -9,8 +9,8 @@ import '../../../core/utils/app_error_handler.dart';
 import '../../../models/license_model.dart';
 import '../../../models/offense_model.dart';
 import '../services/traffic_fine_service.dart';
-import 'fine_result_screen.dart';
 import 'qr_scanner_screen.dart';
+import 'to_dashboard_screen.dart';
 
 class FineConfirmationScreen extends StatefulWidget {
   const FineConfirmationScreen({
@@ -426,10 +426,7 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => FineResultScreen(
-            result: result,
-            licenseNumber: widget.license.licenseNumber,
-          ),
+          builder: (_) => const ToDashboardScreen(),
         ),
       );
     } on ApiException catch (error) {

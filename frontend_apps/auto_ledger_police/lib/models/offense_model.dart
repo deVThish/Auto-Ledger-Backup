@@ -18,36 +18,35 @@ class OffenseModel {
   final bool isCourtCase;
 
   factory OffenseModel.fromJson(Map<String, dynamic> json) {
+    final offenseData = json['offenceCategory'] as Map<String, dynamic>? ?? json;
+
     final name = _readString(
-      json,
+      offenseData,
       const ['name', 'title', 'offenseName', 'offenseTitle'],
     );
     final description = _readString(
-      json,
+      offenseData,
       const ['description', 'details'],
       fallback: name,
     );
 
     return OffenseModel(
       id: _readString(
-        json,
-        const ['id', 'offenseId', 'offense_id'],
+        offenseData,
+        const ['offense_Id', 'id', 'offenseId', 'offense_id'],
       ),
       code: _readString(
-        json,
+        offenseData,
         const ['code', 'offenseCode', 'offense_code'],
       ),
       name: name,
       description: description,
-      amount: _readDouble(
-        json['amount'] ?? json['fee'] ?? json['price'],
-      ),
-      points: _readInt(
-        json['points'] ?? json['demeritPoints'] ?? json['deductPoints'],
-      ),
-      isCourtCase: json['isCourtCase'] == true ||
-          json['courtCase'] == true ||
-          json['is_court_case'] == true,
+      amount: _readDouble(offenseData['amount'] ?? offenseData['fee'] ?? offenseData['price']),
+      points: _readInt(offenseData['points_Value'] ?? offenseData['points'] ?? offenseData['demeritPoints']),
+      isCourtCase: offenseData['is_Court_Case'] == true ||
+          offenseData['isCourtCase'] == true ||
+          offenseData['courtCase'] == true ||
+          offenseData['is_court_case'] == true,
     );
   }
 

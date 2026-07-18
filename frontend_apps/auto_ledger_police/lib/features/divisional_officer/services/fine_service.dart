@@ -29,7 +29,7 @@ class FineService {
     required String verdict,
   }) async {
     await _apiClient.patch(
-      '${ApiConstants.resolveCourtCasePrefix}/$fineId/court-verdict',
+      '/fines/$fineId/resolve-overdue',
       body: {
         'verdict': verdict,
       },

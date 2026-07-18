@@ -73,8 +73,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     if (!mounted) return;
 
     final remaining = _expiresAt.difference(DateTime.now());
-    final safeRemaining =
-        remaining.isNegative ? Duration.zero : remaining;
+    final safeRemaining = remaining.isNegative ? Duration.zero : remaining;
 
     setState(() {
       _remaining = safeRemaining;
@@ -378,6 +377,21 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
           ),
           const SizedBox(height: 12),
           _InfoRow(
+            title: 'NIC',
+            value: license.nicNo?.isEmpty == true ? 'N/A' : license.nicNo ?? 'N/A',
+          ),
+          const SizedBox(height: 12),
+          _InfoRow(
+            title: 'Address',
+            value: license.address?.isEmpty == true ? 'N/A' : license.address ?? 'N/A',
+          ),
+          const SizedBox(height: 12),
+          _InfoRow(
+            title: 'Blood Group',
+            value: license.bloodGroup?.isEmpty == true ? 'N/A' : license.bloodGroup ?? 'N/A',
+          ),
+          const SizedBox(height: 12),
+          _InfoRow(
             title: 'Token',
             value: _sessionToken.isEmpty ? 'Missing' : 'Active',
           ),
@@ -386,20 +400,22 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     );
   }
 
-  Widget _extraDetailsSection() {
-    if (!widget.license.hasExtraDetails) {
+  Widget _vehicleCategoriesSection() {
+    final categories = widget.license.vehicleCategories;
+
+    if (categories.isEmpty) {
       return _glassCard(
         radius: 28,
         child: const Column(
           children: [
             Icon(
-              Icons.info_outline_rounded,
+              Icons.directions_car_outlined,
               color: AppTheme.primaryBlack,
               size: 32,
             ),
             SizedBox(height: 10),
             Text(
-              'No extra license details returned',
+              'No vehicle categories found',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.primaryBlack,
@@ -407,21 +423,157 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            SizedBox(height: 4),
-            Text(
-              'Continue to offenses to proceed.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppTheme.textGray,
-                fontSize: 12,
-                height: 1.35,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
           ],
         ),
       );
     }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Vehicle Categories',
+          style: TextStyle(
+            color: AppTheme.primaryBlack,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 14),
+        ...categories.map(
+          (category) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _glassCard(
+              radius: 28,
+              child: Column(
+                children: [
+                  _InfoRow(
+                    icon: Icons.directions_car_outlined,
+                    title: 'Class',
+                    value: category.vehicleClass.isEmpty
+                        ? 'N/A'
+                        : category.vehicleClass,
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.calendar_today_outlined,
+                    title: 'Issue Date',
+                    value: _formatDate(category.issueDate),
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.event_available_outlined,
+                    title: 'Expiry Date',
+                    value: _formatDate(category.expiryDate),
+                  ),
+                  if (category.restriction != null &&
+                      category.restriction!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _InfoRow(
+                      icon: Icons.info_outline,
+                      title: 'Restriction',
+                      value: category.restriction!,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _headerCard() {
+    final license = widget.license;
+    final hasImage = license.imageUrl != null && license.imageUrl!.trim().isNotEmpty;
+
+    return _glassCard(
+      radius: 32,
+      color: AppTheme.primaryBlack.withOpacity(0.96),
+      borderColor: Colors.white.withOpacity(0.14),
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.20),
+                width: 1.5,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: hasImage
+                  ? Image.network(
+                      license.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildPlaceholderImage();
+                      },
+                    )
+                  : _buildPlaceholderImage(),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  license.licenseNumber.isEmpty
+                      ? 'License Verified'
+                      : license.licenseNumber,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  license.driverName.isEmpty
+                      ? 'Driver details loaded from backend.'
+                      : license.driverName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.45,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderImage() {
+    return Container(
+      color: Colors.white.withOpacity(0.10),
+      child: const Center(
+        child: Icon(
+          Icons.person_rounded,
+          color: Colors.white54,
+          size: 34,
+        ),
+      ),
+    );
+  }
+
+  Widget _extraDetailsSection() {
+    final license = widget.license;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,63 +594,34 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
               _InfoRow(
                 icon: Icons.calendar_today_outlined,
                 title: 'Issue Date',
-                value: _formatDate(widget.license.issueDate),
+                value: _formatDate(license.issueDate),
               ),
               const SizedBox(height: 12),
               _InfoRow(
                 icon: Icons.event_available_outlined,
                 title: 'Expiry Date',
-                value: _formatDate(widget.license.expiryDate),
+                value: _formatDate(license.expiryDate),
               ),
               const SizedBox(height: 12),
               _InfoRow(
                 icon: Icons.timer_outlined,
                 title: 'Temporary Expiry',
-                value: _formatDate(widget.license.temporaryLicenseExpiry),
+                value: _formatDate(license.temporaryLicenseExpiry),
               ),
+              if (license.dateOfBirth != null) ...[
+                const SizedBox(height: 12),
+                _InfoRow(
+                  icon: Icons.cake_outlined,
+                  title: 'Date of Birth',
+                  value: _formatDate(license.dateOfBirth),
+                ),
+              ],
             ],
           ),
         ),
         const SizedBox(height: 22),
-        const Text(
-          'Recent Fine Activity',
-          style: TextStyle(
-            color: AppTheme.primaryBlack,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 14),
-        if (widget.license.recentFines.isEmpty)
-          _glassCard(
-            radius: 28,
-            child: const Column(
-              children: [
-                Icon(
-                  Icons.receipt_long_outlined,
-                  color: AppTheme.primaryBlack,
-                  size: 32,
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'No recent fines found',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppTheme.primaryBlack,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          ...widget.license.recentFines.map(
-            (fine) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _RecentFineCard(fine: fine),
-            ),
-          ),
+        _vehicleCategoriesSection(),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -544,49 +667,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _glassCard(
-                        radius: 32,
-                        color: AppTheme.primaryBlack.withOpacity(0.96),
-                        borderColor: Colors.white.withOpacity(0.14),
-                        padding: const EdgeInsets.all(22),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(
-                              Icons.credit_card_rounded,
-                              color: Colors.white,
-                              size: 34,
-                            ),
-                            const SizedBox(height: 18),
-                            Text(
-                              widget.license.licenseNumber.isEmpty
-                                  ? 'License Verified'
-                                  : widget.license.licenseNumber,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 23,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.license.driverName.isEmpty
-                                  ? 'Driver details loaded from backend.'
-                                  : widget.license.driverName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                                height: 1.45,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _headerCard(),
                       const SizedBox(height: 14),
                       _scanTimerBanner(),
                       const SizedBox(height: 14),
@@ -706,78 +787,6 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _RecentFineCard extends StatelessWidget {
-  const _RecentFineCard({required this.fine});
-
-  final FineModel fine;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.88),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withOpacity(0.40)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                fine.offenseName.isEmpty ? 'Traffic Offense' : fine.offenseName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppTheme.primaryBlack,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      fine.status.isEmpty ? 'PENDING' : fine.status,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textGray,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    'LKR ${fine.amount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: AppTheme.primaryBlack,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

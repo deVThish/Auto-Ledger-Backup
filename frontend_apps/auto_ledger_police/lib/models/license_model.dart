@@ -1,4 +1,21 @@
 import 'fine_model.dart';
+import 'package:flutter/foundation.dart';
+
+class VehicleCategory {
+  const VehicleCategory({
+    required this.id,
+    required this.vehicleClass,
+    required this.issueDate,
+    required this.expiryDate,
+    this.restriction,
+  });
+
+  final String id;
+  final String vehicleClass;
+  final DateTime issueDate;
+  final DateTime expiryDate;
+  final String? restriction;
+}
 
 class LicenseModel {
   const LicenseModel({
@@ -14,6 +31,12 @@ class LicenseModel {
     this.scanToken = '',
     this.scanVerifiedAt,
     this.scanExpiresAt,
+    this.nicNo,
+    this.address,
+    this.imageUrl,
+    this.vehicleCategories = const [],
+    this.dateOfBirth,
+    this.bloodGroup,
   });
 
   final String id;
@@ -28,12 +51,22 @@ class LicenseModel {
   final String scanToken;
   final DateTime? scanVerifiedAt;
   final DateTime? scanExpiresAt;
+  final String? nicNo;
+  final String? address;
+  final String? imageUrl;
+  final List<VehicleCategory> vehicleCategories;
+  final DateTime? dateOfBirth;
+  final String? bloodGroup;
 
   bool get hasExtraDetails =>
       issueDate != null ||
       expiryDate != null ||
       temporaryLicenseExpiry != null ||
-      recentFines.isNotEmpty;
+      recentFines.isNotEmpty ||
+      nicNo != null ||
+      address != null ||
+      imageUrl != null ||
+      vehicleCategories.isNotEmpty;
 
   bool get hasActiveScanWindow =>
       scanExpiresAt != null && DateTime.now().isBefore(scanExpiresAt!);
@@ -58,6 +91,12 @@ class LicenseModel {
     String? scanToken,
     DateTime? scanVerifiedAt,
     DateTime? scanExpiresAt,
+    String? nicNo,
+    String? address,
+    String? imageUrl,
+    List<VehicleCategory>? vehicleCategories,
+    DateTime? dateOfBirth,
+    String? bloodGroup,
   }) {
     return LicenseModel(
       id: id ?? this.id,
@@ -73,6 +112,12 @@ class LicenseModel {
       scanToken: scanToken ?? this.scanToken,
       scanVerifiedAt: scanVerifiedAt ?? this.scanVerifiedAt,
       scanExpiresAt: scanExpiresAt ?? this.scanExpiresAt,
+      nicNo: nicNo ?? this.nicNo,
+      address: address ?? this.address,
+      imageUrl: imageUrl ?? this.imageUrl,
+      vehicleCategories: vehicleCategories ?? this.vehicleCategories,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      bloodGroup: bloodGroup ?? this.bloodGroup,
     );
   }
 
@@ -124,6 +169,26 @@ class LicenseModel {
           const ['expiry_Date', 'expiryDate'],
         );
 
+    final vehicleCategories = _parseVehicleCategories(
+        licenseData['vehicleCategories'] ?? json['vehicleCategories']);
+
+    final dob = _readDateFromMaps(
+      [user, licenseData, json],
+      const ['date_of_birth', 'dateOfBirth', 'dob'],
+    );
+
+    final blood = _readStringFromMaps(
+      [user, licenseData, json],
+      const ['blood_Group', 'bloodGroup', 'blood_group'],
+    );
+
+    debugPrint('===== LICENSE MODEL PARSE =====');
+    debugPrint('nicNo: ${_readStringFromMaps([licenseData, json, user], const ['nic_No', 'nicNo', 'nic_no', 'nic'])}');
+    debugPrint('address: ${_readStringFromMaps([licenseData, json, user], const ['address', 'fullAddress'])}');
+    debugPrint('imageUrl: ${_readStringFromMaps([licenseData, json], const ['image', 'imageUrl', 'photo'])}');
+    debugPrint('vehicleCategories count: ${vehicleCategories.length}');
+    debugPrint('===============================');
+
     return LicenseModel(
       id: _readStringFromMaps(
         [licenseData, json],
@@ -151,7 +216,46 @@ class LicenseModel {
         [licenseData, json],
         const ['scanToken', 'scan_token', 'qrToken', 'qr_token', 'token'],
       ),
+      nicNo: _readStringFromMaps(
+        [licenseData, json, user],
+        const ['nic_No', 'nicNo', 'nic_no', 'nic'],
+      ),
+      address: _readStringFromMaps(
+        [licenseData, json, user],
+        const ['address', 'fullAddress'],
+      ),
+      imageUrl: _readStringFromMaps(
+        [licenseData, json],
+        const ['image', 'imageUrl', 'photo'],
+      ),
+      vehicleCategories: vehicleCategories,
+      dateOfBirth: dob,
+      bloodGroup: blood,
     );
+  }
+
+  static List<VehicleCategory> _parseVehicleCategories(dynamic data) {
+    if (data is! List) return const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map((json) => VehicleCategory(
+              id: json['category_Id']?.toString() ??
+                  json['id']?.toString() ??
+                  '',
+              vehicleClass: json['vehicle_Class']?.toString() ??
+                  json['vehicleClass']?.toString() ??
+                  '',
+              issueDate: _parseDate(json['issue_Date'] ?? json['issueDate']),
+              expiryDate: _parseDate(json['expiry_Date'] ?? json['expiryDate']),
+              restriction: json['restriction']?.toString(),
+            ))
+        .toList();
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.now();
+    final parsed = DateTime.tryParse(value.toString());
+    return parsed ?? DateTime.now();
   }
 
   static Map<String, dynamic>? _asMap(dynamic value) {

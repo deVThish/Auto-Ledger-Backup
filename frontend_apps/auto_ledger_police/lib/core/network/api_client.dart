@@ -75,17 +75,38 @@ class ApiClient {
       'Accept': 'application/json',
     };
 
+    print('==================== BUILD HEADERS ====================');
+
+    // 🔥 Device ID එක 'device-id' header එකට add කරන්න
+    final deviceId = await _tokenStorage.getDeviceId();
+    if (deviceId != null && deviceId.isNotEmpty) {
+      headers['device-id'] = deviceId;  // 👈 මෙතන key එක හරියටම device-id
+      print('✅ Device ID added: $deviceId');
+    } else {
+      print('❌ No Device ID found in storage');
+    }
+
     if (requiresAuth) {
       final token = await _tokenStorage.getAccessToken();
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
+        print('✅ Token added: ${token.substring(0, 20)}...');
+      } else {
+        print('❌ No token found');
       }
     }
 
+    print('📋 HEADERS: $headers');
+    print('========================================================');
     return headers;
   }
 
   dynamic _handleResponse(http.Response response) {
+    print('==================== RESPONSE ====================');
+    print('📊 STATUS CODE: ${response.statusCode}');
+    print('📄 RESPONSE BODY: ${response.body}');
+    print('==================================================');
+
     final decodedBody = _decodeBody(response.body);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

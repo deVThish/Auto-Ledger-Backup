@@ -65,16 +65,28 @@ class TrafficFineService {
         ? parsedLicense.scanToken.trim()
         : qrToken.trim();
 
-    final expiresAt = _extractExpiryFromJwt(scanToken);
+    DateTime? expiresAt;
 
-    if (expiresAt == null) {
-      debugPrint('==================== SCAN TOKEN ERROR ===================');
-      debugPrint('Could not extract expiry date from JWT. Token is invalid or expired.');
+    final directExpiry = _readDate(payload['expiresAt']);
+    if (directExpiry != null) {
+      expiresAt = directExpiry;
+      debugPrint('==================== EXPIRY FROM BE ====================');
+      debugPrint('expiresAt from BE: $expiresAt');
       debugPrint('=========================================================');
-      throw const ApiException(
-        statusCode: 400,
-        message: 'Invalid or expired QR token. Session duration could not be determined.',
-      );
+    } else {
+      expiresAt = _extractExpiryFromJwt(scanToken);
+      if (expiresAt == null) {
+        debugPrint('==================== SCAN TOKEN ERROR ===================');
+        debugPrint('Could not extract expiry date from JWT. Token is invalid or expired.');
+        debugPrint('=========================================================');
+        throw const ApiException(
+          statusCode: 400,
+          message: 'Invalid or expired QR token. Session duration could not be determined.',
+        );
+      }
+      debugPrint('==================== EXPIRY FROM JWT ====================');
+      debugPrint('expiresAt from JWT: $expiresAt');
+      debugPrint('=========================================================');
     }
 
     debugPrint('==================== SCAN TOKEN RESULT ==================');

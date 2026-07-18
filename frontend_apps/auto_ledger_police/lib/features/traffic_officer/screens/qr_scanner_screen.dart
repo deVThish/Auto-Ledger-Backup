@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -30,6 +32,16 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     if (license == null) return false;
     return license.scanExpiresAt != null &&
         DateTime.now().isBefore(license.scanExpiresAt!);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _controller.start();
+      }
+    });
   }
 
   @override
@@ -88,10 +100,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           : qrToken.trim();
 
       final now = license.scanVerifiedAt ?? DateTime.now();
+
       final sessionLicense = license.copyWith(
         scanToken: sessionToken,
         scanVerifiedAt: now,
-        scanExpiresAt: license.scanExpiresAt ?? now.add(const Duration(minutes: 3)),
+        scanExpiresAt: _extractExpiryFromJwt(sessionToken) ?? now.add(const Duration(minutes: 10)),
       );
 
       _lastQrToken = qrToken;
@@ -100,10 +113,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       await _openPreviewWithLicense(sessionLicense, sessionToken);
 
       if (!mounted) return;
-
-      try {
-        await _controller.start();
-      } catch (_) {}
 
       setState(() {
         _isLoading = false;
@@ -121,10 +130,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         _isLoading = false;
         _isScanning = false;
       });
-
-      try {
-        await _controller.start();
-      } catch (_) {}
     } catch (_) {
       if (!mounted) return;
 
@@ -137,10 +142,24 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         _isLoading = false;
         _isScanning = false;
       });
+    }
+  }
 
-      try {
-        await _controller.start();
-      } catch (_) {}
+  DateTime? _extractExpiryFromJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = parts[1];
+      final normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final json = Map<String, dynamic>.from(jsonDecode(decoded) as Map);
+      final exp = json['exp'];
+      if (exp is int) {
+        return DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 

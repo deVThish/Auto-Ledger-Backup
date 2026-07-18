@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'offense_model.dart';
 
 class FineModel {
@@ -11,6 +12,9 @@ class FineModel {
     required this.offenses,
     required this.officerName,
     required this.officerBadgeNumber,
+    this.comment,
+    this.paymentAmount,
+    this.paymentStatus,
   });
 
   final String id;
@@ -22,6 +26,9 @@ class FineModel {
   final List<OffenseModel> offenses;
   final String officerName;
   final String officerBadgeNumber;
+  final String? comment;
+  final double? paymentAmount;
+  final String? paymentStatus;
 
   String get offenseName {
     if (offenses.isEmpty) return '';
@@ -36,10 +43,12 @@ class FineModel {
     return offenses.fold<double>(0, (sum, offense) => sum + offense.amount);
   }
 
+  bool get isPaid => status.toUpperCase() == 'PAID';
+
   factory FineModel.fromJson(Map<String, dynamic> json) {
     final license = json['license'];
     final user = license is Map<String, dynamic> ? license['user'] : null;
-    final officer = json['officer'];
+    final officer = json['trafficOfficer'] ?? json['officer'];
     final rawOffenses =
         json['offenses'] ?? json['fineDetails'] ?? json['items'] ?? json['fine'];
 
@@ -50,10 +59,18 @@ class FineModel {
             .toList()
         : _readSingleOffense(json);
 
+    final payment = json['payment'] as Map<String, dynamic>?;
+
+    debugPrint('===== FINE MODEL PARSE =====');
+    debugPrint('fineId: ${_readString(json, const ['fine_Id', 'id', 'fineId', 'fine_id'])}');
+    debugPrint('comment: ${_readString(json, const ['comment', 'officerNote', 'note'])}');
+    debugPrint('payment: $payment');
+    debugPrint('=============================');
+
     return FineModel(
       id: _readString(
         json,
-        const ['id', 'fineId', 'fine_id'],
+        const ['fine_Id', 'id', 'fineId', 'fine_id'],
       ),
       status: _readString(
         json,
@@ -61,29 +78,29 @@ class FineModel {
       ),
       issuedAt: _readDate(
         json,
-        const ['issuedAt', 'createdAt', 'fineIssuedAt'],
+        const ['issue_At', 'issuedAt', 'createdAt', 'fineIssuedAt'],
       ),
       dueDate: _readDate(
         json,
-        const ['dueDate', 'payBy', 'due_at'],
+        const ['due_Date', 'dueDate', 'payBy', 'due_at'],
       ),
       licenseNumber: license is Map<String, dynamic>
           ? _readString(
               license,
-              const ['licenseNumber', 'licenseNo', 'license_no'],
+              const ['license_No', 'licenseNumber', 'licenseNo', 'license_no'],
             )
           : _readString(
               json,
-              const ['licenseNumber', 'licenseNo', 'license_no'],
+              const ['license_No', 'licenseNumber', 'licenseNo', 'license_no'],
             ),
       driverName: user is Map<String, dynamic>
           ? _readString(
               user,
-              const ['name', 'fullName', 'driverName'],
+              const ['full_Name', 'name', 'fullName', 'driverName'],
             )
           : _readString(
               json,
-              const ['driverName', 'name', 'fullName'],
+              const ['full_Name', 'driverName', 'name', 'fullName'],
             ),
       offenses: offenses,
       officerName: officer is Map<String, dynamic>
@@ -98,12 +115,19 @@ class FineModel {
       officerBadgeNumber: officer is Map<String, dynamic>
           ? _readString(
               officer,
-              const ['badgeNumber', 'badgeNo', 'badge_No'],
+              const ['badge_No', 'badgeNumber', 'badgeNo'],
             )
           : _readString(
               json,
               const ['officerBadgeNumber', 'badgeNumber', 'badgeNo'],
             ),
+      comment: _readString(json, const ['comment', 'officerNote', 'note']),
+      paymentAmount: payment != null
+          ? _readDouble(payment['amount'] ?? payment['total'])
+          : null,
+      paymentStatus: payment != null
+          ? _readString(payment, const ['status', 'paymentStatus'])
+          : null,
     );
   }
 
@@ -246,14 +270,18 @@ class FineIssueResultModel {
 
     return FineIssueResultModel(
       fineId: json['fine_Id']?.toString() ?? json['id']?.toString() ?? '',
-      licenseId: json['license_Id']?.toString() ?? json['licenseId']?.toString() ?? '',
+      licenseId: json['license_Id']?.toString() ??
+          json['licenseId']?.toString() ??
+          '',
       status: json['status']?.toString() ?? 'PENDING',
       licenseStatus: licenseData['status']?.toString() ?? 'ACTIVE',
       accumulatedPoints: licenseData['points'] as int? ?? 24,
       temporaryLicenseExpiry: json['temporaryLicenseExpiry'] != null
           ? DateTime.tryParse(json['temporaryLicenseExpiry'].toString())
           : null,
-      fineDetails: fineDetails.map((e) => FineModel.fromJson(e as Map<String, dynamic>)).toList(),
+      fineDetails: fineDetails
+          .map((e) => FineModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

@@ -307,7 +307,7 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
       return;
     }
 
-    DivisionalHeadModel? selectedHead = availableHeads.first;
+    DivisionalHeadModel? selectedHead = null;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -316,6 +316,13 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final currentDivisionName = _cachedHeads
+                .firstWhere(
+                  (h) => h.id == officer.divisionId,
+                  orElse: () => availableHeads.first,
+                )
+                .divisionName;
+
             return Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.symmetric(horizontal: 22),
@@ -376,25 +383,43 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.policeBlue.withValues(alpha: 0.08),
+                            color: AppTheme.policeBlue.withValues(alpha: 0.06),
                             borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'Current Division: ${_cachedHeads.firstWhere((h) => h.id == officer.divisionId, orElse: () => availableHeads.first).divisionName}',
-                            style: const TextStyle(
-                              color: AppTheme.textGray,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            border: Border.all(
+                              color: AppTheme.policeBlue.withValues(alpha: 0.15),
                             ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Current Division',
+                                style: TextStyle(
+                                  color: AppTheme.textGray,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                currentDivisionName,
+                                style: const TextStyle(
+                                  color: AppTheme.policeBlue,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 18),
                         DropdownButtonFormField<DivisionalHeadModel>(
-                          value: selectedHead,
+                          value: null,
+                          hint: const Text('Select New Divisional Head'),
                           decoration: InputDecoration(
                             labelText: 'New Divisional Head',
                             border: OutlineInputBorder(
@@ -422,13 +447,19 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                             ),
                           ),
                           items: availableHeads.map((head) {
+                            final divisionName = head.divisionName.isEmpty
+                                ? 'Unknown Division'
+                                : head.divisionName;
+                            final headName = head.name.isEmpty
+                                ? 'Unknown Head'
+                                : head.name;
                             return DropdownMenuItem(
                               value: head,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    head.divisionName,
+                                    divisionName,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       color: AppTheme.primaryBlack,
@@ -436,7 +467,7 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    head.name,
+                                    headName,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppTheme.textGray,
@@ -641,6 +672,7 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                               (officer) {
                                 final status = _getStatusForOfficer(officer);
                                 final isOffDuty = status == 'Off Duty' || status == 'No Shift';
+                                final showTransfer = status != 'On Duty';
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 14),
                                   child: _OfficerListCard(
@@ -651,6 +683,7 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                                     statusBackground: _getStatusBackground(status),
                                     statusIcon: _getStatusIcon(status),
                                     showAssignButton: isOffDuty,
+                                    showTransferButton: showTransfer,
                                     onAssignShift: () => _openAssignShift(officer),
                                     onTransfer: () => _transferOfficer(officer),
                                     isTransferring: _isTransferring,
@@ -787,6 +820,7 @@ class _OfficerListCard extends StatelessWidget {
     required this.statusBackground,
     required this.statusIcon,
     required this.showAssignButton,
+    required this.showTransferButton,
     required this.onAssignShift,
     required this.onTransfer,
     required this.isTransferring,
@@ -799,6 +833,7 @@ class _OfficerListCard extends StatelessWidget {
   final Color statusBackground;
   final IconData statusIcon;
   final bool showAssignButton;
+  final bool showTransferButton;
   final VoidCallback onAssignShift;
   final VoidCallback onTransfer;
   final bool isTransferring;
@@ -1000,53 +1035,54 @@ class _OfficerListCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (showAssignButton) const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: isTransferring ? null : onTransfer,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.policeBlue,
-                        side: BorderSide(
-                          color: isTransferring
-                              ? Colors.grey.shade300
-                              : AppTheme.policeBlue.withValues(alpha: 0.3),
+                  if (showTransferButton) const SizedBox(width: 10),
+                  if (showTransferButton)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: isTransferring ? null : onTransfer,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.policeBlue,
+                          side: BorderSide(
+                            color: isTransferring
+                                ? Colors.grey.shade300
+                                : AppTheme.policeBlue.withValues(alpha: 0.3),
+                          ),
+                          backgroundColor: isTransferring
+                              ? Colors.grey.shade50
+                              : AppTheme.policeBlue.withValues(alpha: 0.05),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        backgroundColor: isTransferring
-                            ? Colors.grey.shade50
-                            : AppTheme.policeBlue.withValues(alpha: 0.05),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: isTransferring
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.policeBlue,
-                              ),
-                            )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.swap_horiz_rounded,
-                                  size: 16,
+                        child: isTransferring
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.policeBlue,
                                 ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Transfer',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 12,
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.swap_horiz_rounded,
+                                    size: 16,
                                   ),
-                                ),
-                              ],
-                            ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Transfer',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
