@@ -8,8 +8,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { JwtService } from '@nestjs/jwt';
-import { License_Status } from '@prisma/client';
 
 export interface VehicleCategoryData {
   vehicleClass: string;
@@ -54,7 +52,6 @@ export class LicenseService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-    private jwtService: JwtService,
   ) {
     const region =
       this.configService.get<string>('AWS_REGION') || 'ap-southeast-1';
@@ -209,143 +206,6 @@ export class LicenseService {
     });
     if (!license) throw new NotFoundException('License not found');
     return license;
-  }
-
-  async generateLicenseQR(userId: string) {
-    await this.autoActivateLicenses();
-    const license = await this.prisma.driving_License.findUnique({
-      where: { user_Id: userId },
-      include: {
-        temporaryLicenses: true,
-        fines: {
-          where: { status: { in: ['OVERDUE', 'COURT_CASE'] } },
-        },
-      },
-    });
-
-    if (!license) throw new NotFoundException('License not found.');
-
-    const blockedStatuses: License_Status[] = [
-      'SUSPENDED',
-      'REVOKED',
-      'EXPIRED',
-    ];
-    if (blockedStatuses.includes(license.status)) {
-      throw new BadRequestException(
-        `License is ${license.status}. QR cannot be generated.`,
-      );
-    }
-
-    const hasCourtOrOverdue = license.fines.some(
-      (f) => f.status === 'OVERDUE' || f.status === 'COURT_CASE',
-    );
-    if (hasCourtOrOverdue) {
-      throw new BadRequestException(
-        'License has overdue or court case fines. QR cannot be generated.',
-      );
-    }
-
-    const qrToken = this.jwtService.sign(
-      { licenseId: license.license_Id },
-      { expiresIn: '10m' },
-    );
-
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    return { qrToken, expiresAt };
-  }
-
-  async checkScanStatus(qrToken: string) {
-    if (!qrToken) throw new BadRequestException('QR token required.');
-
-    const scan = await this.prisma.qR_Scan_History.findFirst({
-      where: { qr_Token: qrToken },
-    });
-
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    return {
-      scanned: !!scan,
-      expiresAt: expiresAt,
-    };
-  }
-
-  async scanLicenseQR(
-    qrToken: string,
-    trafficOfficerId: string,
-    location?: string,
-  ) {
-    let licenseId: string;
-    try {
-      const payload = this.jwtService.verify<{ licenseId: string }>(qrToken);
-      licenseId = payload.licenseId;
-    } catch {
-      throw new UnauthorizedException('Invalid or expired QR code.');
-    }
-
-    await this.autoActivateLicenses();
-
-    const license = await this.prisma.driving_License.findUnique({
-      where: { license_Id: licenseId },
-      include: {
-        user: true,
-        vehicleCategories: true,
-      },
-    });
-
-    if (!license) throw new NotFoundException('License not found.');
-
-    const officer = await this.prisma.traffic_Officer.findUnique({
-      where: { traffic_Officer_Id: trafficOfficerId },
-    });
-
-    if (!officer) throw new UnauthorizedException('Officer not found.');
-
-    await this.prisma.qR_Scan_History.create({
-      data: {
-        qr_Token: qrToken,
-        traffic_Officer_Id: trafficOfficerId,
-        head_Id: officer.divisional_Head_Id,
-        traffic_Officer_Name: officer.name,
-        driver_Name: license.user.name,
-        location: location || null,
-        license_Id: license.license_Id,
-      },
-    });
-
-    const newExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    const scanToken = this.jwtService.sign(
-      { licenseId: license.license_Id },
-      { expiresIn: '10m' },
-    );
-
-    return {
-      license: {
-        licenseNo: license.license_No,
-        fullName: license.full_Name,
-        nicNo: license.nic_No,
-        address: license.address,
-        bloodGroup: license.blood_Group,
-        dateOfBirth: license.date_of_birth,
-        issueDate: license.issue_Date,
-        status: license.status,
-        points: license.points,
-        image: license.image,
-        vehicleCategories: license.vehicleCategories.map((vc) => ({
-          vehicleClass: vc.vehicle_Class,
-          issueDate: vc.issue_Date,
-          expiryDate: vc.expiry_Date,
-          restriction: vc.restriction,
-        })),
-      },
-      scanToken: scanToken,
-      expiresAt: newExpiresAt,
-      driverName: license.user.name,
-      officer: {
-        name: officer.name,
-        badgeNo: officer.badge_No,
-      },
-    };
   }
 
   async updateStatus(

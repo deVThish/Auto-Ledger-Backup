@@ -5,7 +5,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { JwtService } from '@nestjs/jwt';
 import * as nodemailer from 'nodemailer';
 import { License_Status, Fine_Status } from '@prisma/client';
 
@@ -22,10 +21,6 @@ export interface UpdateOffenseData {
   points?: number;
   amount?: number;
   isCourtCase?: boolean;
-}
-
-interface ScanTokenPayload {
-  licenseId: string;
 }
 
 type LicenseUpdatePayload = {
@@ -46,10 +41,7 @@ type FineWithPayment = {
 
 @Injectable()
 export class FinesService {
-  constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   private async sendWarningEmail(
     email: string,
@@ -134,20 +126,27 @@ export class FinesService {
   }
 
   async issueFine(data: {
-    scanToken: string;
+    sessionId: string;
     officerId: string;
     offenseIds: string[];
     comment?: string;
   }) {
-    let licenseId = '';
-    try {
-      const payload = this.jwtService.verify<ScanTokenPayload>(data.scanToken);
-      licenseId = payload.licenseId;
-    } catch {
+    const session = await this.prisma.qrSession.findUnique({
+      where: { id: data.sessionId },
+      include: { user: { include: { license: true } } },
+    });
+
+    if (!session || session.status !== 'ACTIVE') {
       throw new UnauthorizedException(
-        'Scan session expired. Please scan QR again.',
+        'Scan session expired or invalid. Please scan QR again.',
       );
     }
+
+    if (!session.user || !session.user.license) {
+      throw new NotFoundException('License not found for this user.');
+    }
+
+    const licenseId = session.user.license.license_Id;
 
     await this.autoActivateLicenses();
     await this.processOverdueFines();
@@ -355,7 +354,6 @@ export class FinesService {
     });
     if (!fine) throw new NotFoundException('Fine not found');
 
-    // Check if payment already exists
     if (fine.status === 'PAID' || fine.payment)
       throw new BadRequestException('Fine already paid');
 
