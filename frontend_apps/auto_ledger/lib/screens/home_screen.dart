@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../utils/secure_storage.dart';
 import '../widgets/qr_dialog.dart';
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  int _finesInitialTab = 0;
   bool _isFront = true;
   bool _isSelectionMode = false;
 
@@ -57,6 +59,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _licenseData = Map<String, dynamic>.from(response.data);
         _isLoading = false;
         _errorMessage = '';
+
+        final status = _licenseData?['status'];
+        if (status == 'SUSPENDED' || status == 'REVOKED') {
+          _currentQrToken = null;
+          _currentQrExpiry = null;
+        }
       });
 
       if (!_hasShownPointsWarning) {
@@ -67,7 +75,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
         if (isApproachingSuspension) {
           _hasShownPointsWarning = true;
-          Future.microtask(() => _showPointsWarning(points));
+
+          String warningLevel = '';
+          if (points >= 80) {
+            warningLevel = 'CRITICAL';
+          } else if (points >= 45) {
+            warningLevel = 'SEVERE';
+          } else if (points >= 20) {
+            warningLevel = 'WARNING';
+          }
+
+          Future.microtask(() => _showInAppPushNotification(points));
+
+          SharedPreferences.getInstance().then((prefs) {
+            bool hasSeenBigDialog =
+                prefs.getBool('seen_big_dialog_$warningLevel') ?? false;
+
+            if (!hasSeenBigDialog) {
+              prefs.setBool('seen_big_dialog_$warningLevel', true);
+              Future.microtask(() => _showPointsWarning(points));
+            }
+          });
         }
       }
     } on DioException catch (e) {
@@ -167,6 +195,120 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  void _showInAppPushNotification(int points) {
+    final (color, icon, title, message) = _getWarningData(points);
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    OverlayEntry? entry;
+
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: topPadding + 10,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(0, -150 * (1 - value)),
+                child: Opacity(
+                  opacity: value.clamp(0.0, 1.0),
+                  child: child,
+                ),
+              );
+            },
+            child: GestureDetector(
+              onVerticalDragUpdate: (details) {
+                if (details.primaryDelta! < -5) {
+                  entry?.remove();
+                  entry = null;
+                }
+              },
+              onTap: () {
+                entry?.remove();
+                entry = null;
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B0F19).withAlpha(220),
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: color.withAlpha(150), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withAlpha(40),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: color.withAlpha(40),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(icon, color: color, size: 28),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  color: color,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                message,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Navigator.of(context, rootNavigator: true).overlay?.insert(entry!);
+
+    Future.delayed(const Duration(seconds: 6), () {
+      if (entry != null && entry!.mounted) {
+        entry!.remove();
+        entry = null;
+      }
+    });
   }
 
   (Color, IconData, String, String) _getWarningData(int points) {
@@ -269,6 +411,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     onPressed: () {
                       HapticFeedback.mediumImpact();
+                      _addRecentActivity(
+                          'Closed Temporary License', Icons.close);
                       Navigator.pop(context);
                     },
                     child: const Text('Close',
@@ -289,22 +433,33 @@ class _HomeScreenState extends State<HomeScreen> {
       {bool isHighlight = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title,
             style: const TextStyle(
                 fontSize: 15,
                 color: Colors.white70,
                 fontWeight: FontWeight.w600)),
-        Text(value,
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isHighlight ? Colors.redAccent : Colors.white)),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isHighlight ? Colors.redAccent : Colors.white)),
+        ),
       ],
     );
   }
 
   Future<void> _generateQR() async {
+    final status = _licenseData?['status'];
+    if (status == 'SUSPENDED' || status == 'REVOKED') {
+      _showGlassToast('Access Denied: Your license is $status.', isError: true);
+      return;
+    }
+
     if (_currentQrToken != null && _currentQrExpiry != null) {
       final now = DateTime.now();
       if (_currentQrExpiry!.isAfter(now)) {
@@ -316,7 +471,9 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (BuildContext context) => QRDialog(
               qrToken: _currentQrToken!,
               initialExpiresAt: _currentQrExpiry!,
-              onClose: () {},
+              onClose: () {
+                _addRecentActivity('Closed QR Code Dialog', Icons.close);
+              },
               onExpired: () {
                 setState(() {
                   _currentQrToken = null;
@@ -356,7 +513,9 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (BuildContext context) => QRDialog(
             qrToken: token,
             initialExpiresAt: expiresAt,
-            onClose: () {},
+            onClose: () {
+              _addRecentActivity('Closed QR Code Dialog', Icons.close);
+            },
             onExpired: () {
               setState(() {
                 _currentQrToken = null;
@@ -366,6 +525,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
+    } on DioException catch (e) {
+      if (mounted) Navigator.pop(context);
+      final errorMsg =
+          e.response?.data['message'] ?? 'Failed to generate QR Code.';
+      _showGlassToast(errorMsg, isError: true);
     } catch (e) {
       if (mounted) Navigator.pop(context);
       _showGlassToast('Failed to generate QR Code.', isError: true);
@@ -859,7 +1023,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildCategoryRow('G1', '🚜'),
                           _buildCategoryRow('G', '🚜'),
                           _buildCategoryRow('J', '🏗️'),
-                          _buildCategoryRow('H', '♿'),
+                          _buildCategoryRow('H', '♿')
                         ],
                       ),
                     ),
@@ -1028,6 +1192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white.withAlpha(30)),
                 onPressed: () {
+                  _addRecentActivity('Retried loading license', Icons.refresh);
                   setState(() {
                     _isLoading = true;
                     _errorMessage = '';
@@ -1044,9 +1209,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final List<dynamic> tempLicenses = _licenseData?['temporaryLicenses'] ?? [];
+    final String licenseStatus = _licenseData?['status'] ?? 'UNKNOWN';
+    final bool isQrBlocked =
+        licenseStatus == 'SUSPENDED' || licenseStatus == 'REVOKED';
 
     return RefreshIndicator(
-      onRefresh: _fetchLicenseData,
+      onRefresh: () async {
+        _addRecentActivity('Retried loading license', Icons.refresh);
+        await _fetchLicenseData();
+      },
       color: Colors.cyanAccent,
       backgroundColor: Colors.white.withAlpha(20),
       child: SingleChildScrollView(
@@ -1066,6 +1237,7 @@ class _HomeScreenState extends State<HomeScreen> {
             GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
+                _addRecentActivity('Flipped License Card', Icons.flip);
                 setState(() => _isFront = !_isFront);
               },
               child: AnimatedSwitcher(
@@ -1088,12 +1260,20 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
             ],
             _buildGlassButton(
-              label: 'SHOW QR TO OFFICER',
-              icon: Icons.qr_code_scanner,
-              color: Colors.blueAccent,
+              label: isQrBlocked
+                  ? 'QR BLOCKED ($licenseStatus)'
+                  : 'SHOW QR TO OFFICER',
+              icon: isQrBlocked ? Icons.block : Icons.qr_code_scanner,
+              color: isQrBlocked ? Colors.redAccent : Colors.blueAccent,
               onPressed: () {
                 HapticFeedback.lightImpact();
-                _generateQR();
+                if (isQrBlocked) {
+                  _showGlassToast(
+                      'Access Denied: Your license is $licenseStatus.',
+                      isError: true);
+                } else {
+                  _generateQR();
+                }
               },
             ),
             const SizedBox(height: 24),
@@ -1114,6 +1294,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (index == 0) {
           _addRecentActivity('Viewed License Dashboard', Icons.credit_card);
         } else if (index == 1) {
+          _finesInitialTab = 0;
           _addRecentActivity('Navigated to Fines', Icons.receipt_long);
         } else if (index == 2) {
           _addRecentActivity('Navigated to Profile', Icons.person);
@@ -1234,7 +1415,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: EdgeInsets.zero,
                           icon: const Icon(Icons.logout_rounded,
                               color: Colors.redAccent, size: 20),
-                          onPressed: _logout,
+                          onPressed: () {
+                            _addRecentActivity(
+                                'Initiated Logout', Icons.logout);
+                            _logout();
+                          },
                           tooltip: 'Logout',
                         ),
                       ),
@@ -1246,11 +1431,20 @@ class _HomeScreenState extends State<HomeScreen> {
               ? _buildDashboard()
               : _currentIndex == 1
                   ? FinesScreen(
+                      initialTab: _finesInitialTab,
                       onLogActivity: _addRecentActivity,
                       onSelectionModeChanged: (isSelected) =>
                           setState(() => _isSelectionMode = isSelected),
                     )
-                  : ProfileScreen(onLogActivity: _addRecentActivity),
+                  : ProfileScreen(
+                      onLogActivity: _addRecentActivity,
+                      onPointsClicked: () {
+                        setState(() {
+                          _finesInitialTab = 2;
+                          _currentIndex = 1;
+                        });
+                      },
+                    ),
           bottomNavigationBar: AnimatedSlide(
             offset: _isSelectionMode ? const Offset(0, 2) : Offset.zero,
             duration: const Duration(milliseconds: 300),

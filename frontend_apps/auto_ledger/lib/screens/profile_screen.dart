@@ -9,8 +9,13 @@ import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final void Function(String, IconData) onLogActivity;
+  final VoidCallback onPointsClicked;
 
-  const ProfileScreen({super.key, required this.onLogActivity});
+  const ProfileScreen({
+    super.key,
+    required this.onLogActivity,
+    required this.onPointsClicked,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -274,6 +279,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool isObscured = true;
     bool isVerifying = false;
 
+    widget.onLogActivity('Attempted to Toggle Biometrics', Icons.fingerprint);
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -418,8 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                                       try {
                                         final tempPassword =
-                                            // ignore: prefer_interpolation_to_compose_strings
-                                            enteredPassword + '_verify_temp';
+                                            '${enteredPassword}_verify_temp';
 
                                         await ApiService.dio.patch(
                                             '/auth/user/change-password',
@@ -496,7 +502,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showChangePasswordDialog() {
-    widget.onLogActivity('Initiated Password Change', Icons.password_rounded);
+    widget.onLogActivity(
+        'Opened Password Change Dialog', Icons.password_rounded);
 
     bool oldPwVis = false;
     bool newPwVis = false;
@@ -875,16 +882,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  _fullName,
-                  style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.2,
-                      letterSpacing: 0.3),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _fullName,
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        height: 1.2,
+                        letterSpacing: 0.3),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Container(
@@ -913,47 +922,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildPointsWidget() {
     final color = _getPointsColor();
 
-    return _buildGlassCard(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Demerit Points',
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        widget.onLogActivity(
+            'Viewed Points History', Icons.local_police_rounded);
+        widget.onPointsClicked();
+      },
+      child: _buildGlassCard(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Demerit Points',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white)),
+                  const SizedBox(height: 4),
+                  const Text('Accumulated penalty points',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white60)),
+                ],
+              ),
+            ),
+            Container(
+              width: 65,
+              height: 65,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withAlpha(40),
+                border: Border.all(color: color.withAlpha(180), width: 2.5),
+                boxShadow: [
+                  BoxShadow(
+                      color: color.withAlpha(50),
+                      blurRadius: 12,
+                      spreadRadius: 2)
+                ],
+              ),
+              child: Center(
+                child: Text('$_points',
                     style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
-                        color: Colors.white)),
-                const SizedBox(height: 4),
-                const Text('Accumulated penalty points',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white60)),
-              ],
+                        color: color)),
+              ),
             ),
-          ),
-          Container(
-            width: 65,
-            height: 65,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withAlpha(40),
-              border: Border.all(color: color.withAlpha(180), width: 2.5),
-              boxShadow: [
-                BoxShadow(
-                    color: color.withAlpha(50), blurRadius: 12, spreadRadius: 2)
-              ],
-            ),
-            child: Center(
-              child: Text('$_points',
-                  style: TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w900, color: color)),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1103,7 +1124,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   backgroundColor: Colors.white.withAlpha(30),
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12))),
-                              onPressed: _fetchUserProfile,
+                              onPressed: () {
+                                widget.onLogActivity(
+                                    'Retried loading profile', Icons.refresh);
+                                _fetchUserProfile();
+                              },
                               child: const Text('Retry',
                                   style: TextStyle(color: Colors.white)))
                         ],
@@ -1121,6 +1146,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(
+                              parent: AlwaysScrollableScrollPhysics(),
+                            ),
                             padding: const EdgeInsets.only(
                               top: 16,
                               left: 20,
@@ -1213,6 +1241,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                         onPressed: () {
                                           HapticFeedback.lightImpact();
+                                          widget.onLogActivity(
+                                              'Initiated Logout', Icons.logout);
                                           _logout();
                                         },
                                         child: const Row(
