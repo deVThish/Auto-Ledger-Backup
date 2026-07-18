@@ -1,6 +1,7 @@
+// ignore_for_file: use_build_context_synchronously, curly_braces_in_flow_control_structures
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
 import '../utils/device_info.dart';
@@ -23,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final _otpController = TextEditingController();
 
   final _forgotNicController = TextEditingController();
-  final _forgotPhoneController = TextEditingController();
+  final _forgotEmailController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmNewPasswordController = TextEditingController();
 
@@ -35,10 +36,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool _obscurePassword = true;
   bool _obscureResetPassword = true;
   bool _obscureConfirmResetPassword = true;
-
-  String _verificationId = '';
-  String? _registeredPhone;
-  bool _isDeviceVerification = false;
+  bool _isAuthenticating = false;
 
   OverlayEntry? _overlayEntry;
 
@@ -58,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     _passwordController.dispose();
     _otpController.dispose();
     _forgotNicController.dispose();
-    _forgotPhoneController.dispose();
+    _forgotEmailController.dispose();
     _newPasswordController.dispose();
     _confirmNewPasswordController.dispose();
     super.dispose();
@@ -69,6 +67,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _checkBiometricStatus();
       _checkBiometricAvailability();
+      _autoBiometricLogin();
     }
   }
 
@@ -90,7 +89,62 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _autoBiometricLogin() async {
+    if (_isAuthenticating) return;
+
+    final isEnabled = await SettingsUtil.isBiometricEnabled();
+    if (!isEnabled) return;
+    if (!_isBiometricAvailable) return;
+
+    final String? savedNic = await SecureStorage.getNic();
+    if (savedNic == null || savedNic.isEmpty) return;
+
+    _isAuthenticating = true;
+    final authenticated = await _biometricService.authenticate();
+
+    if (!authenticated) {
+      _isAuthenticating = false;
+      return;
+    }
+
+    if (!mounted) {
+      _isAuthenticating = false;
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final deviceId = await DeviceInfoUtil.getDeviceId();
+      final result = await AuthService.biometricLogin(savedNic, deviceId);
+
+      if (!context.mounted) return;
+
+      if (result['success'] == true) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else if (result['isDeviceMismatch'] == true) {
+        final String email = result['email'] ?? '';
+        if (email.isNotEmpty) {
+          _showDeviceVerificationDialog(email, savedNic);
+        }
+      } else {
+        _showToast('Biometric login failed. Please try again.', isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showToast('Biometric login failed. Please try again.', isError: true);
+      }
+    } finally {
+      _isAuthenticating = false;
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _showToast(String message, {bool isError = false}) {
+    if (!mounted) return;
+
     _overlayEntry?.remove();
     _overlayEntry = null;
 
@@ -121,23 +175,34 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   decoration: BoxDecoration(
-                    color: isError ? Colors.redAccent.withAlpha(100) : Colors.black.withAlpha(80),
+                    color: isError
+                        ? Colors.redAccent.withAlpha(100)
+                        : Colors.black.withAlpha(80),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: Colors.white.withAlpha(70),
                       width: 1.0,
                     ),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 10, spreadRadius: 1)
+                      BoxShadow(
+                          color: Colors.black.withAlpha(20),
+                          blurRadius: 10,
+                          spreadRadius: 1)
                     ],
                   ),
                   child: Row(
                     children: [
-                      Icon(isError ? Icons.error_outline : Icons.info_outline, color: Colors.white),
+                      Icon(isError ? Icons.error_outline : Icons.info_outline,
+                          color: Colors.white),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                      Expanded(
+                          child: Text(message,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold))),
                     ],
                   ),
                 ),
@@ -185,7 +250,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                   decoration: BoxDecoration(
                     color: Colors.green.shade600.withAlpha(40),
                     borderRadius: BorderRadius.circular(20),
@@ -194,17 +260,24 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       width: 1.0,
                     ),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 20, offset: const Offset(0, 10))
+                      BoxShadow(
+                          color: Colors.black.withAlpha(20),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10))
                     ],
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 28),
+                      const Icon(Icons.check_circle_outline_rounded,
+                          color: Colors.white, size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           message,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15),
                         ),
                       ),
                     ],
@@ -227,6 +300,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _handleBiometricLogin() async {
+    // දැනටමත් authentication වෙනවා නම් අලුතින් popup වෙන්න එපා
+    if (_isAuthenticating) return;
     if (!mounted) return;
 
     final isEnabled = await SettingsUtil.isBiometricEnabled();
@@ -240,16 +315,19 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       return;
     }
 
-    String? savedNic = await SecureStorage.getNic();
-    String nic = savedNic ?? _nicController.text.trim();
+    final String? savedNic = await SecureStorage.getNic();
 
-    if (nic.isEmpty) {
-      _showToast('Please enter your NIC first to save for biometric login.', isError: true);
+    if (savedNic == null || savedNic.isEmpty) {
+      _showToast('Please login once with NIC to save for biometric login.',
+          isError: true);
       return;
     }
 
+    _isAuthenticating = true;
     final authenticated = await _biometricService.authenticate();
+
     if (!authenticated) {
+      _isAuthenticating = false;
       _showToast('Authentication failed.', isError: true);
       return;
     }
@@ -257,11 +335,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     setState(() => _isLoading = true);
     try {
       final deviceId = await DeviceInfoUtil.getDeviceId();
-      final result = await AuthService.biometricLogin(nic, deviceId);
-      if (!mounted) return;
+      final result = await AuthService.biometricLogin(savedNic, deviceId);
+
+      if (!context.mounted) return;
 
       if (result['success'] == true) {
-        await SecureStorage.saveNic(nic);
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
         Navigator.pushReplacement(
           context,
@@ -270,12 +348,23 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         if (overlay != null) {
           _showGlassySuccessToast(overlay, 'Biometric Login Successful!');
         }
+      } else if (result['isDeviceMismatch'] == true) {
+        final String email = result['email'] ?? '';
+        if (email.isNotEmpty) {
+          _showDeviceVerificationDialog(email, savedNic);
+        } else {
+          _showToast('Device verification required. Check your email.',
+              isError: true);
+        }
       } else {
-        _showToast('Biometric login failed. Check NIC.', isError: true);
+        _showToast('Biometric login failed. Please try again.', isError: true);
       }
     } catch (e) {
-      if (mounted) _showToast('An error occurred during biometric login.', isError: true);
+      if (mounted) {
+        _showToast('An error occurred during biometric login.', isError: true);
+      }
     } finally {
+      _isAuthenticating = false;
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -285,11 +374,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
     FocusScope.of(context).unfocus();
 
-    if (_nicController.text.trim().isEmpty) {
+    final nic = _nicController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (nic.isEmpty) {
       _showToast('NIC Number is required', isError: true);
       return;
     }
-    if (_passwordController.text.trim().isEmpty) {
+    if (password.isEmpty) {
       _showToast('Password is required', isError: true);
       return;
     }
@@ -297,17 +389,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     setState(() => _isLoading = true);
     try {
       final deviceId = await DeviceInfoUtil.getDeviceId();
-      final result = await AuthService.loginUser(
-        _nicController.text.trim(),
-        _passwordController.text.trim(),
-        deviceId,
-      );
+      final result = await AuthService.loginUser(nic, password, deviceId);
 
-      if (!mounted) return;
+      if (!context.mounted) return;
 
       if (result['success'] == true) {
-        await SecureStorage.saveNic(_nicController.text.trim());
+        await SecureStorage.saveNic(nic);
+
+        if (!context.mounted) return;
         final overlay = Navigator.of(context, rootNavigator: true).overlay;
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -316,117 +407,331 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           _showGlassySuccessToast(overlay, 'Login Successful!');
         }
       } else if (result['isDeviceMismatch'] == true) {
-        _showToast('New device detected. Verification required.', isError: true);
-        _registeredPhone = result['phone'];
-        await _sendOTP(_registeredPhone!, isDeviceVerification: true);
+        final String email = result['email'] ?? '';
+        if (email.isNotEmpty) {
+          _showDeviceVerificationDialog(email, nic);
+        } else {
+          _showToast('Device verification required. Check your email.',
+              isError: true);
+        }
+        setState(() => _isLoading = false);
       } else {
         _showToast('Login Failed. Check credentials.', isError: true);
         setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
-        _showToast('Login Failed. Check credentials or connection.', isError: true);
+        _showToast('Login Failed. Check credentials or connection.',
+            isError: true);
         setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _sendOTP(String phone, {required bool isDeviceVerification}) async {
-    if (!mounted) return;
+  void _showDeviceVerificationDialog(String email, String nic) {
+    final TextEditingController otpController = TextEditingController();
+    bool isResending = false;
+    bool isVerifying = false;
+    String? errorMsg;
+    String? successMsg;
 
-    _isDeviceVerification = isDeviceVerification;
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: phone,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        if (isDeviceVerification) {
-          await _verifyNewDeviceBackend();
-        }
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (mounted) {
-          _showToast(e.message ?? 'Verification Failed', isError: true);
-          setState(() => _isLoading = false);
-        }
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        if (mounted) {
-          setState(() {
-            _verificationId = verificationId;
-            _isLoading = false;
-          });
-          _showOTPDialog(phoneNumber: phone);
-        }
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
-  }
+    AuthService.resendDeviceOtp(nic, email).catchError((_) => false);
 
-  Future<void> _verifyOTP() async {
-    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true)
+        .popUntil((route) => route.isFirst);
 
-    FocusScope.of(context).unfocus();
-
-    if (_otpController.text.trim().isEmpty) {
-      _showToast('Please enter the OTP', isError: true);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId,
-        smsCode: _otpController.text.trim(),
-      );
-      await FirebaseAuth.instance.signInWithCredential(credential);
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
 
-      Navigator.pop(context);
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black.withAlpha(200),
+        builder: (BuildContext dialogContext) {
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              return BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Dialog(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  insetPadding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.9,
+                      maxHeight: MediaQuery.of(context).size.height * 0.7,
+                    ),
+                    child: SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(25),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                              color: Colors.white.withAlpha(50), width: 1.5),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.phonelink_lock,
+                                color: Colors.white, size: 40),
+                            const SizedBox(height: 15),
+                            const Text(
+                              'Device Verification',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 15),
+                            const Text(
+                              'A new device is detected. Enter the OTP sent to your email:',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 14),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              email,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: Colors.cyanAccent,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 20),
+                            TextField(
+                              controller: otpController,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  letterSpacing: 8),
+                              textAlign: TextAlign.center,
+                              onChanged: (val) {
+                                if (errorMsg != null || successMsg != null) {
+                                  setModalState(() {
+                                    errorMsg = null;
+                                    successMsg = null;
+                                  });
+                                }
+                              },
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white.withAlpha(20),
+                                hintText: '••••••',
+                                hintStyle: const TextStyle(
+                                    color: Colors.white54, letterSpacing: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                            if (errorMsg != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Text(errorMsg!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        color: Colors.redAccent,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            if (successMsg != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Text(successMsg!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        color: Colors.greenAccent,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: isResending || isVerifying
+                                  ? null
+                                  : () async {
+                                      FocusScope.of(dialogContext).unfocus();
+                                      setModalState(() {
+                                        isResending = true;
+                                        errorMsg = null;
+                                        successMsg = null;
+                                      });
+                                      try {
+                                        final success = await AuthService
+                                                .resendDeviceOtp(nic, email)
+                                            .timeout(
+                                                const Duration(seconds: 15));
+                                        if (dialogContext.mounted) {
+                                          if (success) {
+                                            setModalState(() => successMsg =
+                                                'OTP resent successfully!');
+                                          } else {
+                                            setModalState(() => errorMsg =
+                                                'Failed to resend OTP.');
+                                          }
+                                        }
+                                      } catch (e) {
+                                        if (dialogContext.mounted) {
+                                          setModalState(() => errorMsg =
+                                              'Failed to resend OTP.');
+                                        }
+                                      } finally {
+                                        if (dialogContext.mounted) {
+                                          setModalState(
+                                              () => isResending = false);
+                                        }
+                                      }
+                                    },
+                              child: Text(
+                                isResending ? 'Sending...' : 'Resend OTP',
+                                style: TextStyle(
+                                  color: isResending
+                                      ? Colors.white54
+                                      : Colors.cyanAccent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: BorderSide(
+                                            color: Colors.white.withAlpha(100),
+                                            width: 1.5),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      FocusScope.of(dialogContext).unfocus();
+                                      if (dialogContext.mounted) {
+                                        Navigator.pop(dialogContext);
+                                      }
+                                      otpController.dispose();
+                                      setState(() => _isLoading = false);
+                                    },
+                                    child: const Text('Cancel',
+                                        style: TextStyle(color: Colors.white)),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Colors.white.withAlpha(50),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: BorderSide(
+                                            color: Colors.white.withAlpha(150),
+                                            width: 1.5),
+                                      ),
+                                    ),
+                                    onPressed: isVerifying || isResending
+                                        ? null
+                                        : () async {
+                                            FocusScope.of(dialogContext)
+                                                .unfocus();
+                                            final otp =
+                                                otpController.text.trim();
+                                            if (otp.isEmpty) {
+                                              setModalState(() => errorMsg =
+                                                  'Please enter the OTP');
+                                              return;
+                                            }
 
-      if (_isDeviceVerification) {
-        await _verifyNewDeviceBackend();
-      } else {
-        setState(() => _isLoading = false);
-        _showResetPasswordDialog();
-      }
-    } catch (e) {
-      if (mounted) {
-        _showToast('Invalid OTP', isError: true);
-        setState(() => _isLoading = false);
-      }
-    }
-  }
+                                            setModalState(() {
+                                              isVerifying = true;
+                                              errorMsg = null;
+                                              successMsg = null;
+                                            });
 
-  Future<void> _verifyNewDeviceBackend() async {
-    if (!mounted) return;
+                                            try {
+                                              final deviceId =
+                                                  await DeviceInfoUtil
+                                                      .getDeviceId();
+                                              final result = await AuthService
+                                                      .verifyNewDevice(
+                                                          nic, deviceId, otp)
+                                                  .timeout(const Duration(
+                                                      seconds: 15));
 
-    try {
-      final deviceId = await DeviceInfoUtil.getDeviceId();
-      final isVerified = await AuthService.verifyNewDevice(
-          _nicController.text.trim(),
-          deviceId
+                                              if (!dialogContext.mounted) {
+                                                return;
+                                              }
+
+                                              if (result['success'] == true) {
+                                                Navigator.pop(dialogContext);
+
+                                                if (!this.context.mounted) {
+                                                  return;
+                                                }
+                                                final overlay = Navigator.of(
+                                                        this.context,
+                                                        rootNavigator: true)
+                                                    .overlay;
+
+                                                Navigator.pushReplacement(
+                                                  this.context,
+                                                  MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          const HomeScreen()),
+                                                );
+                                                if (overlay != null) {
+                                                  _showGlassySuccessToast(
+                                                      overlay,
+                                                      'Device verified successfully!');
+                                                }
+                                              } else {
+                                                setModalState(() => errorMsg =
+                                                    result['message'] ??
+                                                        'Invalid OTP. Please try again.');
+                                              }
+                                            } catch (e) {
+                                              if (dialogContext.mounted) {
+                                                setModalState(() => errorMsg =
+                                                    'Verification failed. Please try again.');
+                                              }
+                                            } finally {
+                                              if (dialogContext.mounted) {
+                                                setModalState(
+                                                    () => isVerifying = false);
+                                              }
+                                            }
+                                          },
+                                    child: Text(
+                                        isVerifying
+                                            ? 'Verifying...'
+                                            : 'Verify Device',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
       );
-      if (!mounted) return;
-
-      if (isVerified) {
-        await SecureStorage.saveNic(_nicController.text.trim());
-        final overlay = Navigator.of(context, rootNavigator: true).overlay;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-        if (overlay != null) {
-          _showGlassySuccessToast(overlay, 'Device verified successfully!');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        _showToast('Backend Verification Failed', isError: true);
-        setState(() => _isLoading = false);
-      }
-    }
+    });
   }
 
   Future<void> _handleForgotPasswordCheck() async {
@@ -435,213 +740,159 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     FocusScope.of(context).unfocus();
 
     final nic = _forgotNicController.text.trim();
-    final phoneDigits = _forgotPhoneController.text.trim();
+    final email = _forgotEmailController.text.trim();
 
     if (nic.isEmpty) {
       _showToast('NIC Number is required', isError: true);
       return;
     }
-    if (phoneDigits.isEmpty || phoneDigits.length != 9) {
-      _showToast('Please enter exactly 9 digits for the phone number.', isError: true);
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      _showToast('Please enter a valid email address.', isError: true);
       return;
     }
-    final phone = '+94$phoneDigits';
 
     setState(() => _isLoading = true);
     try {
-      final isValid = await AuthService.forgotPasswordCheck(nic, phone);
-      if (!mounted) return;
+      final isValid = await AuthService.forgotPasswordCheck(nic, email);
+
+      if (!context.mounted) return;
 
       if (isValid) {
-        Navigator.pop(context);
-        _isDeviceVerification = false;
-        await _sendOTP(phone, isDeviceVerification: false);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showToast('Verification failed. Check NIC and Phone.', isError: true);
+        Navigator.pop(context); // Close initial dialog
+        _showForgotPasswordOTPDialog(nic, email); // Dialog 1: OTP Verify
         setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _handlePasswordReset() async {
-    if (!mounted) return;
-
-    FocusScope.of(context).unfocus();
-
-    final newPassword = _newPasswordController.text.trim();
-    final confirmPassword = _confirmNewPasswordController.text.trim();
-
-    if (newPassword.isEmpty) {
-      _showToast('New Password is required', isError: true);
-      return;
-    }
-    final passwordRegex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
-    if (!passwordRegex.hasMatch(newPassword)) {
-      _showToast('Password must be at least 8 characters, contain uppercase, lowercase, number, and special character.', isError: true);
-      return;
-    }
-    if (confirmPassword.isEmpty) {
-      _showToast('Please confirm your new password.', isError: true);
-      return;
-    }
-    if (newPassword != confirmPassword) {
-      _showToast('New password and confirm password do not match.', isError: true);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final success = await AuthService.resetPassword(
-        _forgotNicController.text.trim(),
-        '+94${_forgotPhoneController.text.trim()}',
-        newPassword,
-      );
-
-      if (!mounted) return;
-
-      if (success) {
-        Navigator.pop(context);
-
-        final overlay = Navigator.of(context, rootNavigator: true).overlay;
-        if (overlay != null) {
-          _showGlassySuccessToast(overlay, 'Password reset successfully! Please login.');
-        }
-
-        _forgotNicController.clear();
-        _forgotPhoneController.clear();
-        _newPasswordController.clear();
-        _confirmNewPasswordController.clear();
+      } else {
+        _showToast('Verification failed. Check NIC and Email.', isError: true);
         setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
-        _showToast('Failed to reset password.', isError: true);
+        _showToast('Verification failed. Check NIC and Email.', isError: true);
         setState(() => _isLoading = false);
       }
     }
   }
 
   void _showForgotPasswordInitialDialog() {
-    _forgotPhoneController.clear();
+    _forgotEmailController.clear();
     showDialog(
       context: context,
       barrierColor: Colors.black.withAlpha(200),
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
           child: Dialog(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(25),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withAlpha(50), width: 1.5),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.lock_reset, color: Colors.white, size: 40),
-                  const SizedBox(height: 16),
-                  const Text('Reset Password', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  const Text('Enter your details to receive an OTP', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: _forgotNicController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'NIC Number',
-                      labelStyle: const TextStyle(color: Colors.white54),
-                      filled: true,
-                      fillColor: Colors.white.withAlpha(20),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
+            child: SingleChildScrollView(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(25),
+                  borderRadius: BorderRadius.circular(24),
+                  border:
+                      Border.all(color: Colors.white.withAlpha(50), width: 1.5),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock_reset, color: Colors.white, size: 40),
+                    const SizedBox(height: 16),
+                    const Text('Reset Password',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text('Enter your details to receive an OTP via email',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: _forgotNicController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'NIC Number',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white.withAlpha(20),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: Colors.cyanAccent),
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withAlpha(20),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
-                          border: Border.all(color: Colors.white.withAlpha(40)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _forgotEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Email Address',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white.withAlpha(20),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
-                        child: const Text('+94', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: Colors.cyanAccent),
+                        ),
                       ),
-                      Expanded(
-                        child: TextField(
-                          controller: _forgotPhoneController,
-                          keyboardType: TextInputType.phone,
-                          maxLength: 9,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Phone Number (9 digits)',
-                            labelStyle: const TextStyle(color: Colors.white54),
-                            counterText: '',
-                            filled: true,
-                            fillColor: Colors.white.withAlpha(20),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide.none,
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                    color: Colors.white.withAlpha(100),
+                                    width: 1.5),
                               ),
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: const BorderSide(color: Colors.cyanAccent),
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
+                            onPressed: () {
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
+                              }
+                            },
+                            child: const Text('Cancel',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white.withAlpha(50),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                    color: Colors.white.withAlpha(150),
+                                    width: 1.5),
                               ),
                             ),
+                            onPressed: _handleForgotPasswordCheck,
+                            child: const Text('Next',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(100), width: 1.5),
-                            ),
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withAlpha(50),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(150), width: 1.5),
-                            ),
-                          ),
-                          onPressed: _handleForgotPasswordCheck,
-                          child: const Text('Next', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -650,107 +901,19 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _showOTPDialog({required String phoneNumber}) {
+  // Dialog 1: Verify OTP
+  void _showForgotPasswordOTPDialog(String nic, String email) {
     _otpController.clear();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withAlpha(200),
-      builder: (BuildContext context) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(25),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withAlpha(50), width: 1.5),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(_isDeviceVerification ? Icons.phonelink_lock : Icons.message, color: Colors.white, size: 40),
-                  const SizedBox(height: 15),
-                  Text(_isDeviceVerification ? 'Device Verification' : 'Enter OTP',
-                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 15),
-                  Text(
-                    _isDeviceVerification
-                        ? 'A new device was detected. Enter the OTP sent to $phoneNumber.'
-                        : 'Enter the OTP sent to $phoneNumber to reset your password.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 8),
-                    textAlign: TextAlign.center,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withAlpha(20),
-                      hintText: '••••••',
-                      hintStyle: const TextStyle(color: Colors.white54, letterSpacing: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(100), width: 1.5),
-                            ),
-                          ),
-                          onPressed: () {
-                            Navigator.pop(context);
-                            setState(() => _isLoading = false);
-                          },
-                          child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withAlpha(50),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(150), width: 1.5),
-                            ),
-                          ),
-                          onPressed: _verifyOTP,
-                          child: const Text('Verify', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+    bool isResending = false;
+    bool isVerifying = false;
+    String? errorMsg;
+    String? successMsg;
 
-  void _showResetPasswordDialog() {
-    _newPasswordController.clear();
-    _confirmNewPasswordController.clear();
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withAlpha(200),
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return BackdropFilter(
@@ -758,88 +921,481 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               child: Dialog(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(25),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withAlpha(50), width: 1.5),
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(25),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                          color: Colors.white.withAlpha(50), width: 1.5),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.message,
+                            color: Colors.white, size: 40),
+                        const SizedBox(height: 15),
+                        const Text('Enter OTP',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 15),
+                        Text(
+                          'Enter the OTP sent to your email: $email',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 14),
+                        ),
+                        const SizedBox(height: 20),
+                        TextField(
+                          controller: _otpController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              letterSpacing: 8),
+                          textAlign: TextAlign.center,
+                          onChanged: (val) {
+                            if (errorMsg != null || successMsg != null) {
+                              setModalState(() {
+                                errorMsg = null;
+                                successMsg = null;
+                              });
+                            }
+                          },
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white.withAlpha(20),
+                            hintText: '••••••',
+                            hintStyle: const TextStyle(
+                                color: Colors.white54, letterSpacing: 8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        if (errorMsg != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(errorMsg!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        if (successMsg != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(successMsg!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    color: Colors.greenAccent,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: isResending || isVerifying
+                              ? null
+                              : () async {
+                                  FocusScope.of(dialogContext).unfocus();
+                                  setModalState(() {
+                                    isResending = true;
+                                    errorMsg = null;
+                                    successMsg = null;
+                                  });
+                                  try {
+                                    final success = await AuthService
+                                            .resendResetOtp(nic, email)
+                                        .timeout(const Duration(seconds: 15));
+                                    if (dialogContext.mounted) {
+                                      if (success) {
+                                        setModalState(() => successMsg =
+                                            'OTP resent successfully!');
+                                      } else {
+                                        setModalState(() =>
+                                            errorMsg = 'Failed to resend OTP.');
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (dialogContext.mounted) {
+                                      setModalState(() =>
+                                          errorMsg = 'Failed to resend OTP.');
+                                    }
+                                  } finally {
+                                    if (dialogContext.mounted) {
+                                      setModalState(() => isResending = false);
+                                    }
+                                  }
+                                },
+                          child: Text(
+                            isResending ? 'Sending...' : 'Resend OTP',
+                            style: TextStyle(
+                              color: isResending
+                                  ? Colors.white54
+                                  : Colors.cyanAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                        color: Colors.white.withAlpha(100),
+                                        width: 1.5),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  FocusScope.of(dialogContext).unfocus();
+                                  if (dialogContext.mounted) {
+                                    Navigator.pop(dialogContext);
+                                  }
+                                },
+                                child: const Text('Cancel',
+                                    style: TextStyle(color: Colors.white)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white.withAlpha(50),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                        color: Colors.white.withAlpha(150),
+                                        width: 1.5),
+                                  ),
+                                ),
+                                onPressed: isVerifying || isResending
+                                    ? null
+                                    : () async {
+                                        FocusScope.of(dialogContext).unfocus();
+                                        final otp = _otpController.text.trim();
+
+                                        if (otp.isEmpty) {
+                                          setModalState(() => errorMsg =
+                                              'Please enter the OTP');
+                                          return;
+                                        }
+
+                                        setModalState(() {
+                                          isVerifying = true;
+                                          errorMsg = null;
+                                          successMsg = null;
+                                        });
+
+                                        try {
+                                          final isVerified = await AuthService
+                                                  .verifyResetOtp(
+                                                      nic, email, otp)
+                                              .timeout(
+                                                  const Duration(seconds: 15));
+
+                                          if (!dialogContext.mounted) return;
+
+                                          if (isVerified) {
+                                            Navigator.pop(
+                                                dialogContext); // close OTP dialog
+                                            _showResetPasswordDialog(nic, email,
+                                                otp); // proceed to Dialog 2
+                                          } else {
+                                            setModalState(() => errorMsg =
+                                                'Invalid OTP. Please try again.');
+                                          }
+                                        } catch (e) {
+                                          if (dialogContext.mounted) {
+                                            setModalState(() => errorMsg =
+                                                'OTP Verification Failed.');
+                                          }
+                                        } finally {
+                                          if (dialogContext.mounted) {
+                                            setModalState(
+                                                () => isVerifying = false);
+                                          }
+                                        }
+                                      },
+                                child: Text(
+                                    isVerifying ? 'Verifying...' : 'Verify',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.password, color: Colors.white, size: 40),
-                      const SizedBox(height: 16),
-                      const Text('New Password', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 24),
-                      TextField(
-                        controller: _newPasswordController,
-                        obscureText: _obscureResetPassword,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'New Password',
-                          labelStyle: const TextStyle(color: Colors.white54),
-                          filled: true,
-                          fillColor: Colors.white.withAlpha(20),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureResetPassword ? Icons.visibility_off : Icons.visibility,
-                              color: Colors.white70,
-                            ),
-                            onPressed: () {
-                              setModalState(() {
-                                _obscureResetPassword = !_obscureResetPassword;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _confirmNewPasswordController,
-                        obscureText: _obscureConfirmResetPassword,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Confirm New Password',
-                          labelStyle: const TextStyle(color: Colors.white54),
-                          filled: true,
-                          fillColor: Colors.white.withAlpha(20),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureConfirmResetPassword ? Icons.visibility_off : Icons.visibility,
-                              color: Colors.white70,
-                            ),
-                            onPressed: () {
-                              setModalState(() {
-                                _obscureConfirmResetPassword = !_obscureConfirmResetPassword;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withAlpha(50),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Dialog 2: Set New Password
+  void _showResetPasswordDialog(String nic, String email, String otp) {
+    _newPasswordController.clear();
+    _confirmNewPasswordController.clear();
+    bool isSaving = false;
+    String? errorMsg;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withAlpha(200),
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(25),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                          color: Colors.white.withAlpha(50), width: 1.5),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.password,
+                            color: Colors.white, size: 40),
+                        const SizedBox(height: 16),
+                        const Text('New Password',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: _newPasswordController,
+                          obscureText: _obscureResetPassword,
+                          style: const TextStyle(color: Colors.white),
+                          onChanged: (val) {
+                            if (errorMsg != null)
+                              setModalState(() => errorMsg = null);
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'New Password',
+                            labelStyle: const TextStyle(color: Colors.white54),
+                            filled: true,
+                            fillColor: Colors.white.withAlpha(20),
+                            enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.white.withAlpha(150), width: 1.5),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Colors.cyanAccent),
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureResetPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.white70,
+                              ),
+                              onPressed: () {
+                                setModalState(() {
+                                  _obscureResetPassword =
+                                      !_obscureResetPassword;
+                                });
+                              },
                             ),
                           ),
-                          onPressed: _handlePasswordReset,
-                          child: const Text('Save Password', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _confirmNewPasswordController,
+                          obscureText: _obscureConfirmResetPassword,
+                          style: const TextStyle(color: Colors.white),
+                          onChanged: (val) {
+                            if (errorMsg != null)
+                              setModalState(() => errorMsg = null);
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Confirm New Password',
+                            labelStyle: const TextStyle(color: Colors.white54),
+                            filled: true,
+                            fillColor: Colors.white.withAlpha(20),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Colors.cyanAccent),
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmResetPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.white70,
+                              ),
+                              onPressed: () {
+                                setModalState(() {
+                                  _obscureConfirmResetPassword =
+                                      !_obscureConfirmResetPassword;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        if (errorMsg != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Text(errorMsg!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                        color: Colors.white.withAlpha(100),
+                                        width: 1.5),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  FocusScope.of(dialogContext).unfocus();
+                                  if (dialogContext.mounted) {
+                                    Navigator.pop(dialogContext);
+                                  }
+                                },
+                                child: const Text('Cancel',
+                                    style: TextStyle(color: Colors.white)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white.withAlpha(50),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                        color: Colors.white.withAlpha(150),
+                                        width: 1.5),
+                                  ),
+                                ),
+                                onPressed: isSaving
+                                    ? null
+                                    : () async {
+                                        FocusScope.of(dialogContext).unfocus();
+                                        final newPassword =
+                                            _newPasswordController.text.trim();
+                                        final confirmPassword =
+                                            _confirmNewPasswordController.text
+                                                .trim();
+
+                                        if (newPassword.isEmpty) {
+                                          setModalState(() => errorMsg =
+                                              'New Password is required');
+                                          return;
+                                        }
+                                        final passwordRegex = RegExp(
+                                            r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+                                        if (!passwordRegex
+                                            .hasMatch(newPassword)) {
+                                          setModalState(() => errorMsg =
+                                              'Password must be at least 8 chars, with uppercase, lowercase, number, and special char.');
+                                          return;
+                                        }
+                                        if (confirmPassword.isEmpty) {
+                                          setModalState(() => errorMsg =
+                                              'Please confirm your new password.');
+                                          return;
+                                        }
+                                        if (newPassword != confirmPassword) {
+                                          setModalState(() => errorMsg =
+                                              'Passwords do not match.');
+                                          return;
+                                        }
+
+                                        setModalState(() {
+                                          isSaving = true;
+                                          errorMsg = null;
+                                        });
+
+                                        try {
+                                          final success =
+                                              await AuthService.resetPassword(
+                                            nic,
+                                            email,
+                                            otp,
+                                            newPassword,
+                                          );
+
+                                          if (!dialogContext.mounted) return;
+
+                                          if (success) {
+                                            Navigator.pop(dialogContext);
+                                            final overlay = Navigator.of(
+                                                    this.context,
+                                                    rootNavigator: true)
+                                                .overlay;
+                                            if (overlay != null) {
+                                              _showGlassySuccessToast(overlay,
+                                                  'Password reset successfully! Please login.');
+                                            }
+                                          } else {
+                                            setModalState(() => errorMsg =
+                                                'Failed to save password. Try again.');
+                                          }
+                                        } catch (e) {
+                                          if (dialogContext.mounted) {
+                                            setModalState(() => errorMsg =
+                                                'Failed to reset password. Try again.');
+                                          }
+                                        } finally {
+                                          if (dialogContext.mounted) {
+                                            setModalState(
+                                                () => isSaving = false);
+                                          }
+                                        }
+                                      },
+                                child: Text(isSaving ? 'Saving...' : 'Save',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -866,7 +1422,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.directions_car, size: 60, color: Colors.white),
+                    const Icon(Icons.directions_car,
+                        size: 60, color: Colors.white),
                     const SizedBox(height: 16),
                     const Text(
                       'Auto-Ledger',
@@ -880,19 +1437,23 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     const SizedBox(height: 40),
                     TextField(
                       controller: _nicController,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w500),
                       decoration: InputDecoration(
                         labelText: 'NIC Number',
                         labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: const Icon(Icons.badge, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.badge, color: Colors.white70),
                         filled: true,
                         fillColor: Colors.white.withAlpha(20),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white.withAlpha(40)),
+                          borderSide:
+                              BorderSide(color: Colors.white.withAlpha(40)),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: Colors.cyanAccent, width: 1.5),
+                          borderSide: const BorderSide(
+                              color: Colors.cyanAccent, width: 1.5),
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -901,16 +1462,20 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w500),
                       decoration: InputDecoration(
                         labelText: 'Password',
                         labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.lock, color: Colors.white70),
                         filled: true,
                         fillColor: Colors.white.withAlpha(20),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                             color: Colors.white70,
                           ),
                           onPressed: () {
@@ -920,11 +1485,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           },
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white.withAlpha(40)),
+                          borderSide:
+                              BorderSide(color: Colors.white.withAlpha(40)),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: Colors.cyanAccent, width: 1.5),
+                          borderSide: const BorderSide(
+                              color: Colors.cyanAccent, width: 1.5),
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -935,7 +1502,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         onPressed: _showForgotPasswordInitialDialog,
                         child: const Text(
                           'Forgot Password?',
-                          style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: Colors.cyanAccent,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -958,14 +1527,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           onPressed: _handleLogin,
                           child: const Text(
                             'LOGIN',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.5),
                           ),
                         ),
                       ),
                     const SizedBox(height: 24),
                     if (_isBiometricEnabled && _isBiometricAvailable) ...[
                       IconButton(
-                        icon: const Icon(Icons.fingerprint, color: Colors.white, size: 45),
+                        icon: const Icon(Icons.fingerprint,
+                            color: Colors.white, size: 45),
                         onPressed: _isLoading ? null : _handleBiometricLogin,
                       ),
                       const SizedBox(height: 16),
@@ -974,7 +1547,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                          MaterialPageRoute(
+                              builder: (_) => const RegisterScreen()),
                         );
                       },
                       child: RichText(
@@ -984,7 +1558,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           children: [
                             TextSpan(
                               text: 'Register Here',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  fontSize: 13),
                             ),
                           ],
                         ),
@@ -1012,7 +1589,11 @@ class _LoginBackground extends StatelessWidget {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+                colors: [
+                  Color(0xFF0F2027),
+                  Color(0xFF203A43),
+                  Color(0xFF2C5364)
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
