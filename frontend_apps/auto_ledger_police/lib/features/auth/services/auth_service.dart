@@ -46,20 +46,11 @@ class AuthService {
             'password': password.trim(),
           };
 
-    print('==================== LOGIN REQUEST ====================');
-    print('📡 Endpoint: $endpoint');
-    print('📦 Payload: $payload');
-    print('======================================================');
-
     final response = await _apiClient.post(
       endpoint,
       requiresAuth: false,
       body: payload,
     );
-
-    print('==================== LOGIN RESPONSE ====================');
-    print('📥 Response: $response');
-    print('======================================================');
 
     final authResponse = AuthResponseModel.fromJson(
       response as Map<String, dynamic>,
@@ -74,12 +65,10 @@ class AuthService {
       districtId: authResponse.officer.divisionId,
     );
 
-    // Save a default device ID if not already set
     final existingDeviceId = await _tokenStorage.getDeviceId();
     if (existingDeviceId == null || existingDeviceId.isEmpty) {
       final defaultDeviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
       await _tokenStorage.saveDeviceId(defaultDeviceId);
-      print('⚠️ Default Device ID created: $defaultDeviceId');
     }
 
     return authResponse;
@@ -91,12 +80,7 @@ class AuthService {
   }) async {
     _resetApiClient();
 
-    print('==================== SMART LOGIN ====================');
-    print('🔑 loginId: $loginId');
-    print('=====================================================');
-
     try {
-      print('🔄 Attempt 1: Divisional Head Login');
       final response = await _apiClient.post(
         ApiConstants.headLogin,
         requiresAuth: false,
@@ -121,19 +105,16 @@ class AuthService {
       if (existingDeviceId == null || existingDeviceId.isEmpty) {
         final defaultDeviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
         await _tokenStorage.saveDeviceId(defaultDeviceId);
-        print('⚠️ Default Device ID created: $defaultDeviceId');
       }
 
       return authResponse;
     } on ApiException catch (e) {
-      print('❌ Divisional Head Login FAILED: ${e.statusCode} - ${e.message}');
       if (e.statusCode != 401 && e.statusCode != 404) {
         rethrow;
       }
     }
 
     try {
-      print('🔄 Attempt 2: Traffic Officer Login');
       final response = await _apiClient.post(
         ApiConstants.officerLogin,
         requiresAuth: false,
@@ -158,12 +139,10 @@ class AuthService {
       if (existingDeviceId == null || existingDeviceId.isEmpty) {
         final defaultDeviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
         await _tokenStorage.saveDeviceId(defaultDeviceId);
-        print('⚠️ Default Device ID created: $defaultDeviceId');
       }
 
       return authResponse;
     } on ApiException catch (e) {
-      print('❌ Traffic Officer Login FAILED: ${e.statusCode} - ${e.message}');
       if (e.statusCode == 401 || e.statusCode == 404) {
         throw ApiException(
           statusCode: 401,

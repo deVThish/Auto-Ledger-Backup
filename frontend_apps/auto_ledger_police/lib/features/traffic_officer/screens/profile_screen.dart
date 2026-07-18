@@ -26,7 +26,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _badgeNumber = '';
   String _email = '';
   String _role = '';
-  String _divisionId = '';
   String _shiftTime = '08:00 AM - 04:00 PM';
   int _selectedNavIndex = 0;
 
@@ -51,13 +50,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _badgeNumber = session.officerBadgeNumber;
           _email = session.officerName;
           _role = session.role.replaceAll('_', ' ');
-          _divisionId = session.districtId;
         } else {
           _name = '';
           _badgeNumber = '';
           _email = '';
           _role = '';
-          _divisionId = '';
         }
         _isLoading = false;
       });
@@ -316,15 +313,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   icon: Icons.email_outlined,
                                   title: 'Email',
                                   value: _email.isEmpty ? 'Not available' : _email,
-                                  compact: compact,
-                                ),
-                                const SizedBox(height: 8),
-                                _InfoCard(
-                                  icon: Icons.location_city_outlined,
-                                  title: 'Division',
-                                  value: _divisionId.isEmpty
-                                      ? 'Not assigned'
-                                      : 'Division $_divisionId',
                                   compact: compact,
                                 ),
                                 const SizedBox(height: 8),

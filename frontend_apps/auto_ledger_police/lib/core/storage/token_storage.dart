@@ -66,15 +66,6 @@ class TokenStorage {
     final loginAt = DateTime.now();
     final tokenExpiresAt = _readJwtExpiry(accessToken);
 
-    print('==================== SAVE SESSION ====================');
-    print('🔑 Access Token: ${accessToken.substring(0, 20)}...');
-    print('👤 Officer ID: $officerId');
-    print('👤 Officer Name: $officerName');
-    print('📛 Badge: $officerBadgeNumber');
-    print('🎭 Role: $role');
-    print('📍 District: $districtId');
-    print('=======================================================');
-
     await _storage.write(key: _accessTokenKey, value: accessToken);
     await _storage.write(key: _officerIdKey, value: officerId);
     await _storage.write(key: _officerNameKey, value: officerName);
@@ -152,7 +143,6 @@ class TokenStorage {
   }
 
   Future<void> clearSession() async {
-    print('==================== CLEAR SESSION ====================');
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _officerIdKey);
     await _storage.delete(key: _officerNameKey);
@@ -164,28 +154,14 @@ class TokenStorage {
     await _storage.delete(key: _biometricEnabledKey);
     await _storage.delete(key: _deviceIdKey);
     await _storage.write(key: _loggedOutKey, value: 'true');
-    print('✅ Session cleared');
-    print('======================================================');
   }
 
   Future<void> saveDeviceId(String deviceId) async {
-    print('==================== SAVE DEVICE ID ====================');
-    print('📱 Device ID: $deviceId');
     await _storage.write(key: _deviceIdKey, value: deviceId);
-    print('✅ Device ID saved');
-    print('=======================================================');
   }
 
   Future<String?> getDeviceId() async {
-    final deviceId = await _storage.read(key: _deviceIdKey);
-    print('==================== GET DEVICE ID ====================');
-    if (deviceId != null && deviceId.isNotEmpty) {
-      print('✅ Device ID found: $deviceId');
-    } else {
-      print('❌ No Device ID found');
-    }
-    print('=======================================================');
-    return deviceId;
+    return _storage.read(key: _deviceIdKey);
   }
 
   Future<void> saveBiometricEnabled(bool enabled) async {
