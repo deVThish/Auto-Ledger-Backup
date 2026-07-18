@@ -34,10 +34,10 @@ export class FinesController {
   @Post()
   issueFine(
     @Request() req: AuthRequest,
-    @Body() body: { scanToken: string; offenseIds: string[]; comment?: string },
+    @Body() body: { sessionId: string; offenseIds: string[]; comment?: string },
   ) {
     return this.finesService.issueFine({
-      scanToken: body.scanToken,
+      sessionId: body.sessionId,
       officerId: req.user.id,
       offenseIds: body.offenseIds,
       comment: body.comment,
