@@ -30,9 +30,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasShownPointsWarning = false;
   final List<Map<String, dynamic>> _recentActivities = [];
 
-  String? _currentQrToken;
-  DateTime? _currentQrExpiry;
-
   @override
   void initState() {
     super.initState();
@@ -59,12 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _licenseData = Map<String, dynamic>.from(response.data);
         _isLoading = false;
         _errorMessage = '';
-
-        final status = _licenseData?['status'];
-        if (status == 'SUSPENDED' || status == 'REVOKED') {
-          _currentQrToken = null;
-          _currentQrExpiry = null;
-        }
       });
 
       if (!_hasShownPointsWarning) {
@@ -460,68 +451,36 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    if (_currentQrToken != null && _currentQrExpiry != null) {
-      final now = DateTime.now();
-      if (_currentQrExpiry!.isAfter(now)) {
-        _addRecentActivity('Reopened QR Code', Icons.qr_code_scanner);
-        if (mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) => QRDialog(
-              qrToken: _currentQrToken!,
-              initialExpiresAt: _currentQrExpiry!,
-              onClose: () {
-                _addRecentActivity('Closed QR Code Dialog', Icons.close);
-              },
-              onExpired: () {
-                setState(() {
-                  _currentQrToken = null;
-                  _currentQrExpiry = null;
-                });
-              },
-            ),
-          );
-        }
-        return;
-      }
-    }
-
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) =>
           const Center(child: CircularProgressIndicator(color: Colors.white)),
     );
+
     try {
-      final response = await ApiService.dio.get('/license/generate-qr');
-      final String token = response.data['qrToken'];
-      final DateTime expiresAt = DateTime.parse(response.data['expiresAt']);
+      final userId = _licenseData?['user_Id'] ?? '';
+      final response = await ApiService.dio.post(
+        '/qr/generate',
+        data: {'userId': userId},
+      );
+
+      final String sessionId = response.data['qrToken'];
 
       if (mounted) Navigator.pop(context);
       _addRecentActivity('Generated QR Code', Icons.qr_code_scanner);
-
-      setState(() {
-        _currentQrToken = token;
-        _currentQrExpiry = expiresAt;
-      });
 
       if (mounted) {
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (BuildContext context) => QRDialog(
-            qrToken: token,
-            initialExpiresAt: expiresAt,
+            sessionId: sessionId,
+            initialExpiresAt: DateTime.now().add(const Duration(minutes: 10)),
             onClose: () {
               _addRecentActivity('Closed QR Code Dialog', Icons.close);
             },
-            onExpired: () {
-              setState(() {
-                _currentQrToken = null;
-                _currentQrExpiry = null;
-              });
-            },
+            onExpired: () {},
           ),
         );
       }
