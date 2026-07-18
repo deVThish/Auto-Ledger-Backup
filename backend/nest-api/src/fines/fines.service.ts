@@ -285,6 +285,9 @@ export class FinesService {
         });
       }
 
+      let finalLicenseStatus = newStatus;
+      let tempExpiry: Date | null = null;
+
       if (
         !isPointSuspension &&
         fineStatus !== 'COURT_CASE' &&
@@ -303,11 +306,15 @@ export class FinesService {
             },
           });
         }
+
+        tempExpiry = fineDueDate;
+
         if (newStatus !== 'SUSPENDED') {
           await tx.driving_License.update({
             where: { license_Id: licenseId },
             data: { status: 'TEMPORARY' },
           });
+          finalLicenseStatus = 'TEMPORARY';
         }
       }
 
@@ -324,7 +331,11 @@ export class FinesService {
         }
       }
 
-      return fine;
+      return {
+        ...fine,
+        licenseStatus: finalLicenseStatus,
+        temporaryLicenseExpiry: tempExpiry,
+      };
     });
   }
 
