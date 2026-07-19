@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param } from '@nestjs/common';
+import { Controller, Post, Body, Param, Get } from '@nestjs/common';
 import { QrService } from './qr.service';
 
 @Controller('qr')
@@ -8,6 +8,15 @@ export class QrController {
   @Post('generate')
   async generateQr(@Body('userId') userId: string) {
     return this.qrService.generateQrSession(userId);
+  }
+
+  @Get('status/:sessionId')
+  async getQrStatus(@Param('sessionId') sessionId: string): Promise<{
+    status: string;
+    expiresAt: Date | null;
+    scanned: boolean;
+  }> {
+    return await this.qrService.getQrStatus(sessionId);
   }
 
   @Post('scan/:sessionId')
