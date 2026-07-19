@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Prisma } from '@prisma/client';
 
 export interface VehicleCategoryData {
   vehicleClass: string;
@@ -43,6 +44,27 @@ interface MulterFile {
   buffer: Buffer;
   originalname: string;
   mimetype: string;
+}
+
+type LicenseStatusUpdate = 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED';
+
+interface UpdatePayload extends Prisma.Driving_LicenseUpdateInput {
+  full_Name?: string;
+  address?: string;
+  blood_Group?: string;
+  image?: string;
+  date_of_birth?: Date;
+  issue_Date?: Date;
+  status?: LicenseStatusUpdate;
+  vehicleCategories?: {
+    deleteMany: Record<string, never>;
+    create: Array<{
+      vehicle_Class: string;
+      issue_Date: Date;
+      expiry_Date: Date;
+      restriction: string | null;
+    }>;
+  };
 }
 
 @Injectable()
@@ -252,57 +274,91 @@ export class LicenseService {
   async updateLicenseDetails(licenseId: string, data: UpdateLicenseData) {
     const license = await this.prisma.driving_License.findUnique({
       where: { license_Id: licenseId },
+      include: {
+        fines: {
+          where: {
+            status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
+          },
+        },
+      },
     });
 
     if (!license) throw new NotFoundException('License not found');
 
-    interface UpdatePayload {
-      full_Name?: string;
-      address?: string;
-      blood_Group?: string;
-      image?: string;
-      date_of_birth?: Date;
-      issue_Date?: Date;
-      vehicleCategories?: {
-        deleteMany: Record<string, never>;
-        create: Array<{
-          vehicle_Class: string;
-          issue_Date: Date;
-          expiry_Date: Date;
-          restriction: string | null;
-        }>;
-      };
+    if (!data.categories || data.categories.length === 0) {
+      const updatePayload: UpdatePayload = {};
+      if (data.fullName) updatePayload.full_Name = data.fullName;
+      if (data.address) updatePayload.address = data.address;
+      if (data.bloodGroup) updatePayload.blood_Group = data.bloodGroup;
+      if (data.image) updatePayload.image = data.image;
+      if (data.dateOfBirth)
+        updatePayload.date_of_birth = new Date(data.dateOfBirth);
+      if (data.issueDate) updatePayload.issue_Date = new Date(data.issueDate);
+      return this.prisma.driving_License.update({
+        where: { license_Id: licenseId },
+        data: updatePayload,
+        include: { vehicleCategories: true },
+      });
     }
 
-    const updatePayload: UpdatePayload = {};
+    const now = new Date();
+    const newMaxExpiry = data.categories.reduce(
+      (max, cat) =>
+        new Date(cat.expiryDate) > max ? new Date(cat.expiryDate) : max,
+      new Date(data.categories[0].expiryDate),
+    );
 
-    if (data.fullName) updatePayload.full_Name = data.fullName;
-    if (data.address) updatePayload.address = data.address;
-    if (data.bloodGroup) updatePayload.blood_Group = data.bloodGroup;
-    if (data.image) updatePayload.image = data.image;
-    if (data.dateOfBirth)
-      updatePayload.date_of_birth = new Date(data.dateOfBirth);
-    if (data.issueDate) updatePayload.issue_Date = new Date(data.issueDate);
+    let newStatus: LicenseStatusUpdate = license.status as LicenseStatusUpdate;
 
-    if (data.categories && data.categories.length > 0) {
-      await this.prisma.license_Vehicle_Category.deleteMany({
+    if (license.status === 'REVOKED') {
+      newStatus = 'REVOKED';
+    } else {
+      const hasUnresolvedFines = license.fines.length > 0;
+
+      if (newMaxExpiry >= now) {
+        if (hasUnresolvedFines) {
+          newStatus = 'SUSPENDED';
+        } else {
+          newStatus = 'ACTIVE';
+        }
+      } else {
+        newStatus = 'EXPIRED';
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.license_Vehicle_Category.deleteMany({
         where: { license_Id: licenseId },
       });
-      updatePayload.vehicleCategories = {
-        deleteMany: {},
-        create: data.categories.map((cat) => ({
-          vehicle_Class: cat.vehicleClass,
-          issue_Date: new Date(cat.issueDate),
-          expiry_Date: new Date(cat.expiryDate),
-          restriction: cat.restriction || null,
-        })),
-      };
-    }
 
-    return this.prisma.driving_License.update({
-      where: { license_Id: licenseId },
-      data: updatePayload,
-      include: { vehicleCategories: true },
+      const updatePayload: UpdatePayload = {
+        status: newStatus,
+        vehicleCategories: {
+          deleteMany: {},
+          create: data.categories.map((cat) => ({
+            vehicle_Class: cat.vehicleClass,
+            issue_Date: new Date(cat.issueDate),
+            expiry_Date: new Date(cat.expiryDate),
+            restriction: cat.restriction || null,
+          })),
+        },
+      };
+
+      if (data.fullName) updatePayload.full_Name = data.fullName;
+      if (data.address) updatePayload.address = data.address;
+      if (data.bloodGroup) updatePayload.blood_Group = data.bloodGroup;
+      if (data.image) updatePayload.image = data.image;
+      if (data.dateOfBirth)
+        updatePayload.date_of_birth = new Date(data.dateOfBirth);
+      if (data.issueDate) updatePayload.issue_Date = new Date(data.issueDate);
+
+      const updatedLicense = await tx.driving_License.update({
+        where: { license_Id: licenseId },
+        data: updatePayload,
+        include: { vehicleCategories: true },
+      });
+
+      return updatedLicense;
     });
   }
 
