@@ -37,6 +37,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   OverlayEntry? _overlayEntry;
 
+  bool _prevBiometricAvailable = false;
+  bool _prevBiometricEnabled = false;
+
   @override
   void initState() {
     super.initState();
@@ -62,13 +65,38 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkBiometricStatus();
-      _checkBiometricAvailability();
+      _checkBiometricStatusSmooth();
+      _checkBiometricAvailabilitySmooth();
+    }
+  }
+
+  Future<void> _checkBiometricStatusSmooth() async {
+    final isEnabled = await SettingsUtil.isBiometricEnabled();
+    if (_prevBiometricEnabled != isEnabled) {
+      _prevBiometricEnabled = isEnabled;
+      if (mounted) {
+        setState(() {
+          _isBiometricEnabled = isEnabled;
+        });
+      }
+    }
+  }
+
+  Future<void> _checkBiometricAvailabilitySmooth() async {
+    final available = await _biometricService.checkBiometricsAvailable();
+    if (_prevBiometricAvailable != available) {
+      _prevBiometricAvailable = available;
+      if (mounted) {
+        setState(() {
+          _isBiometricAvailable = available;
+        });
+      }
     }
   }
 
   Future<void> _checkBiometricStatus() async {
     final isEnabled = await SettingsUtil.isBiometricEnabled();
+    _prevBiometricEnabled = isEnabled;
     if (mounted) {
       setState(() {
         _isBiometricEnabled = isEnabled;
@@ -78,6 +106,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   Future<void> _checkBiometricAvailability() async {
     final available = await _biometricService.checkBiometricsAvailable();
+    _prevBiometricAvailable = available;
     if (mounted) {
       setState(() {
         _isBiometricAvailable = available;
@@ -965,7 +994,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.white.withAlpha(20),
-                              hintText: '••••••',
+                              hintText: 'â€¢â€¢â€¢â€¢â€¢â€¢',
                               hintStyle: const TextStyle(
                                   color: Colors.white54, letterSpacing: 8),
                               border: OutlineInputBorder(

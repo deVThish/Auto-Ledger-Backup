@@ -21,7 +21,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with WidgetsBindingObserver {
   bool _isLoading = true;
   String _errorMessage = '';
 
@@ -43,17 +44,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkBiometricStatus();
     _fetchUserProfile();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _overlayEntry?.remove();
     _oldPwController.dispose();
     _newPwController.dispose();
     _confirmPwController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {}
   }
 
   void _showGlassToast(String message, {bool isError = false}) {
@@ -442,7 +450,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             });
 
                                         if (mounted) {
-                                          // ignore: use_build_context_synchronously
                                           Navigator.pop(context);
                                           SettingsUtil.setBiometricEnabled(
                                               true);
@@ -460,7 +467,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             () => isVerifying = false);
                                         final errorMsg = e
                                                 .response?.data['message'] ??
-                                            'Invalid password. Please try again.';
+                                            'Wrong old password. Please try again.';
                                         _showGlassToast(errorMsg,
                                             isError: true);
                                       } catch (e) {

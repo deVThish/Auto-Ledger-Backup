@@ -18,7 +18,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   int _finesInitialTab = 0;
   bool _isFront = true;
@@ -30,10 +30,25 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasShownPointsWarning = false;
   final List<Map<String, dynamic>> _recentActivities = [];
 
+  String? _activeQrSessionId;
+  DateTime? _activeQrExpiry;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchLicenseData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {}
   }
 
   void _addRecentActivity(String title, IconData icon) {
@@ -444,11 +459,53 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showQrDialog(String sessionId, DateTime expiry) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) => QRDialog(
+        sessionId: sessionId,
+        initialExpiresAt: expiry,
+        onClose: () {
+          _addRecentActivity('Closed QR Code Dialog', Icons.close);
+          setState(() {
+            _activeQrSessionId = null;
+            _activeQrExpiry = null;
+          });
+        },
+        onExpired: () {
+          setState(() {
+            _activeQrSessionId = null;
+            _activeQrExpiry = null;
+          });
+        },
+        onBack: () {
+          Navigator.pop(context);
+          _addRecentActivity('Navigated Back from QR', Icons.arrow_back);
+        },
+      ),
+    );
+  }
+
   Future<void> _generateQR() async {
     final status = _licenseData?['status'];
     if (status == 'SUSPENDED' || status == 'REVOKED') {
       _showGlassToast('Access Denied: Your license is $status.', isError: true);
       return;
+    }
+
+    if (_activeQrSessionId != null) {
+      if (_activeQrExpiry == null ||
+          DateTime.now().isBefore(_activeQrExpiry!)) {
+        _showQrDialog(_activeQrSessionId!,
+            _activeQrExpiry ?? DateTime.now().add(const Duration(minutes: 10)));
+        return;
+      } else {
+        setState(() {
+          _activeQrSessionId = null;
+          _activeQrExpiry = null;
+        });
+      }
     }
 
     showDialog(
@@ -466,23 +523,16 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       final String sessionId = response.data['qrToken'];
-
-      if (mounted) Navigator.pop(context);
-      _addRecentActivity('Generated QR Code', Icons.qr_code_scanner);
+      final DateTime expiry = DateTime.now().add(const Duration(minutes: 10));
 
       if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) => QRDialog(
-            sessionId: sessionId,
-            initialExpiresAt: DateTime.now().add(const Duration(minutes: 10)),
-            onClose: () {
-              _addRecentActivity('Closed QR Code Dialog', Icons.close);
-            },
-            onExpired: () {},
-          ),
-        );
+        setState(() {
+          _activeQrSessionId = sessionId;
+          _activeQrExpiry = expiry;
+        });
+        Navigator.pop(context);
+        _addRecentActivity('Generated QR Code', Icons.qr_code_scanner);
+        _showQrDialog(sessionId, expiry);
       }
     } on DioException catch (e) {
       if (mounted) Navigator.pop(context);
@@ -969,20 +1019,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           _buildTableRow('9.', '10.', '11.', '12.',
                               isHeader: true),
-                          _buildCategoryRow('A1', '🛺'),
-                          _buildCategoryRow('A', '🏍️'),
-                          _buildCategoryRow('B1', '🛺'),
-                          _buildCategoryRow('B', '🚗'),
-                          _buildCategoryRow('C1', '🚚'),
-                          _buildCategoryRow('C', '🚛'),
-                          _buildCategoryRow('CE', '🚛'),
-                          _buildCategoryRow('D1', '🚐'),
-                          _buildCategoryRow('D', '🚌'),
-                          _buildCategoryRow('DE', '🚌'),
-                          _buildCategoryRow('G1', '🚜'),
-                          _buildCategoryRow('G', '🚜'),
-                          _buildCategoryRow('J', '🏗️'),
-                          _buildCategoryRow('H', '♿')
+                          _buildCategoryRow('A1', 'ðŸ›º'),
+                          _buildCategoryRow('A', 'ðŸï¸'),
+                          _buildCategoryRow('B1', 'ðŸ›º'),
+                          _buildCategoryRow('B', 'ðŸš—'),
+                          _buildCategoryRow('C1', 'ðŸšš'),
+                          _buildCategoryRow('C', 'ðŸš›'),
+                          _buildCategoryRow('CE', 'ðŸš›'),
+                          _buildCategoryRow('D1', 'ðŸš'),
+                          _buildCategoryRow('D', 'ðŸšŒ'),
+                          _buildCategoryRow('DE', 'ðŸšŒ'),
+                          _buildCategoryRow('G1', 'ðŸšœ'),
+                          _buildCategoryRow('G', 'ðŸšœ'),
+                          _buildCategoryRow('J', 'ðŸ—ï¸'),
+                          _buildCategoryRow('H', 'â™¿')
                         ],
                       ),
                     ),
