@@ -1,0 +1,4710 @@
+﻿
+
+=== seed.ts ===
+import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const dmtPlainPassword = 'Dmt1234$';
+  const policePlainPassword = 'Poli1234$';
+  const saltRounds = 10;
+
+  const hashedDmtPassword = await bcrypt.hash(dmtPlainPassword, saltRounds);
+  const hashedPolicePassword = await bcrypt.hash(
+    policePlainPassword,
+    saltRounds,
+  );
+
+  await prisma.dMT_Admin.upsert({
+    where: { username: 'maindmt' },
+    update: {},
+    create: {
+      username: 'maindmt',
+      name: 'Main DMT Admin',
+      password: hashedDmtPassword,
+    },
+  });
+
+  await prisma.police_Admin.upsert({
+    where: { username: 'mainpolice' },
+    update: {},
+    create: {
+      username: 'mainpolice',
+      name: 'Main Police Admin',
+      password: hashedPolicePassword,
+    },
+  });
+}
+
+main()
+  .catch((e) => {
+    console.error('Error during seeding:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
+
+
+=== auth.controller.ts ===
+import {
+  Controller,
+  Post,
+  Patch,
+  Body,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import { AuthService } from './auth.service';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiProperty,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { SkipDeviceCheck } from '../common/decorators/skip-device-check.decorator';
+import {
+  IsString,
+  MinLength,
+  Matches,
+  IsEnum,
+  IsNotEmpty,
+  IsEmail,
+} from 'class-validator';
+
+export class AdminLoginDto {
+  @ApiProperty({ example: 'mainpolice' })
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({ example: 'PoliceAdmin@Password123!' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+
+  @ApiProperty({ example: 'DMT', enum: ['DMT', 'POLICE'] })
+  @IsEnum(['DMT', 'POLICE'])
+  type: 'DMT' | 'POLICE';
+}
+
+export class HeadLoginDto {
+  @ApiProperty({ example: 'kamal_do' })
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({ example: 'Head@Pass123!' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+export class OfficerLoginDto {
+  @ApiProperty({ example: 'TRF-GALLE-100' })
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty({ example: 'Officer@Pass123!' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+export class RegisterUserDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'K.V.V. Thishan' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: 'Driver@Pass123!' })
+  @IsString()
+  @MinLength(8)
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+  )
+  password: string;
+
+  @ApiProperty({ example: 'PHONE-MAC-001' })
+  @IsString()
+  @IsNotEmpty()
+  deviceId: string;
+}
+
+export class VerifyRegistrationDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+}
+
+export class UserLoginDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'Driver@Pass123!' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+
+  @ApiProperty({ example: 'PHONE-MAC-001' })
+  @IsString()
+  @IsNotEmpty()
+  deviceId: string;
+}
+
+export class VerifyDeviceDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'NEW-PHONE-MAC-002' })
+  @IsString()
+  @IsNotEmpty()
+  deviceId: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  oldPassword: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(6)
+  newPassword: string;
+}
+
+export class BiometricLoginDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'PHONE-MAC-001' })
+  @IsString()
+  @IsNotEmpty()
+  deviceId: string;
+}
+
+export class ForgotPasswordRequestDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class VerifyResetOtpDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+
+  @ApiProperty({ example: 'NewDriver@Pass123!' })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
+  newPassword: string;
+}
+
+export class HeadForgotPasswordRequestDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class HeadVerifyResetOtpDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+}
+
+export class HeadResetPasswordDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(6)
+  newPasswordStr: string;
+}
+
+export class OfficerForgotPasswordRequestDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class OfficerVerifyResetOtpDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+}
+
+export class OfficerResetPasswordDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(6)
+  newPasswordStr: string;
+}
+
+export class ResendRegistrationOtpDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+}
+
+export class ResendResetOtpDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class ResendDeviceOtpDto {
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class ResendHeadOtpDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class ResendOfficerOtpDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  badgeNo: string;
+
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export interface AuthRequest {
+  user: {
+    id: string;
+    role: string;
+  };
+}
+
+@ApiTags('Auth')
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Login for DMT & Police Admins' })
+  @Post('admin/login')
+  async loginAdmin(@Body() data: AdminLoginDto) {
+    return await this.authService.loginAdmin(
+      data.username,
+      data.password,
+      data.type,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Login for Divisional Heads' })
+  @Post('head/login')
+  async loginHead(@Body() data: HeadLoginDto) {
+    return await this.authService.loginHead(data.username, data.password);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Login for Traffic Officers' })
+  @Post('officer/login')
+  async loginOfficer(@Body() data: OfficerLoginDto) {
+    return await this.authService.loginOfficer(data.badgeNo, data.password);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 1: Register a new driver' })
+  @Post('user/register')
+  async registerUser(@Body() data: RegisterUserDto) {
+    return await this.authService.registerUser(data);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 2: Complete Registration with OTP' })
+  @Post('user/verify-registration')
+  async verifyRegistration(@Body() data: VerifyRegistrationDto) {
+    return await this.authService.verifyRegistration(data.nicNo, data.otp);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Resend Registration OTP' })
+  @Post('user/resend-registration-otp')
+  async resendRegistrationOtp(@Body() data: ResendRegistrationOtpDto) {
+    return await this.authService.resendRegistrationOtp(data.nicNo);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Resend Password Reset OTP' })
+  @Post('user/resend-reset-otp')
+  async resendResetOtp(@Body() data: ResendResetOtpDto) {
+    return await this.authService.resendResetOtp(data.nicNo, data.email);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Resend Device Verification OTP' })
+  @Post('user/resend-device-otp')
+  async resendDeviceOtp(@Body() data: ResendDeviceOtpDto) {
+    return await this.authService.resendDeviceOtp(data.nicNo, data.email);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Login for Drivers' })
+  @Post('user/login')
+  async loginUser(@Body() data: UserLoginDto) {
+    return await this.authService.loginUser(
+      data.nicNo,
+      data.password,
+      data.deviceId,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Biometric Login for Drivers' })
+  @Post('user/biometric-login')
+  async biometricLogin(@Body() data: BiometricLoginDto) {
+    return await this.authService.biometricLogin(data.nicNo, data.deviceId);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Verify new device with OTP' })
+  @Post('user/verify-device')
+  async verifyDevice(@Body() data: VerifyDeviceDto) {
+    return await this.authService.verifyNewDevice(
+      data.nicNo,
+      data.deviceId,
+      data.otp,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 1: Request OTP for password reset' })
+  @Post('user/forgot-password-check')
+  async forgotPasswordRequest(@Body() data: ForgotPasswordRequestDto) {
+    return await this.authService.requestPasswordReset(data.nicNo, data.email);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 2: Verify OTP for password reset' })
+  @Post('user/verify-reset-otp')
+  async verifyUserResetOtp(@Body() data: VerifyResetOtpDto) {
+    return await this.authService.verifyUserResetOtp(
+      data.nicNo,
+      data.email,
+      data.otp,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 3: Reset Password with verified OTP' })
+  @Post('user/reset-password')
+  async resetPassword(@Body() data: ResetPasswordDto) {
+    return await this.authService.resetPassword(
+      data.nicNo,
+      data.email,
+      data.otp,
+      data.newPassword,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 1: Request OTP for Divisional Head' })
+  @Post('head/forgot-password-request')
+  async headForgotPasswordRequest(@Body() data: HeadForgotPasswordRequestDto) {
+    return await this.authService.requestHeadPasswordReset(
+      data.username,
+      data.email,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({
+    summary: 'Step 2: Verify OTP for Divisional Head password reset',
+  })
+  @Post('head/verify-reset-otp')
+  async headVerifyResetOtp(@Body() data: HeadVerifyResetOtpDto) {
+    return await this.authService.verifyHeadResetOtp(
+      data.username,
+      data.email,
+      data.otp,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 3: Reset Password for Divisional Head' })
+  @Post('head/reset-password')
+  async headResetPassword(@Body() data: HeadResetPasswordDto) {
+    return await this.authService.resetHeadPassword(
+      data.username,
+      data.email,
+      data.otp,
+      data.newPasswordStr,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Resend OTP for Divisional Head' })
+  @Post('head/resend-otp')
+  async resendHeadOtp(
+    @Body() data: ResendHeadOtpDto,
+  ): Promise<{ message: string }> {
+    return await this.authService.resendHeadOtp(data.username, data.email);
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 1: Request OTP for Traffic Officer' })
+  @Post('officer/forgot-password-request')
+  async officerForgotPasswordRequest(
+    @Body() data: OfficerForgotPasswordRequestDto,
+  ) {
+    return await this.authService.requestOfficerPasswordReset(
+      data.badgeNo,
+      data.email,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({
+    summary: 'Step 2: Verify OTP for Traffic Officer password reset',
+  })
+  @Post('officer/verify-reset-otp')
+  async officerVerifyResetOtp(@Body() data: OfficerVerifyResetOtpDto) {
+    return await this.authService.verifyOfficerResetOtp(
+      data.badgeNo,
+      data.email,
+      data.otp,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Step 3: Reset Password for Traffic Officer' })
+  @Post('officer/reset-password')
+  async officerResetPassword(@Body() data: OfficerResetPasswordDto) {
+    return await this.authService.resetOfficerPassword(
+      data.badgeNo,
+      data.email,
+      data.otp,
+      data.newPasswordStr,
+    );
+  }
+
+  @SkipDeviceCheck()
+  @ApiOperation({ summary: 'Resend OTP for Traffic Officer' })
+  @Post('officer/resend-otp')
+  async resendOfficerOtp(
+    @Body() data: ResendOfficerOtpDto,
+  ): Promise<{ message: string }> {
+    return await this.authService.resendOfficerOtp(data.badgeNo, data.email);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change Password (DO or Officer)' })
+  @UseGuards(JwtAuthGuard)
+  @Patch('change-password')
+  async changePassword(
+    @Request() req: AuthRequest,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(
+      req.user.id,
+      req.user.role,
+      changePasswordDto,
+    );
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change Password (User/Driver)' })
+  @UseGuards(JwtAuthGuard)
+  @Patch('user/change-password')
+  async changeUserPassword(
+    @Request() req: AuthRequest,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changeUserPassword(req.user.id, changePasswordDto);
+  }
+}
+
+
+
+=== auth.module.ts ===
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
+import { PrismaModule } from '../prisma/prisma.module';
+import { JwtStrategy } from './jwt.strategy';
+
+@Module({
+  imports: [
+    PrismaModule,
+    PassportModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: '24h' },
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService],
+})
+export class AuthModule {}
+
+
+
+=== auth.service.ts ===
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { JwtService } from '@nestjs/jwt';
+import {
+  User,
+  DMT_Admin,
+  Police_Admin,
+  Divisional_Head,
+  Traffic_Officer,
+} from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import * as nodemailer from 'nodemailer';
+import { ChangePasswordDto } from './auth.controller';
+
+export interface RegisterData {
+  nicNo: string;
+  name: string;
+  email: string;
+  password: string;
+  deviceId: string;
+}
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+  ) {}
+
+  private async sendOtpEmail(
+    email: string,
+    otp: string,
+    type: 'registration' | 'reset' | 'device_verification',
+  ): Promise<void> {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    let subject = '';
+    let text = '';
+    let html = '';
+
+    if (type === 'registration') {
+      subject = 'âœ… Auto-Ledger: Verify Your Email Address';
+      text = `Welcome to Auto-Ledger!\n\nYour verification OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nPlease enter this OTP in the app to complete your registration.\n\nIf you didn't register, please ignore this email.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #00bcd4; text-align: center;">âœ… Auto-Ledger</h2>
+          <h3 style="text-align: center;">Verify Your Email Address</h3>
+          <p style="text-align: center; color: #cccccc;">Welcome to Auto-Ledger! Please verify your email address to complete registration.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #00bcd4; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">Â© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    } else if (type === 'reset') {
+      subject = 'ðŸ”‘ Auto-Ledger: Password Reset OTP';
+      text = `You requested to reset your Auto-Ledger password.\n\nYour password reset OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf you didn't request a password reset, please ignore this email.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #ff6f00; text-align: center;">ðŸ”‘ Auto-Ledger</h2>
+          <h3 style="text-align: center;">Password Reset Request</h3>
+          <p style="text-align: center; color: #cccccc;">You requested to reset your Auto-Ledger password.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #ff6f00; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">Â© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    } else if (type === 'device_verification') {
+      subject = 'ðŸ“± Auto-Ledger: New Device Verification';
+      text = `A new device is trying to access your Auto-Ledger account.\n\nYour device verification OTP is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf this wasn't you, please change your password immediately.`;
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B0F19; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #4caf50; text-align: center;">ðŸ“± Auto-Ledger</h2>
+          <h3 style="text-align: center;">New Device Verification</h3>
+          <p style="text-align: center; color: #cccccc;">A new device is attempting to log into your account. Please use the OTP below to verify it.</p>
+          <div style="background-color: #1a1f2e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="font-size: 48px; letter-spacing: 8px; color: #4caf50; margin: 0;">${otp}</h1>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">This OTP is valid for <strong>5 minutes</strong>.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">If you didn't attempt to log in from a new device, please secure your account immediately.</p>
+          <p style="text-align: center; color: #666666; font-size: 12px;">Â© 2026 Auto-Ledger</p>
+        </div>
+      `;
+    }
+
+    const mailOptions = {
+      from: `"Auto-Ledger" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: subject,
+      text: text,
+      html: html,
+    };
+
+    await transporter.sendMail(mailOptions);
+  }
+
+  private generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  async loginAdmin(username: string, pass: string, type: 'DMT' | 'POLICE') {
+    let adminObj: DMT_Admin | Police_Admin | null = null;
+    let roleName = '';
+
+    if (type === 'DMT') {
+      adminObj = await this.prisma.dMT_Admin.findUnique({
+        where: { username: username },
+      });
+      roleName = 'DMT_ADMIN';
+    } else {
+      adminObj = await this.prisma.police_Admin.findUnique({
+        where: { username: username },
+      });
+      roleName = 'POLICE_ADMIN';
+    }
+
+    if (!adminObj)
+      throw new UnauthorizedException('Invalid Admin Username or password.');
+
+    const isPasswordValid = await bcrypt.compare(pass, adminObj.password);
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid Admin Username or password.');
+
+    const adminIdValue =
+      type === 'DMT'
+        ? (adminObj as DMT_Admin).dmt_Admin_Id
+        : (adminObj as Police_Admin).police_Admin_Id;
+
+    const payload = { sub: adminIdValue, role: roleName };
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: { id: payload.sub, name: adminObj.name, role: roleName },
+    };
+  }
+
+  async loginHead(username: string, pass: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || !head.is_Active)
+      throw new UnauthorizedException('Invalid or inactive Head account.');
+
+    const isPasswordValid = await bcrypt.compare(pass, head.password);
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid Head Username or password.');
+
+    const payload = {
+      sub: head.divisional_Head_Id,
+      role: head.role,
+      divisionId: head.division_Id,
+    };
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: {
+        id: head.divisional_Head_Id,
+        name: head.name,
+        email: head.email,
+        role: head.role,
+        divisionId: head.division_Id,
+      },
+    };
+  }
+
+  async loginOfficer(badgeNo: string, pass: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+      include: {
+        divisionalHead: {
+          include: {
+            division: true,
+          },
+        },
+        shifts: true,
+      },
+    });
+
+    if (!officer)
+      throw new UnauthorizedException('Invalid Badge Number or password.');
+
+    const isPasswordValid = await bcrypt.compare(pass, officer.password);
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid Badge Number or password.');
+
+    const now = new Date();
+    const activeShift = officer.shifts.find(
+      (shift) =>
+        shift.is_Active &&
+        new Date(shift.start_Time) <= now &&
+        new Date(shift.end_Time) >= now,
+    );
+
+    if (!activeShift) {
+      throw new ForbiddenException(
+        'Access Denied: You are not within an active shift schedule.',
+      );
+    }
+
+    const payload = {
+      sub: officer.traffic_Officer_Id,
+      role: officer.role,
+      badgeNo: officer.badge_No,
+      headId: officer.divisional_Head_Id,
+    };
+
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: {
+        id: officer.traffic_Officer_Id,
+        name: officer.name,
+        email: officer.email,
+        role: officer.role,
+        badgeNo: officer.badge_No,
+        divisionName: officer.divisionalHead?.division?.division_Name || null,
+        divisionalHeadName: officer.divisionalHead?.name || null,
+      },
+    };
+  }
+
+  async changePassword(userId: string, role: string, dto: ChangePasswordDto) {
+    let user: Divisional_Head | Traffic_Officer | null = null;
+
+    if (role === 'DIVISIONAL_HEAD') {
+      user = await this.prisma.divisional_Head.findUnique({
+        where: { divisional_Head_Id: userId },
+      });
+    } else if (role === 'TRAFFIC_OFFICER') {
+      user = await this.prisma.traffic_Officer.findUnique({
+        where: { traffic_Officer_Id: userId },
+      });
+    } else {
+      throw new BadRequestException('Invalid role for password change');
+    }
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      dto.oldPassword,
+      user.password,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid old password');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    if (role === 'DIVISIONAL_HEAD') {
+      await this.prisma.divisional_Head.update({
+        where: { divisional_Head_Id: userId },
+        data: { password: hashedNewPassword },
+      });
+    } else {
+      await this.prisma.traffic_Officer.update({
+        where: { traffic_Officer_Id: userId },
+        data: { password: hashedNewPassword },
+      });
+    }
+
+    return { message: 'Password changed successfully' };
+  }
+
+  async requestHeadPasswordReset(username: string, email: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || head.email !== email || !head.is_Active) {
+      throw new BadRequestException('Invalid Username or Email provided.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.divisional_Head.update({
+      where: { username: username },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyHeadResetOtp(username: string, email: string, otp: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || head.email !== email) {
+      throw new BadRequestException('Invalid Username or Email.');
+    }
+    if (head.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!head.reset_Otp_Expires_At || new Date() > head.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
+  }
+
+  async resetHeadPassword(
+    username: string,
+    email: string,
+    otp: string,
+    newPasswordStr: string,
+  ) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+
+    if (!head || head.email !== email || head.reset_Otp !== otp) {
+      throw new BadRequestException('Invalid OTP or Credentials.');
+    }
+
+    if (!head.reset_Otp_Expires_At || new Date() > head.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPasswordStr, 10);
+
+    await this.prisma.divisional_Head.update({
+      where: { username: username },
+      data: {
+        password: hashedPassword,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
+    });
+
+    return { message: 'Divisional Head password reset successfully.' };
+  }
+
+  async resendHeadOtp(
+    username: string,
+    email: string,
+  ): Promise<{ message: string }> {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { username: username },
+    });
+    if (!head || head.email !== email || !head.is_Active) {
+      throw new BadRequestException('Invalid Username or Email.');
+    }
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.prisma.divisional_Head.update({
+      where: { username: username },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP resent successfully to your email.' };
+  }
+
+  async requestOfficerPasswordReset(badgeNo: string, email: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email provided.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.traffic_Officer.update({
+      where: { badge_No: badgeNo },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyOfficerResetOtp(badgeNo: string, email: string, otp: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email.');
+    }
+    if (officer.reset_Otp !== otp)
+      throw new BadRequestException('Invalid OTP.');
+    if (
+      !officer.reset_Otp_Expires_At ||
+      new Date() > officer.reset_Otp_Expires_At
+    ) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
+  }
+
+  async resetOfficerPassword(
+    badgeNo: string,
+    email: string,
+    otp: string,
+    newPasswordStr: string,
+  ) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+
+    if (!officer || officer.email !== email || officer.reset_Otp !== otp) {
+      throw new BadRequestException('Invalid OTP or Credentials.');
+    }
+
+    if (
+      !officer.reset_Otp_Expires_At ||
+      new Date() > officer.reset_Otp_Expires_At
+    ) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPasswordStr, 10);
+
+    await this.prisma.traffic_Officer.update({
+      where: { badge_No: badgeNo },
+      data: {
+        password: hashedPassword,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
+    });
+
+    return { message: 'Traffic Officer password reset successfully.' };
+  }
+
+  async resendOfficerOtp(
+    badgeNo: string,
+    email: string,
+  ): Promise<{ message: string }> {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: badgeNo },
+    });
+    if (!officer || officer.email !== email) {
+      throw new BadRequestException('Invalid Badge Number or Email.');
+    }
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.prisma.traffic_Officer.update({
+      where: { badge_No: badgeNo },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP resent successfully to your email.' };
+  }
+
+  private generateUserToken(user: User) {
+    const payload = { sub: user.user_Id, nic: user.nic_No, role: 'USER' };
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: {
+        id: user.user_Id,
+        name: user.name,
+        nic: user.nic_No,
+        email: user.email,
+        isEmailVerified: user.isEmailVerified,
+      },
+    };
+  }
+
+  async registerUser(data: RegisterData) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: data.nicNo },
+    });
+
+    if (!user) {
+      throw new BadRequestException(
+        'Registration Failed: No user found for this NIC.',
+      );
+    }
+
+    const license = await this.prisma.driving_License.findUnique({
+      where: { user_Id: user.user_Id },
+    });
+
+    if (!license) {
+      throw new BadRequestException(
+        'Registration Failed: No driving license found for this NIC.',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: data.nicNo },
+      data: {
+        name: data.name,
+        email: data.email,
+        password: hashedPassword,
+        device_Id: data.deviceId,
+        isEmailVerified: false,
+        registration_Otp: otp,
+        registration_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(data.email, otp, 'registration');
+
+    return {
+      message: 'OTP sent to your email. Please verify.',
+      success: true,
+    };
+  }
+
+  async verifyRegistration(nicNo: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) throw new BadRequestException('User not found.');
+    if (user.registration_Otp !== otp)
+      throw new BadRequestException('Invalid OTP.');
+    if (
+      !user.registration_Otp_Expires_At ||
+      new Date() > user.registration_Otp_Expires_At
+    ) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        isEmailVerified: true,
+        registration_Otp: null,
+        registration_Otp_Expires_At: null,
+      },
+    });
+
+    return this.generateUserToken(updatedUser);
+  }
+
+  async loginUser(nicNo: string, pass: string, deviceId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) throw new UnauthorizedException('Invalid NIC or password.');
+
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Please verify your email using OTP first.');
+    }
+
+    const isPasswordValid = await bcrypt.compare(pass, user.password);
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid NIC or password.');
+
+    if (user.device_Id !== deviceId) {
+      throw new ForbiddenException({
+        code: 'DEVICE_MISMATCH',
+        message: 'New device detected. OTP verification required.',
+        email: user.email,
+      });
+    }
+
+    return this.generateUserToken(user);
+  }
+
+  async verifyNewDevice(nicNo: string, newDeviceId: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) throw new BadRequestException('User not found.');
+    if (user.device_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (
+      !user.device_Otp_Expires_At ||
+      new Date() > user.device_Otp_Expires_At
+    ) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        device_Id: newDeviceId,
+        isEmailVerified: true,
+        device_Otp: null,
+        device_Otp_Expires_At: null,
+      },
+    });
+
+    return this.generateUserToken(updatedUser);
+  }
+
+  async biometricLogin(nicNo: string, deviceId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) throw new UnauthorizedException('Invalid user.');
+
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Please verify your email using OTP first.');
+    }
+
+    if (user.device_Id !== deviceId) {
+      throw new UnauthorizedException(
+        'Biometric Access Denied: Unrecognized device.',
+      );
+    }
+
+    return this.generateUserToken(user);
+  }
+
+  async changeUserPassword(
+    userId: string,
+    dto: { oldPassword: string; newPassword: string },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { user_Id: userId },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const isPasswordValid = await bcrypt.compare(
+      dto.oldPassword,
+      user.password,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid old password');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { user_Id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    return { message: 'User password changed successfully' };
+  }
+
+  async requestPasswordReset(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email provided.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return { message: 'OTP sent successfully to your email.' };
+  }
+
+  async verifyUserResetOtp(nicNo: string, email: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    return { success: true, message: 'OTP verified successfully.' };
+  }
+
+  async resetPassword(
+    nicNo: string,
+    email: string,
+    otp: string,
+    newPasswordStr: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+      throw new BadRequestException('OTP has expired.');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPasswordStr, 10);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        password: hashedNewPassword,
+        reset_Otp: null,
+        reset_Otp_Expires_At: null,
+      },
+    });
+
+    return {
+      message: 'Password has been reset successfully. You can now login.',
+    };
+  }
+
+  async resendRegistrationOtp(nicNo: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found.');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email already verified.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        registration_Otp: otp,
+        registration_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(user.email, otp, 'registration');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+
+  async resendResetOtp(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        reset_Otp: otp,
+        reset_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(email, otp, 'reset');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+
+  async resendDeviceOtp(nicNo: string, email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { nic_No: nicNo },
+    });
+
+    if (!user || user.email !== email) {
+      throw new BadRequestException('Invalid NIC or Email.');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { nic_No: nicNo },
+      data: {
+        device_Otp: otp,
+        device_Otp_Expires_At: expiresAt,
+      },
+    });
+
+    await this.sendOtpEmail(email, otp, 'device_verification');
+    return {
+      message: 'OTP resent successfully. Please check your email.',
+      success: true,
+    };
+  }
+}
+
+
+
+=== jwt-auth.guard.ts ===
+import { Injectable } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {}
+
+
+
+=== jwt.strategy.ts ===
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { PassportStrategy } from '@nestjs/passport';
+import { Injectable } from '@nestjs/common';
+
+interface JwtPayload {
+  sub: string;
+  role: string;
+  badgeNo?: string;
+  divisionId?: string;
+  headId?: string;
+  nic?: string;
+}
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor() {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET environment variable is not set');
+    }
+
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: jwtSecret,
+    });
+  }
+
+  validate(payload: JwtPayload) {
+    if (payload.role === 'USER') {
+      return { id: payload.sub, role: payload.role, nic: payload.nic };
+    }
+
+    if (payload.role === 'DMT_ADMIN' || payload.role === 'POLICE_ADMIN') {
+      return { id: payload.sub, role: payload.role };
+    }
+
+    return {
+      id: payload.sub,
+      role: payload.role,
+      badgeNo: payload.badgeNo,
+      divisionId: payload.divisionId,
+      headId: payload.headId,
+    };
+  }
+}
+
+
+
+=== roles.decorator.ts ===
+import { SetMetadata } from '@nestjs/common';
+
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
+
+
+
+=== roles.guard.ts ===
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
+import { ROLES_KEY } from './roles.decorator';
+
+// Define the shape of the user object
+interface AuthenticatedUser {
+  role: string;
+  [key: string]: unknown;
+}
+
+// Extend Express Request to include the user
+interface AuthenticatedRequest extends Request {
+  user?: AuthenticatedUser;
+}
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (!requiredRoles) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user = request.user;
+
+    if (!user || !user.role) {
+      return false;
+    }
+
+    return requiredRoles.includes(user.role);
+  }
+}
+
+
+
+=== skip-device-check.decorator.ts ===
+import { SetMetadata } from '@nestjs/common';
+export const SkipDeviceCheck = () => SetMetadata('skipDeviceCheck', true);
+
+
+
+=== active-shift.guard.ts ===
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: string;
+    role?: string;
+  };
+}
+
+@Injectable()
+export class ActiveShiftGuard implements CanActivate {
+  constructor(private prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user = request.user;
+
+    if (!user || !user.id) {
+      throw new ForbiddenException('Unauthorized');
+    }
+
+    if (user.role !== 'TRAFFIC_OFFICER') {
+      return true;
+    }
+
+    const now = new Date();
+
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { traffic_Officer_Id: user.id },
+      include: {
+        shifts: {
+          where: {
+            is_Active: true,
+            start_Time: { lte: now },
+            end_Time: { gte: now },
+          },
+        },
+      },
+    });
+
+    if (!officer) {
+      throw new ForbiddenException('Officer not found');
+    }
+
+    if (officer.shifts.length === 0) {
+      throw new ForbiddenException(
+        'Access Denied: You are not within an active shift schedule.',
+      );
+    }
+
+    return true;
+  }
+}
+
+
+
+=== device.guard.ts ===
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
+import { PrismaService } from '../../prisma/prisma.service';
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: string;
+    role?: string;
+  };
+}
+
+@Injectable()
+export class DeviceGuard implements CanActivate {
+  constructor(
+    private prisma: PrismaService,
+    private reflector: Reflector,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const skipDeviceCheck = this.reflector.get<boolean>(
+      'skipDeviceCheck',
+      context.getHandler(),
+    );
+    if (skipDeviceCheck) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user = request.user;
+
+    if (!user || !user.id) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    // Skip device check for non-USER roles
+    if (user.role && user.role !== 'USER') {
+      return true;
+    }
+
+    const deviceIdFromHeader = request.headers['device-id'];
+    if (!deviceIdFromHeader || typeof deviceIdFromHeader !== 'string') {
+      throw new UnauthorizedException({
+        code: 'DEVICE_MISMATCH',
+        message: 'Device ID not provided.',
+      });
+    }
+
+    const dbUser = await this.prisma.user.findUnique({
+      where: { user_Id: user.id },
+      select: { device_Id: true },
+    });
+
+    if (!dbUser) {
+      return true;
+    }
+
+    const storedDeviceId = dbUser.device_Id;
+
+    if (!storedDeviceId || storedDeviceId !== deviceIdFromHeader) {
+      throw new UnauthorizedException({
+        code: 'DEVICE_MISMATCH',
+        message: 'Device ID mismatch. Please verify your device.',
+      });
+    }
+
+    return true;
+  }
+}
+
+
+
+=== fines.controller.ts ===
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import {
+  FinesService,
+  CreateOffenseData,
+  UpdateOffenseData,
+} from './fines.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { DeviceGuard } from '../common/guard/device.guard';
+import { ActiveShiftGuard } from '../common/guard/active-shift.guard';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+
+export interface AuthRequest {
+  user: { id: string; role?: string };
+}
+
+@ApiTags('Fines & Court Cases')
+@ApiBearerAuth()
+@Controller('fines')
+export class FinesController {
+  constructor(private readonly finesService: FinesService) {}
+
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveShiftGuard)
+  @Roles('TRAFFIC_OFFICER')
+  @Post()
+  issueFine(
+    @Request() req: AuthRequest,
+    @Body() body: { sessionId: string; offenseIds: string[]; comment?: string },
+  ) {
+    return this.finesService.issueFine({
+      sessionId: body.sessionId,
+      officerId: req.user.id,
+      offenseIds: body.offenseIds,
+      comment: body.comment,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveShiftGuard)
+  @Roles('TRAFFIC_OFFICER')
+  @Get('officer-stats')
+  getTrafficOfficerStats(@Request() req: AuthRequest) {
+    return this.finesService.getTrafficOfficerStats(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveShiftGuard)
+  @Roles('TRAFFIC_OFFICER')
+  @Get('officer-fines')
+  async getOfficerFines(@Request() req: AuthRequest) {
+    return this.finesService.getOfficerFines(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, DeviceGuard)
+  @Get('my-fines')
+  getMyFines(@Request() req: AuthRequest) {
+    return this.finesService.getMyFines(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, DeviceGuard)
+  @Post(':id/pay')
+  payFine(@Param('id') id: string, @Body() body: { amount: number }) {
+    return this.finesService.payFine(id, body.amount);
+  }
+
+  @UseGuards(JwtAuthGuard, DeviceGuard)
+  @Post('pay-bulk')
+  payBulkFines(@Body() body: { fineIds: string[]; totalAmount: number }) {
+    return this.finesService.payBulkFines(body.fineIds, body.totalAmount);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DIVISIONAL_HEAD')
+  @Patch(':id/resolve-overdue')
+  resolveOverdueCourtCase(
+    @Param('id') id: string,
+    @Body('verdict') verdict: 'ACTIVE' | 'REVOKED',
+    @Request() req: AuthRequest,
+  ) {
+    return this.finesService.resolveOverdueCourtCase(id, verdict, req.user.id);
+  }
+
+  @Get('offenses')
+  getAllOffenses() {
+    return this.finesService.getAllOffenses();
+  }
+
+  @Get('dmt/all-fines')
+  getAllFinesForDMT() {
+    return this.finesService.getAllFinesForDMT();
+  }
+
+  @Get('dmt/problematic-licenses')
+  getProblematicLicensesForDMT() {
+    return this.finesService.getProblematicLicensesForDMT();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('POLICE_ADMIN')
+  @Post('offenses')
+  createOffense(@Request() req: AuthRequest, @Body() body: CreateOffenseData) {
+    return this.finesService.createOffenseCategory(body, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('POLICE_ADMIN')
+  @Patch('offenses/:id')
+  updateOffense(@Param('id') id: string, @Body() body: UpdateOffenseData) {
+    return this.finesService.updateOffenseCategory(id, body);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('POLICE_ADMIN')
+  @Patch('offenses/:id/toggle')
+  toggleOffenseStatus(@Param('id') id: string) {
+    return this.finesService.toggleOffenseStatus(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DIVISIONAL_HEAD')
+  @Get('court-cases')
+  getCourtCases(@Request() req: AuthRequest) {
+    return this.finesService.getCourtCasesByDH(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DIVISIONAL_HEAD')
+  @Get('dashboard-stats')
+  getDashboardStats(@Request() req: AuthRequest) {
+    return this.finesService.getDashboardStats(req.user.id);
+  }
+}
+
+
+
+=== fines.module.ts ===
+import { Module } from '@nestjs/common';
+import { FinesService } from './fines.service';
+import { FinesController } from './fines.controller';
+import { PrismaModule } from '../prisma/prisma.module';
+import { ActiveShiftGuard } from '../common/guard/active-shift.guard';
+
+@Module({
+  imports: [PrismaModule],
+  controllers: [FinesController],
+  providers: [FinesService, ActiveShiftGuard],
+  exports: [FinesService],
+})
+export class FinesModule {}
+
+
+
+=== fines.service.ts ===
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+import { PrismaService } from '../prisma/prisma.service';
+import * as nodemailer from 'nodemailer';
+import { License_Status, Fine_Status } from '@prisma/client';
+
+export interface CreateOffenseData {
+  code: string;
+  name: string;
+  points: number;
+  amount: number;
+  isCourtCase: boolean;
+}
+
+export interface UpdateOffenseData {
+  name?: string;
+  points?: number;
+  amount?: number;
+  isCourtCase?: boolean;
+}
+
+type LicenseUpdatePayload = {
+  points: number;
+  status: License_Status;
+  suspended_Until: Date | null;
+  has_24_Suspension?: boolean;
+  has_50_Suspension?: boolean;
+  has_100_Revoke?: boolean;
+  triggering_Fine_Id?: string | null;
+};
+
+type FineWithPayment = {
+  status: Fine_Status;
+  issue_At: Date;
+  payment: { amount: number } | null;
+};
+
+@Injectable()
+export class FinesService {
+  constructor(private prisma: PrismaService) {}
+
+  @Cron('*/5 * * * *')
+  async handleCron() {
+    await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
+  }
+
+  private async expireLicensesIfExpired() {
+    const licenses = await this.prisma.driving_License.findMany({
+      where: {
+        status: {
+          notIn: ['EXPIRED', 'REVOKED'],
+        },
+      },
+      include: {
+        vehicleCategories: true,
+      },
+    });
+
+    const now = new Date();
+    const licensesToExpire: string[] = [];
+
+    for (const license of licenses) {
+      if (license.vehicleCategories.length === 0) {
+        continue;
+      }
+
+      const maxExpiry = license.vehicleCategories.reduce(
+        (max, cat) => (cat.expiry_Date > max ? cat.expiry_Date : max),
+        license.vehicleCategories[0].expiry_Date,
+      );
+
+      if (maxExpiry < now) {
+        licensesToExpire.push(license.license_Id);
+      }
+    }
+
+    if (licensesToExpire.length > 0) {
+      await this.prisma.driving_License.updateMany({
+        where: {
+          license_Id: { in: licensesToExpire },
+        },
+        data: {
+          status: 'EXPIRED',
+        },
+      });
+    }
+  }
+
+  private async sendWarningEmail(
+    email: string,
+    subject: string,
+    message: string,
+  ) {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Auto-Ledger" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `âš ï¸ Auto-Ledger: ${subject}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a2e; color: #ffffff; border-radius: 12px;">
+          <h2 style="color: #ff6f00; text-align: center;">âš ï¸ License Status Update</h2>
+          <p style="text-align: center; color: #cccccc;">${message}</p>
+          <div style="background-color: #16213e; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h3 style="color: #ff6f00;">${subject}</h3>
+          </div>
+          <p style="text-align: center; color: #aaaaaa;">Please login to the Auto-Ledger app for more details.</p>
+          <hr style="border-color: #333;">
+          <p style="text-align: center; color: #666666; font-size: 12px;">Â© 2026 Auto-Ledger</p>
+        </div>
+      `,
+    });
+  }
+
+  private async autoActivateLicenses() {
+    await this.prisma.driving_License.updateMany({
+      where: { status: 'SUSPENDED', suspended_Until: { lte: new Date() } },
+      data: { status: 'ACTIVE', suspended_Until: null },
+    });
+
+    const licensesToActivate = await this.prisma.driving_License.findMany({
+      where: {
+        status: 'SUSPENDED',
+        suspended_Until: null,
+        fines: {
+          none: { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+        },
+      },
+    });
+
+    if (licensesToActivate.length > 0) {
+      await this.prisma.driving_License.updateMany({
+        where: {
+          license_Id: { in: licensesToActivate.map((l) => l.license_Id) },
+        },
+        data: { status: 'ACTIVE' },
+      });
+    }
+  }
+
+  private async processOverdueFines() {
+    const overdueFines = await this.prisma.fine.findMany({
+      where: { status: 'PENDING', due_Date: { lt: new Date() } },
+    });
+
+    for (const fine of overdueFines) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.fine.update({
+          where: { fine_Id: fine.fine_Id },
+          data: { status: 'OVERDUE' },
+        });
+
+        await tx.driving_License.update({
+          where: { license_Id: fine.license_Id },
+          data: { status: 'SUSPENDED' },
+        });
+
+        await tx.temporary_License.deleteMany({
+          where: { license_Id: fine.license_Id },
+        });
+      });
+    }
+  }
+
+  async issueFine(data: {
+    sessionId: string;
+    officerId: string;
+    offenseIds: string[];
+    comment?: string;
+  }) {
+    const session = await this.prisma.qrSession.findUnique({
+      where: { id: data.sessionId },
+      include: { user: { include: { license: true } } },
+    });
+
+    if (!session || session.status !== 'ACTIVE') {
+      throw new UnauthorizedException(
+        'Scan session expired or invalid. Please scan QR again.',
+      );
+    }
+
+    if (!session.user || !session.user.license) {
+      throw new NotFoundException('License not found for this user.');
+    }
+
+    const licenseId = session.user.license.license_Id;
+
+    await this.autoActivateLicenses();
+    await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
+
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { traffic_Officer_Id: data.officerId },
+    });
+    if (!officer) throw new NotFoundException('Officer not found');
+
+    const currentHeadId = officer.divisional_Head_Id;
+
+    const license = await this.prisma.driving_License.findUnique({
+      where: { license_Id: licenseId },
+    });
+    if (!license) throw new NotFoundException('License not found');
+
+    if (license.status === 'REVOKED' || license.status === 'EXPIRED') {
+      throw new BadRequestException('License is revoked or expired.');
+    }
+
+    const offenses = await this.prisma.offence_Category.findMany({
+      where: { offense_Id: { in: data.offenseIds } },
+    });
+    if (offenses.length === 0)
+      throw new BadRequestException('No offenses found');
+
+    const isCourtCase = offenses.some((o) => o.is_Court_Case);
+    const fineDueDate = new Date();
+    fineDueDate.setDate(fineDueDate.getDate() + 14);
+
+    const oldPoints = license.points;
+    const totalPointsAdded = offenses.reduce(
+      (sum, off) => sum + off.points_Value,
+      0,
+    );
+    const newPoints = oldPoints + totalPointsAdded;
+
+    let newStatus: License_Status = license.status;
+    let suspendedUntil = license.suspended_Until;
+    let fineStatus: Fine_Status = 'PENDING';
+    let isPointSuspension = false;
+    let actionTriggered = false;
+    let warningSubject = '';
+    let warningMessage = '';
+
+    if (!license.has_100_Revoke && newPoints >= 100) {
+      newStatus = 'REVOKED';
+      suspendedUntil = null;
+      isPointSuspension = true;
+      actionTriggered = true;
+      warningSubject = 'License REVOKED (100 Points)';
+      warningMessage =
+        'Your license has been REVOKED due to exceeding 100 points. Please contact your Divisional Head.';
+    } else if (
+      !license.has_50_Suspension &&
+      newPoints >= 50 &&
+      !actionTriggered
+    ) {
+      newStatus = 'SUSPENDED';
+      const now = new Date();
+      suspendedUntil = new Date(now.setMonth(now.getMonth() + 6));
+      isPointSuspension = true;
+      actionTriggered = true;
+      warningSubject = 'License SUSPENDED (6 Months)';
+      warningMessage =
+        'Your license has been SUSPENDED for 6 months due to exceeding 50 points.';
+    } else if (
+      !license.has_24_Suspension &&
+      newPoints >= 24 &&
+      !actionTriggered
+    ) {
+      newStatus = 'SUSPENDED';
+      const now = new Date();
+      suspendedUntil = new Date(now.setMonth(now.getMonth() + 1));
+      isPointSuspension = true;
+      actionTriggered = true;
+      warningSubject = 'License SUSPENDED (1 Month)';
+      warningMessage =
+        'Your license has been SUSPENDED for 1 month due to exceeding 24 points.';
+    }
+
+    if (isCourtCase) {
+      fineStatus = 'COURT_CASE';
+      newStatus = 'SUSPENDED';
+      if (!isPointSuspension) {
+        suspendedUntil = null;
+      }
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const fine = await tx.fine.create({
+        data: {
+          license_Id: licenseId,
+          traffic_Officer_Id: data.officerId,
+          head_Id: currentHeadId,
+          due_Date: fineDueDate,
+          status: fineStatus,
+          comment: data.comment || null,
+        },
+      });
+
+      for (const offense of offenses) {
+        await tx.fine_Offence.create({
+          data: { fine_Id: fine.fine_Id, offense_Id: offense.offense_Id },
+        });
+      }
+
+      const updateData: LicenseUpdatePayload = {
+        points: newPoints,
+        status: newStatus,
+        suspended_Until: suspendedUntil,
+      };
+
+      if (actionTriggered && newPoints >= 24 && !license.has_24_Suspension) {
+        updateData.has_24_Suspension = true;
+      }
+      if (actionTriggered && newPoints >= 50 && !license.has_50_Suspension) {
+        updateData.has_50_Suspension = true;
+      }
+      if (actionTriggered && newPoints >= 100 && !license.has_100_Revoke) {
+        updateData.has_100_Revoke = true;
+        updateData.triggering_Fine_Id = fine.fine_Id;
+      }
+
+      await tx.driving_License.update({
+        where: { license_Id: licenseId },
+        data: updateData,
+      });
+
+      if (newStatus === 'SUSPENDED' || newStatus === 'REVOKED') {
+        await tx.temporary_License.deleteMany({
+          where: { license_Id: licenseId },
+        });
+      }
+
+      let finalTempExpiry: Date | null = null;
+
+      if (
+        !isPointSuspension &&
+        fineStatus !== 'COURT_CASE' &&
+        newStatus !== 'REVOKED'
+      ) {
+        const existingTemp = await tx.temporary_License.findFirst({
+          where: { license_Id: licenseId },
+        });
+
+        if (!existingTemp) {
+          const createdTemp = await tx.temporary_License.create({
+            data: {
+              license_Id: licenseId,
+              expiry_Date: fineDueDate,
+              issued_By: data.officerId,
+              head_Id: currentHeadId,
+            },
+          });
+          finalTempExpiry = createdTemp.expiry_Date;
+        } else {
+          finalTempExpiry = existingTemp.expiry_Date;
+        }
+
+        if (newStatus !== 'SUSPENDED') {
+          await tx.driving_License.update({
+            where: { license_Id: licenseId },
+            data: { status: 'TEMPORARY' },
+          });
+        }
+      }
+
+      const finalLicense = await tx.driving_License.findUnique({
+        where: { license_Id: licenseId },
+        select: { status: true },
+      });
+
+      if (actionTriggered && warningSubject) {
+        const user = await tx.user.findUnique({
+          where: { user_Id: license.user_Id },
+        });
+        if (user) {
+          await this.sendWarningEmail(
+            user.email,
+            warningSubject,
+            warningMessage,
+          );
+        }
+      }
+
+      return {
+        fine: fine,
+        licenseStatus: finalLicense?.status ?? newStatus,
+        temporaryLicenseExpiry: finalTempExpiry,
+      };
+    });
+
+    return result;
+  }
+
+  async getMyFines(userId: string) {
+    await this.autoActivateLicenses();
+    await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
+
+    const license = await this.prisma.driving_License.findUnique({
+      where: { user_Id: userId },
+    });
+    if (!license) throw new NotFoundException('License not found');
+
+    return this.prisma.fine.findMany({
+      where: { license_Id: license.license_Id },
+      include: {
+        offenses: { include: { offenceCategory: true } },
+        trafficOfficer: { select: { name: true, badge_No: true } },
+        payment: true,
+      },
+      orderBy: { issue_At: 'desc' },
+    });
+  }
+
+  async payFine(fineId: string, amount: number) {
+    const fine = await this.prisma.fine.findUnique({
+      where: { fine_Id: fineId },
+      include: { license: true, payment: true },
+    });
+    if (!fine) throw new NotFoundException('Fine not found');
+
+    if (fine.status === 'PAID' || fine.payment)
+      throw new BadRequestException('Fine already paid');
+
+    const now = new Date();
+    const isOverdue = fine.due_Date ? now > fine.due_Date : false;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.payment.create({
+        data: { fine_Id: fineId, amount: amount, status: 'COMPLETED' },
+      });
+
+      let newFineStatus: Fine_Status = 'PAID';
+      if (isOverdue || fine.status === 'COURT_CASE') {
+        newFineStatus = fine.status;
+      }
+
+      await tx.fine.update({
+        where: { fine_Id: fineId },
+        data: { status: newFineStatus },
+      });
+
+      if (!isOverdue && fine.status !== 'COURT_CASE') {
+        const pendingCount = await tx.fine.count({
+          where: {
+            license_Id: fine.license_Id,
+            status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
+            fine_Id: { not: fineId },
+          },
+        });
+
+        const currentLicense = await tx.driving_License.findUnique({
+          where: { license_Id: fine.license_Id },
+        });
+
+        if (pendingCount === 0 && currentLicense?.status !== 'REVOKED') {
+          await tx.temporary_License.deleteMany({
+            where: { license_Id: fine.license_Id },
+          });
+          await tx.driving_License.update({
+            where: { license_Id: fine.license_Id },
+            data: { status: 'ACTIVE' },
+          });
+        }
+      }
+
+      return {
+        message:
+          isOverdue || fine.status === 'COURT_CASE'
+            ? 'Payment recorded. Waiting for Divisional Head approval.'
+            : 'Payment successful. License activated.',
+        fineId: fineId,
+      };
+    });
+  }
+
+  async payBulkFines(fineIds: string[], totalAmount: number) {
+    const fines = await this.prisma.fine.findMany({
+      where: { fine_Id: { in: fineIds } },
+      include: { license: true, payment: true },
+    });
+    if (fines.length !== fineIds.length)
+      throw new BadRequestException('Invalid fines');
+
+    for (const fine of fines) {
+      if (fine.status === 'PAID' || fine.payment)
+        throw new BadRequestException('One or more fines are already paid');
+    }
+
+    const licenseId = fines[0].license_Id;
+
+    return this.prisma.$transaction(async (tx) => {
+      let hasOverdueOrCourt = false;
+
+      for (const fine of fines) {
+        const now = new Date();
+        const isOverdue = fine.due_Date ? now > fine.due_Date : false;
+        if (isOverdue || fine.status === 'COURT_CASE') hasOverdueOrCourt = true;
+
+        await tx.payment.create({
+          data: {
+            fine_Id: fine.fine_Id,
+            amount: totalAmount / fineIds.length,
+            status: 'COMPLETED',
+          },
+        });
+
+        let newStatus: Fine_Status = 'PAID';
+        if (isOverdue || fine.status === 'COURT_CASE') {
+          newStatus = fine.status;
+        }
+        await tx.fine.update({
+          where: { fine_Id: fine.fine_Id },
+          data: { status: newStatus },
+        });
+      }
+
+      if (!hasOverdueOrCourt) {
+        const pendingCount = await tx.fine.count({
+          where: {
+            license_Id: licenseId,
+            status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
+            fine_Id: { notIn: fineIds },
+          },
+        });
+
+        const currentLicense = await tx.driving_License.findUnique({
+          where: { license_Id: licenseId },
+        });
+
+        if (pendingCount === 0 && currentLicense?.status !== 'REVOKED') {
+          await tx.temporary_License.deleteMany({
+            where: { license_Id: licenseId },
+          });
+          await tx.driving_License.update({
+            where: { license_Id: licenseId },
+            data: { status: 'ACTIVE' },
+          });
+        }
+      }
+
+      return { message: 'Bulk payment processed.' };
+    });
+  }
+
+  async resolveOverdueCourtCase(
+    fineId: string,
+    verdict: 'ACTIVE' | 'REVOKED',
+    headId: string,
+  ) {
+    const fine = await this.prisma.fine.findUnique({
+      where: { fine_Id: fineId },
+      include: {
+        license: true,
+        payment: true,
+      },
+    });
+    if (!fine) throw new NotFoundException('Fine not found');
+
+    if (fine.head_Id !== headId) {
+      throw new UnauthorizedException(
+        'This court case belongs to the previous Divisional Head.',
+      );
+    }
+
+    if (fine.status !== 'OVERDUE' && fine.status !== 'COURT_CASE') {
+      throw new BadRequestException('This fine is not overdue or court case.');
+    }
+
+    if (!fine.payment) {
+      throw new BadRequestException(
+        'Cannot make a decision: Fine is not paid yet.',
+      );
+    }
+
+    if (verdict === 'ACTIVE') {
+      const otherSeriousFines = await this.prisma.fine.count({
+        where: {
+          license_Id: fine.license_Id,
+          status: { in: ['OVERDUE', 'COURT_CASE'] },
+          fine_Id: { not: fineId },
+        },
+      });
+
+      if (otherSeriousFines > 0) {
+        throw new BadRequestException(
+          'Cannot activate: There are other overdue or court case fines.',
+        );
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.fine.update({
+          where: { fine_Id: fineId },
+          data: { status: 'PAID' },
+        });
+
+        await tx.temporary_License.deleteMany({
+          where: { license_Id: fine.license_Id },
+        });
+
+        const pendingFines = await tx.fine.findMany({
+          where: {
+            license_Id: fine.license_Id,
+            status: 'PENDING',
+          },
+          orderBy: { issue_At: 'desc' },
+        });
+
+        if (pendingFines.length > 0) {
+          const latestPending = pendingFines[0];
+          await tx.temporary_License.create({
+            data: {
+              license_Id: fine.license_Id,
+              expiry_Date:
+                latestPending.due_Date ||
+                new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+              issued_By: latestPending.traffic_Officer_Id,
+              head_Id: latestPending.head_Id,
+            },
+          });
+
+          await tx.driving_License.update({
+            where: { license_Id: fine.license_Id },
+            data: {
+              status: 'TEMPORARY',
+              suspended_Until: null,
+            },
+          });
+        } else {
+          await tx.driving_License.update({
+            where: { license_Id: fine.license_Id },
+            data: {
+              status: 'ACTIVE',
+              suspended_Until: null,
+            },
+          });
+        }
+      });
+
+      return { message: 'License updated successfully.' };
+    } else {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.fine.update({
+          where: { fine_Id: fineId },
+          data: { status: 'PAID' },
+        });
+
+        await tx.driving_License.update({
+          where: { license_Id: fine.license_Id },
+          data: { status: 'REVOKED' },
+        });
+      });
+
+      return { message: 'License revoked by Divisional Head.' };
+    }
+  }
+
+  async getAllOffenses() {
+    return this.prisma.offence_Category.findMany({ orderBy: { code: 'asc' } });
+  }
+
+  async createOffenseCategory(data: CreateOffenseData, policeAdminId: string) {
+    return this.prisma.offence_Category.create({
+      data: {
+        code: data.code,
+        name: data.name,
+        amount: data.amount,
+        points_Value: data.points,
+        is_Court_Case: data.isCourtCase,
+        police_Admin_Id: policeAdminId,
+      },
+    });
+  }
+
+  async updateOffenseCategory(id: string, data: UpdateOffenseData) {
+    return this.prisma.offence_Category.update({
+      where: { offense_Id: id },
+      data: {
+        name: data.name,
+        points_Value: data.points,
+        amount: data.amount,
+        is_Court_Case: data.isCourtCase,
+      },
+    });
+  }
+
+  async toggleOffenseStatus(id: string) {
+    const offense = await this.prisma.offence_Category.findUnique({
+      where: { offense_Id: id },
+    });
+    if (!offense) throw new NotFoundException('Offense not found');
+
+    return this.prisma.offence_Category.update({
+      where: { offense_Id: id },
+      data: { is_Active: !offense.is_Active },
+    });
+  }
+
+  async getAllFinesForDMT() {
+    await this.autoActivateLicenses();
+    await this.expireLicensesIfExpired();
+    return this.prisma.fine.findMany({
+      include: {
+        license: {
+          select: { license_No: true, nic_No: true, full_Name: true },
+        },
+        offenses: {
+          include: { offenceCategory: true },
+        },
+      },
+      orderBy: { issue_At: 'desc' },
+    });
+  }
+
+  async getProblematicLicensesForDMT() {
+    await this.autoActivateLicenses();
+    await this.expireLicensesIfExpired();
+    return this.prisma.driving_License.findMany({
+      where: {
+        status: { in: ['SUSPENDED', 'REVOKED'] },
+      },
+      orderBy: { points: 'desc' },
+    });
+  }
+
+  async getCourtCasesByDH(headId: string) {
+    await this.autoActivateLicenses();
+    await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
+
+    return this.prisma.fine.findMany({
+      where: {
+        status: { in: ['OVERDUE', 'COURT_CASE'] },
+        head_Id: headId,
+      },
+      include: {
+        license: {
+          select: { license_No: true, full_Name: true, nic_No: true },
+        },
+        trafficOfficer: { select: { name: true, badge_No: true } },
+        offenses: { include: { offenceCategory: true } },
+        payment: true,
+      },
+      orderBy: { issue_At: 'desc' },
+    });
+  }
+
+  async getDashboardStats(headId: string) {
+    await this.autoActivateLicenses();
+    await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
+
+    const now = new Date();
+    const officers = await this.prisma.traffic_Officer.findMany({
+      where: { divisional_Head_Id: headId },
+      include: {
+        shifts: {
+          where: {
+            start_Time: { lte: now },
+            end_Time: { gte: now },
+            is_Active: true,
+          },
+        },
+      },
+    });
+
+    const fines = await this.prisma.fine.findMany({
+      where: { head_Id: headId },
+      include: { payment: true },
+    });
+
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const calcRevenue = (fineArray: FineWithPayment[]) => {
+      return fineArray
+        .filter(
+          (f): f is FineWithPayment & { payment: { amount: number } } =>
+            f.status === 'PAID' && f.payment !== null,
+        )
+        .reduce((sum, f) => sum + f.payment.amount, 0);
+    };
+
+    const dailyFines = fines.filter((f) => new Date(f.issue_At) >= startOfDay);
+    const monthlyFines = fines.filter(
+      (f) => new Date(f.issue_At) >= startOfMonth,
+    );
+
+    return {
+      totalOfficers: officers.length,
+      activeOfficersOnDuty: officers.filter((o) => o.shifts.length > 0).length,
+      totalFinesIssued: fines.length,
+      pendingFinesCount: fines.filter((f) => f.status === 'PENDING').length,
+      overdueCourtCases: fines.filter(
+        (f) => f.status === 'OVERDUE' || f.status === 'COURT_CASE',
+      ).length,
+      totalRevenue: calcRevenue(fines),
+      daily: { count: dailyFines.length, revenue: calcRevenue(dailyFines) },
+      monthly: {
+        count: monthlyFines.length,
+        revenue: calcRevenue(monthlyFines),
+      },
+    };
+  }
+
+  async getTrafficOfficerStats(officerId: string) {
+    const now = new Date();
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const fines = await this.prisma.fine.findMany({
+      where: { traffic_Officer_Id: officerId },
+      include: { payment: true },
+    });
+
+    const qrScans = await this.prisma.qR_Scan_History.count({
+      where: { traffic_Officer_Id: officerId },
+    });
+
+    const tempLicenses = await this.prisma.temporary_License.count({
+      where: { issued_By: officerId },
+    });
+
+    const stats = {
+      daily: { count: 0, revenue: 0 },
+      monthly: { count: 0, revenue: 0 },
+      allTime: {
+        count: 0,
+        revenue: 0,
+        qrScans: qrScans,
+        tempLicenses: tempLicenses,
+      },
+    };
+
+    fines.forEach((f) => {
+      const issueDate = new Date(f.issue_At);
+      const isPaid = f.status === 'PAID' && f.payment;
+      const amount = isPaid ? f.payment.amount : 0;
+
+      stats.allTime.count++;
+      stats.allTime.revenue += amount;
+
+      if (issueDate >= startOfMonth) {
+        stats.monthly.count++;
+        stats.monthly.revenue += amount;
+      }
+      if (issueDate >= startOfDay) {
+        stats.daily.count++;
+        stats.daily.revenue += amount;
+      }
+    });
+
+    return stats;
+  }
+
+  async getOfficerFines(officerId: string) {
+    return this.prisma.fine.findMany({
+      where: { traffic_Officer_Id: officerId },
+      include: {
+        license: {
+          select: { license_No: true, full_Name: true, nic_No: true },
+        },
+        offenses: { include: { offenceCategory: true } },
+        payment: true,
+      },
+      orderBy: { issue_At: 'desc' },
+    });
+  }
+}
+
+
+
+=== license.controller.ts ===
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Body,
+  Request,
+  UseGuards,
+  Param,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { LicenseService } from './license.service';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiProperty,
+  ApiPropertyOptional,
+  PartialType,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { DeviceGuard } from '../common/guard/device.guard';
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export interface AuthRequest {
+  user: { id: string };
+}
+
+interface UploadedFileType {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+}
+
+export class VehicleCategoryDto {
+  @ApiProperty({ example: 'B' })
+  @IsString()
+  @IsNotEmpty()
+  vehicleClass: string;
+
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
+  @IsDateString()
+  issueDate: Date;
+
+  @ApiProperty({ example: '2032-01-01T00:00:00Z' })
+  @IsDateString()
+  expiryDate: Date;
+
+  @ApiPropertyOptional({ example: 'AT' })
+  @IsString()
+  @IsOptional()
+  restriction?: string;
+}
+
+export class CreateLicenseDto {
+  @ApiProperty({ example: 'B1234567' })
+  @IsString()
+  @IsNotEmpty()
+  licenseNo: string;
+
+  @ApiProperty({ example: 'K.V.V. Thishan' })
+  @IsString()
+  @IsNotEmpty()
+  fullName: string;
+
+  @ApiProperty({ example: '200204802139' })
+  @IsString()
+  @IsNotEmpty()
+  nicNo: string;
+
+  @ApiProperty({ example: 'No 10, Galle Road, Galle' })
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @ApiProperty({ example: 'O+' })
+  @IsString()
+  @IsNotEmpty()
+  bloodGroup: string;
+
+  @ApiProperty({ example: '2000-01-01T00:00:00Z' })
+  @IsDateString()
+  dateOfBirth: Date;
+
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
+  @IsDateString()
+  issueDate: Date;
+
+  @ApiPropertyOptional({ example: 'base64_image_string' })
+  @IsString()
+  @IsOptional()
+  image?: string;
+
+  @ApiProperty({ type: [VehicleCategoryDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VehicleCategoryDto)
+  categories: VehicleCategoryDto[];
+}
+
+export class UpdateStatusDto {
+  @ApiProperty({
+    example: 'SUSPENDED',
+    enum: ['ACTIVE', 'SUSPENDED', 'EXPIRED', 'REVOKED'],
+  })
+  @IsEnum(['ACTIVE', 'SUSPENDED', 'EXPIRED', 'REVOKED'])
+  status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED';
+}
+
+export class UpdateLicenseDto extends PartialType(CreateLicenseDto) {}
+
+@ApiTags('Driving License')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard, DeviceGuard)
+@Controller('license')
+export class LicenseController {
+  constructor(private readonly licenseService: LicenseService) {}
+
+  @ApiOperation({ summary: 'Create a new driving license' })
+  @Post()
+  async createLicense(
+    @Request() req: AuthRequest,
+    @Body() data: CreateLicenseDto,
+  ) {
+    return this.licenseService.createLicense({
+      licenseNo: data.licenseNo,
+      fullName: data.fullName,
+      nicNo: data.nicNo,
+      address: data.address,
+      bloodGroup: data.bloodGroup,
+      dateOfBirth: data.dateOfBirth,
+      issueDate: data.issueDate,
+      image: data.image,
+      categories: data.categories,
+      dmtAdminId: req.user.id,
+    });
+  }
+
+  @Get('get-upload-url')
+  async getUploadUrl(
+    @Query('fileName') fileName: string,
+    @Query('fileType') fileType: string,
+  ) {
+    return this.licenseService.getS3UploadUrl(fileName, fileType);
+  }
+
+  @ApiOperation({ summary: 'Get current user active license' })
+  @Get('my-license')
+  async getMyLicense(@Request() req: AuthRequest) {
+    return this.licenseService.getMyLicense(req.user.id);
+  }
+
+  @Roles('DMT_ADMIN')
+  @ApiOperation({ summary: 'Update License Status' })
+  @Patch(':id/status')
+  async updateStatus(@Param('id') id: string, @Body() data: UpdateStatusDto) {
+    return this.licenseService.updateStatus(id, data.status);
+  }
+
+  @Roles('DMT_ADMIN', 'POLICE_ADMIN')
+  @ApiOperation({ summary: 'Get License by NIC' })
+  @Get('search/:nic')
+  async getLicenseByNIC(@Param('nic') nic: string) {
+    return this.licenseService.getLicenseByNIC(nic);
+  }
+
+  @ApiOperation({ summary: 'DMT Admin: Get all licenses (Can filter by NIC)' })
+  @Roles('DMT_ADMIN')
+  @Get('all')
+  async getAllLicenses(@Query('nic') nic?: string) {
+    return this.licenseService.getAllLicenses(nic);
+  }
+
+  @ApiOperation({ summary: 'DMT Admin: Update License Details' })
+  @Roles('DMT_ADMIN')
+  @Patch(':id/update')
+  async updateLicenseDetails(
+    @Param('id') id: string,
+    @Body() updateData: UpdateLicenseDto,
+  ) {
+    return this.licenseService.updateLicenseDetails(id, updateData);
+  }
+
+  @ApiOperation({
+    summary: 'DMT Admin: Get licenses with Fines (Can filter by NIC)',
+  })
+  @Roles('DMT_ADMIN')
+  @Get('with-fines')
+  async getLicensesWithFines(@Query('nic') nic?: string) {
+    return this.licenseService.getLicensesWithFines(nic);
+  }
+
+  @Roles('DMT_ADMIN')
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload license image via backend (No CORS)' })
+  uploadImage(@UploadedFile() file: UploadedFileType) {
+    return this.licenseService.uploadImageToS3(file);
+  }
+
+  @ApiOperation({
+    summary: 'Divisional Head: Get revoked licenses for their division',
+  })
+  @Roles('DIVISIONAL_HEAD')
+  @Get('revoked')
+  async getRevokedLicenses(@Request() req: AuthRequest) {
+    return this.licenseService.getRevokedLicenses(req.user.id);
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Patch(':id/resolve-revoked')
+  async resolveRevokedLicense(
+    @Param('id') id: string,
+    @Body('verdict') verdict: 'ACTIVE' | 'REVOKED',
+    @Request() req: AuthRequest,
+  ) {
+    return await this.licenseService.resolveRevokedLicense(
+      id,
+      verdict,
+      req.user.id,
+    );
+  }
+}
+
+
+
+=== license.module.ts ===
+import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { LicenseController } from './license.controller';
+import { LicenseService } from './license.service';
+import { PrismaModule } from '../prisma/prisma.module';
+
+@Module({
+  imports: [HttpModule, PrismaModule],
+  controllers: [LicenseController],
+  providers: [LicenseService],
+})
+export class LicenseModule {}
+
+
+
+=== license.service.ts ===
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+export interface VehicleCategoryData {
+  vehicleClass: string;
+  issueDate: string | Date;
+  expiryDate: string | Date;
+  restriction?: string;
+}
+
+export interface CreateLicenseData {
+  licenseNo: string;
+  fullName: string;
+  nicNo: string;
+  address: string;
+  bloodGroup: string;
+  dateOfBirth: string | Date;
+  issueDate: string | Date;
+  dmtAdminId: string;
+  image?: string;
+  categories: VehicleCategoryData[];
+}
+
+export interface UpdateLicenseData {
+  fullName?: string;
+  address?: string;
+  bloodGroup?: string;
+  image?: string;
+  dateOfBirth?: string | Date;
+  issueDate?: string | Date;
+  categories?: VehicleCategoryData[];
+}
+
+interface MulterFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+}
+
+@Injectable()
+export class LicenseService {
+  private s3Client: S3Client;
+
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+  ) {
+    const region =
+      this.configService.get<string>('AWS_REGION') || 'ap-southeast-1';
+    const accessKeyId =
+      this.configService.get<string>('AWS_ACCESS_KEY_ID') || '';
+    const secretAccessKey =
+      this.configService.get<string>('AWS_SECRET_ACCESS_KEY') || '';
+
+    this.s3Client = new S3Client({
+      region: region,
+      credentials: {
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
+      },
+    });
+  }
+
+  private async autoActivateLicenses() {
+    await this.prisma.driving_License.updateMany({
+      where: { status: 'SUSPENDED', suspended_Until: { lte: new Date() } },
+      data: { suspended_Until: null },
+    });
+
+    const licensesToActivate = await this.prisma.driving_License.findMany({
+      where: {
+        status: 'SUSPENDED',
+        suspended_Until: null,
+        fines: {
+          none: { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+        },
+      },
+    });
+
+    if (licensesToActivate.length > 0) {
+      await this.prisma.driving_License.updateMany({
+        where: {
+          license_Id: { in: licensesToActivate.map((l) => l.license_Id) },
+        },
+        data: { status: 'ACTIVE' },
+      });
+    }
+  }
+
+  async getS3UploadUrl(fileName: string, fileType: string) {
+    const bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME') ||
+      'auto-ledger-images';
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
+
+    const cleanFileName = fileName.replace(/\s+/g, '-');
+    const uniqueFileName = `licenses/${Date.now()}-${cleanFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: uniqueFileName,
+      ContentType: fileType,
+    });
+
+    const uploadUrl = await getSignedUrl(this.s3Client, command, {
+      expiresIn: 60,
+    });
+    const publicFileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${uniqueFileName}`;
+    return {
+      uploadUrl,
+      fileUrl: publicFileUrl,
+    };
+  }
+
+  async uploadImageToS3(file: MulterFile) {
+    const bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME') ||
+      'auto-ledger-images-handling';
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
+
+    const cleanFileName = file.originalname.replace(/\s+/g, '-');
+    const uniqueFileName = `licenses/${Date.now()}-${cleanFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: uniqueFileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    });
+
+    await this.s3Client.send(command);
+
+    const publicFileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${uniqueFileName}`;
+    return {
+      fileUrl: publicFileUrl,
+      message: 'Image uploaded successfully',
+    };
+  }
+
+  async createLicense(data: CreateLicenseData) {
+    let user = await this.prisma.user.findUnique({
+      where: { nic_No: data.nicNo },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          nic_No: data.nicNo,
+          name: 'Pending App Registration',
+          password: 'NOT_REGISTERED',
+          email: `pending_${data.nicNo}@example.com`,
+          device_Id: 'PENDING',
+        },
+      });
+    }
+
+    return await this.prisma.driving_License.create({
+      data: {
+        license_No: data.licenseNo,
+        full_Name: data.fullName,
+        nic_No: data.nicNo,
+        address: data.address,
+        blood_Group: data.bloodGroup,
+        date_of_birth: new Date(data.dateOfBirth),
+        issue_Date: new Date(data.issueDate),
+        user_Id: user.user_Id,
+        dmt_Admin_Id: data.dmtAdminId,
+        image: data.image,
+        has_24_Suspension: false,
+        has_50_Suspension: false,
+        has_100_Revoke: false,
+        vehicleCategories: {
+          create: data.categories.map((cat) => ({
+            vehicle_Class: cat.vehicleClass,
+            issue_Date: new Date(cat.issueDate),
+            expiry_Date: new Date(cat.expiryDate),
+            restriction: cat.restriction || null,
+          })),
+        },
+      },
+      include: {
+        vehicleCategories: true,
+      },
+    });
+  }
+
+  async getMyLicense(userId: string) {
+    await this.autoActivateLicenses();
+    const license = await this.prisma.driving_License.findUnique({
+      where: { user_Id: userId },
+      include: {
+        fines: {
+          where: { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+        },
+        temporaryLicenses: true,
+        vehicleCategories: true,
+      },
+    });
+    if (!license) throw new NotFoundException('License not found');
+    return license;
+  }
+
+  async updateStatus(
+    licenseId: string,
+    newStatus: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED',
+  ) {
+    return this.prisma.driving_License.update({
+      where: { license_Id: licenseId },
+      data: { status: newStatus },
+    });
+  }
+
+  async getLicenseByNIC(nicNo: string) {
+    await this.autoActivateLicenses();
+    const license = await this.prisma.driving_License.findUnique({
+      where: { nic_No: nicNo },
+      include: {
+        vehicleCategories: true,
+        fines: {
+          include: {
+            offenses: { include: { offenceCategory: true } },
+            payment: true,
+          },
+          orderBy: { issue_At: 'desc' },
+        },
+      },
+    });
+
+    if (!license) throw new NotFoundException('License not found');
+    return license;
+  }
+
+  async getAllLicenses(nic?: string) {
+    await this.autoActivateLicenses();
+    return this.prisma.driving_License.findMany({
+      where: nic ? { nic_No: { contains: nic, mode: 'insensitive' } } : {},
+      include: {
+        vehicleCategories: true,
+      },
+      orderBy: { issue_Date: 'desc' },
+    });
+  }
+
+  async updateLicenseDetails(licenseId: string, data: UpdateLicenseData) {
+    const license = await this.prisma.driving_License.findUnique({
+      where: { license_Id: licenseId },
+    });
+
+    if (!license) throw new NotFoundException('License not found');
+
+    interface UpdatePayload {
+      full_Name?: string;
+      address?: string;
+      blood_Group?: string;
+      image?: string;
+      date_of_birth?: Date;
+      issue_Date?: Date;
+      vehicleCategories?: {
+        deleteMany: Record<string, never>;
+        create: Array<{
+          vehicle_Class: string;
+          issue_Date: Date;
+          expiry_Date: Date;
+          restriction: string | null;
+        }>;
+      };
+    }
+
+    const updatePayload: UpdatePayload = {};
+
+    if (data.fullName) updatePayload.full_Name = data.fullName;
+    if (data.address) updatePayload.address = data.address;
+    if (data.bloodGroup) updatePayload.blood_Group = data.bloodGroup;
+    if (data.image) updatePayload.image = data.image;
+    if (data.dateOfBirth)
+      updatePayload.date_of_birth = new Date(data.dateOfBirth);
+    if (data.issueDate) updatePayload.issue_Date = new Date(data.issueDate);
+
+    if (data.categories && data.categories.length > 0) {
+      await this.prisma.license_Vehicle_Category.deleteMany({
+        where: { license_Id: licenseId },
+      });
+      updatePayload.vehicleCategories = {
+        deleteMany: {},
+        create: data.categories.map((cat) => ({
+          vehicle_Class: cat.vehicleClass,
+          issue_Date: new Date(cat.issueDate),
+          expiry_Date: new Date(cat.expiryDate),
+          restriction: cat.restriction || null,
+        })),
+      };
+    }
+
+    return this.prisma.driving_License.update({
+      where: { license_Id: licenseId },
+      data: updatePayload,
+      include: { vehicleCategories: true },
+    });
+  }
+
+  async getLicensesWithFines(nic?: string) {
+    await this.autoActivateLicenses();
+    return this.prisma.driving_License.findMany({
+      where: {
+        fines: { some: {} },
+        ...(nic ? { nic_No: { contains: nic, mode: 'insensitive' } } : {}),
+      },
+      include: {
+        fines: {
+          include: {
+            offenses: { include: { offenceCategory: true } },
+            trafficOfficer: { select: { name: true, badge_No: true } },
+          },
+          orderBy: { issue_At: 'desc' },
+        },
+      },
+    });
+  }
+
+  async getRevokedLicenses(headId: string) {
+    await this.autoActivateLicenses();
+    return this.prisma.driving_License.findMany({
+      where: {
+        status: 'REVOKED',
+        triggering_Fine: {
+          head_Id: headId,
+        },
+      },
+      include: {
+        user: {
+          select: { name: true, email: true },
+        },
+        triggering_Fine: {
+          include: {
+            offenses: { include: { offenceCategory: true } },
+            trafficOfficer: { select: { name: true, badge_No: true } },
+          },
+        },
+      },
+      orderBy: { issue_Date: 'desc' },
+    });
+  }
+
+  async resolveRevokedLicense(
+    licenseId: string,
+    verdict: 'ACTIVE' | 'REVOKED',
+    headId: string,
+  ) {
+    const license = await this.prisma.driving_License.findUnique({
+      where: { license_Id: licenseId },
+      include: {
+        triggering_Fine: true,
+      },
+    });
+    if (!license) throw new NotFoundException('License not found');
+    if (license.status !== 'REVOKED') {
+      throw new BadRequestException('License is not in REVOKED status');
+    }
+
+    if (license.triggering_Fine && license.triggering_Fine.head_Id !== headId) {
+      throw new UnauthorizedException(
+        'This revocation belongs to the previous Divisional Head.',
+      );
+    }
+
+    if (verdict === 'ACTIVE') {
+      const pendingFines = await this.prisma.fine.count({
+        where: {
+          license_Id: licenseId,
+          status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
+        },
+      });
+
+      if (pendingFines > 0) {
+        throw new BadRequestException(
+          'Cannot activate: There are pending/overdue/court case fines.',
+        );
+      }
+
+      return this.prisma.driving_License.update({
+        where: { license_Id: licenseId },
+        data: {
+          status: 'ACTIVE',
+          points: 0,
+          suspended_Until: null,
+          has_24_Suspension: false,
+          has_50_Suspension: false,
+          has_100_Revoke: false,
+          triggering_Fine_Id: null,
+        },
+      });
+    } else {
+      return this.prisma.driving_License.update({
+        where: { license_Id: licenseId },
+        data: { status: 'REVOKED' },
+      });
+    }
+  }
+}
+
+
+
+=== officers.controller.ts ===
+import {
+  Controller,
+  Post,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Request,
+  Get,
+  Query,
+} from '@nestjs/common';
+import { OfficersService } from './officers.service';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiPropertyOptional,
+  ApiProperty,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsOptional,
+  IsEmail,
+  Matches,
+} from 'class-validator';
+
+export class CreateDivisionDto {
+  @ApiProperty({ example: 'DIV-001' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^DIV-\d{3,}$/, {
+    message:
+      'Division ID must start with DIV- followed by at least 3 digits (e.g., DIV-001)',
+  })
+  divisionId: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  divisionName: string;
+}
+
+export class CreateHeadDto {
+  @ApiProperty() @IsString() @IsNotEmpty() divisionName: string;
+  @ApiProperty() @IsString() @IsNotEmpty() username: string;
+  @ApiProperty() @IsEmail() @IsNotEmpty() email: string;
+  @ApiProperty() @IsString() @IsNotEmpty() name: string;
+  @ApiProperty() @IsString() @IsNotEmpty() passwordStr: string;
+}
+
+export class CreateOfficerDto {
+  @ApiProperty() @IsString() @IsNotEmpty() badgeNo: string;
+  @ApiProperty() @IsEmail() @IsNotEmpty() email: string;
+  @ApiProperty() @IsString() @IsNotEmpty() name: string;
+  @ApiProperty() @IsString() @IsNotEmpty() passwordStr: string;
+}
+
+export class AssignShiftDto {
+  @ApiProperty() @IsString() @IsNotEmpty() officerId: string;
+  @ApiProperty() @IsDateString() date: Date;
+  @ApiProperty() @IsDateString() startTime: Date;
+  @ApiProperty() @IsDateString() endTime: Date;
+  @ApiProperty() @IsString() location: string;
+}
+
+export class UpdateShiftDto {
+  @ApiPropertyOptional() @IsDateString() @IsOptional() date?: Date;
+  @ApiPropertyOptional() @IsDateString() @IsOptional() startTime?: Date;
+  @ApiPropertyOptional() @IsDateString() @IsOptional() endTime?: Date;
+  @ApiPropertyOptional() @IsString() @IsOptional() location?: string;
+}
+
+export interface OfficerAuthRequest {
+  user: { id: string; role?: string };
+}
+
+@ApiTags('Police Management')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('officers')
+export class OfficersController {
+  constructor(private readonly officersService: OfficersService) {}
+
+  @Roles('POLICE_ADMIN')
+  @Post('division')
+  async createDivision(
+    @Request() req: OfficerAuthRequest,
+    @Body() data: CreateDivisionDto,
+  ) {
+    return this.officersService.createDivision(
+      data.divisionId,
+      data.divisionName,
+      req.user.id,
+    );
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Post('head')
+  async createDivisionalHead(@Body() data: CreateHeadDto) {
+    return this.officersService.createDivisionalHead(data);
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Patch('head/:id/activate')
+  async activateDivisionalHead(@Param('id') id: string) {
+    return this.officersService.activateDivisionalHead(id);
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Patch('head/:id/disable')
+  async disableDivisionalHead(@Param('id') id: string) {
+    return this.officersService.disableDivisionalHead(id);
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Get('division/:id/heads')
+  async getDivisionAllHeads(@Param('id') id: string) {
+    return this.officersService.getDivisionWithAllHeads(id);
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Post('officer')
+  async createOfficer(
+    @Request() req: OfficerAuthRequest,
+    @Body() data: CreateOfficerDto,
+  ) {
+    return this.officersService.createTrafficOfficer({
+      ...data,
+      headId: req.user.id,
+    });
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Post('shift')
+  async assignShift(@Body() data: AssignShiftDto) {
+    return this.officersService.assignShift(data);
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Patch('shift/:id')
+  async updateShift(
+    @Param('id') id: string,
+    @Body() updateShiftDto: UpdateShiftDto,
+  ) {
+    return this.officersService.updateShift(id, updateShiftDto);
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Get('my-division')
+  async getMyDivisionOfficers(
+    @Request() req: OfficerAuthRequest,
+    @Query('search') search?: string,
+  ) {
+    return this.officersService.getDivisionOfficers(req.user.id, search);
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Get(':id/shifts')
+  async getOfficerShifts(@Param('id') id: string) {
+    return this.officersService.getOfficerShifts(id);
+  }
+
+  @Roles('POLICE_ADMIN')
+  @Get('divisions')
+  async getAllDivisions() {
+    return this.officersService.getAllDivisions();
+  }
+
+  @Roles('POLICE_ADMIN', 'DIVISIONAL_HEAD')
+  @Get('divisional-heads')
+  async getAllDivisionalHeads() {
+    return this.officersService.getAllDivisionalHeads();
+  }
+
+  @Roles('DIVISIONAL_HEAD')
+  @Patch('transfer/:id')
+  async transferOfficer(
+    @Param('id') id: string,
+    @Body('newHeadId') newHeadId: string,
+    @Request() req: OfficerAuthRequest,
+  ) {
+    return this.officersService.transferOfficer(
+      id,
+      newHeadId,
+      req.user.role,
+      req.user.id,
+    );
+  }
+}
+
+
+
+=== officers.module.ts ===
+import { Module } from '@nestjs/common';
+import { OfficersService } from './officers.service';
+import { OfficersController } from './officers.controller';
+import { PrismaModule } from '../prisma/prisma.module';
+
+@Module({
+  imports: [PrismaModule],
+  providers: [OfficersService],
+  controllers: [OfficersController],
+})
+export class OfficersModule {}
+
+
+
+=== officers.service.ts ===
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
+import { UpdateShiftDto } from './officers.controller';
+
+@Injectable()
+export class OfficersService {
+  constructor(private prisma: PrismaService) {}
+
+  async createDivision(
+    divisionId: string,
+    divisionName: string,
+    policeAdminId: string,
+  ) {
+    const existingId = await this.prisma.division.findUnique({
+      where: { division_Id: divisionId },
+    });
+    if (existingId) throw new BadRequestException('Division ID already exists');
+
+    const existingDivision = await this.prisma.division.findUnique({
+      where: { division_Name: divisionName },
+    });
+    if (existingDivision)
+      throw new BadRequestException('Division name already exists');
+
+    return this.prisma.division.create({
+      data: {
+        division_Id: divisionId,
+        division_Name: divisionName,
+        police_Admin_Id: policeAdminId,
+      },
+    });
+  }
+
+  async activateDivisionalHead(headId: string) {
+    const targetHead = await this.prisma.divisional_Head.findUnique({
+      where: { divisional_Head_Id: headId },
+    });
+
+    if (!targetHead) throw new NotFoundException('Divisional Head not found');
+    if (targetHead.is_Active)
+      throw new BadRequestException('This head is already active');
+
+    return this.prisma.$transaction(async (tx) => {
+      const currentActiveHead = await tx.divisional_Head.findFirst({
+        where: {
+          division_Id: targetHead.division_Id,
+          is_Active: true,
+        },
+      });
+
+      if (currentActiveHead) {
+        await tx.divisional_Head.update({
+          where: { divisional_Head_Id: currentActiveHead.divisional_Head_Id },
+          data: { is_Active: false },
+        });
+
+        const unresolvedFines = await tx.fine.findMany({
+          where: {
+            head_Id: currentActiveHead.divisional_Head_Id,
+            OR: [
+              { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+              { revokedLicense: { status: { in: ['REVOKED', 'SUSPENDED'] } } },
+            ],
+          },
+          select: { fine_Id: true },
+        });
+
+        const fineIdsToTransfer = unresolvedFines.map((f) => f.fine_Id);
+
+        if (fineIdsToTransfer.length > 0) {
+          await tx.fine.updateMany({
+            where: { fine_Id: { in: fineIdsToTransfer } },
+            data: { head_Id: headId },
+          });
+        }
+
+        await tx.temporary_License.updateMany({
+          where: {
+            head_Id: currentActiveHead.divisional_Head_Id,
+            expiry_Date: { gte: new Date() },
+          },
+          data: { head_Id: headId },
+        });
+
+        await tx.traffic_Officer.updateMany({
+          where: {
+            divisional_Head_Id: currentActiveHead.divisional_Head_Id,
+          },
+          data: {
+            divisional_Head_Id: headId,
+          },
+        });
+      }
+
+      const activatedHead = await tx.divisional_Head.update({
+        where: { divisional_Head_Id: headId },
+        data: { is_Active: true },
+      });
+
+      return {
+        message:
+          'Head activated successfully, unresolved records and officers reassigned.',
+        activatedHead,
+      };
+    });
+  }
+
+  async disableDivisionalHead(headId: string) {
+    const head = await this.prisma.divisional_Head.findUnique({
+      where: { divisional_Head_Id: headId },
+      include: {
+        division: {
+          include: {
+            divisionalHeads: {
+              where: {
+                is_Active: true,
+                divisional_Head_Id: { not: headId },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!head) throw new NotFoundException('Divisional Head not found');
+    if (!head.is_Active)
+      throw new BadRequestException('Head is already inactive');
+
+    const activeHead = head.division.divisionalHeads[0];
+
+    if (!activeHead) {
+      throw new BadRequestException(
+        'Cannot disable the only active head. Please activate another head first.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const unresolvedFines = await tx.fine.findMany({
+        where: {
+          head_Id: headId,
+          OR: [
+            { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+            { revokedLicense: { status: { in: ['REVOKED', 'SUSPENDED'] } } },
+          ],
+        },
+        select: { fine_Id: true },
+      });
+
+      const fineIdsToTransfer = unresolvedFines.map((f) => f.fine_Id);
+
+      if (fineIdsToTransfer.length > 0) {
+        await tx.fine.updateMany({
+          where: { fine_Id: { in: fineIdsToTransfer } },
+          data: { head_Id: activeHead.divisional_Head_Id },
+        });
+      }
+
+      await tx.temporary_License.updateMany({
+        where: {
+          head_Id: headId,
+          expiry_Date: { gte: new Date() },
+        },
+        data: { head_Id: activeHead.divisional_Head_Id },
+      });
+
+      await tx.traffic_Officer.updateMany({
+        where: {
+          divisional_Head_Id: headId,
+        },
+        data: {
+          divisional_Head_Id: activeHead.divisional_Head_Id,
+        },
+      });
+
+      const disabledHead = await tx.divisional_Head.update({
+        where: { divisional_Head_Id: headId },
+        data: { is_Active: false },
+      });
+
+      return {
+        message: `Head disabled successfully. All unresolved records and officers reassigned to ${activeHead.name}.`,
+        disabledHead,
+        newActiveHead: activeHead,
+        transferredFinesCount: fineIdsToTransfer.length,
+      };
+    });
+  }
+
+  async getDivisionWithAllHeads(divisionId: string) {
+    const division = await this.prisma.division.findUnique({
+      where: { division_Id: divisionId },
+      include: {
+        divisionalHeads: {
+          orderBy: { is_Active: 'desc' },
+        },
+      },
+    });
+
+    if (!division) throw new NotFoundException('Division not found');
+    return division;
+  }
+
+  async createDivisionalHead(data: {
+    divisionName: string;
+    username: string;
+    email: string;
+    name: string;
+    passwordStr: string;
+  }) {
+    const existingDivision = await this.prisma.division.findFirst({
+      where: {
+        OR: [
+          { division_Name: data.divisionName },
+          { division_Id: data.divisionName },
+        ],
+      },
+    });
+
+    if (!existingDivision) throw new NotFoundException('Division not found');
+
+    const existingUsername = await this.prisma.divisional_Head.findUnique({
+      where: { username: data.username },
+    });
+    if (existingUsername)
+      throw new BadRequestException('Head username already exists');
+
+    const existingEmail = await this.prisma.divisional_Head.findUnique({
+      where: { email: data.email },
+    });
+    if (existingEmail)
+      throw new BadRequestException('Head email already exists');
+
+    const hashedPassword = await bcrypt.hash(data.passwordStr, 10);
+
+    const newHead = await this.prisma.divisional_Head.create({
+      data: {
+        username: data.username,
+        email: data.email,
+        name: data.name,
+        division_Id: existingDivision.division_Id,
+        password: hashedPassword,
+        role: 'DIVISIONAL_HEAD',
+        is_Active: false,
+      },
+    });
+
+    return this.activateDivisionalHead(newHead.divisional_Head_Id);
+  }
+
+  async createTrafficOfficer(data: {
+    badgeNo: string;
+    email: string;
+    name: string;
+    passwordStr: string;
+    headId: string;
+  }) {
+    const existingBadge = await this.prisma.traffic_Officer.findUnique({
+      where: { badge_No: data.badgeNo },
+    });
+    if (existingBadge)
+      throw new BadRequestException('Badge number already exists');
+
+    const existingEmail = await this.prisma.traffic_Officer.findUnique({
+      where: { email: data.email },
+    });
+    if (existingEmail)
+      throw new BadRequestException('Officer email already exists');
+
+    const hashedPassword = await bcrypt.hash(data.passwordStr, 10);
+    return this.prisma.traffic_Officer.create({
+      data: {
+        badge_No: data.badgeNo,
+        email: data.email,
+        name: data.name,
+        password: hashedPassword,
+        divisional_Head_Id: data.headId,
+        role: 'TRAFFIC_OFFICER',
+      },
+    });
+  }
+
+  async assignShift(data: {
+    officerId: string;
+    date: Date;
+    startTime: Date;
+    endTime: Date;
+    location: string;
+  }) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { traffic_Officer_Id: data.officerId },
+    });
+    if (!officer) throw new NotFoundException('Officer not found');
+    return this.prisma.shift.create({
+      data: {
+        traffic_Officer_Id: data.officerId,
+        head_Id: officer.divisional_Head_Id,
+        date: data.date,
+        start_Time: data.startTime,
+        end_Time: data.endTime,
+        location: data.location,
+        is_Active: true,
+      },
+    });
+  }
+
+  async updateShift(shiftId: string, updateShiftDto: UpdateShiftDto) {
+    const shift = await this.prisma.shift.findUnique({
+      where: { shift_Id: shiftId },
+    });
+    if (!shift) throw new NotFoundException('Shift not found');
+
+    const updateData: {
+      date?: Date;
+      start_Time?: Date;
+      end_Time?: Date;
+      location?: string;
+    } = {};
+    if (updateShiftDto.date) updateData.date = updateShiftDto.date;
+    if (updateShiftDto.startTime)
+      updateData.start_Time = updateShiftDto.startTime;
+    if (updateShiftDto.endTime) updateData.end_Time = updateShiftDto.endTime;
+    if (updateShiftDto.location) updateData.location = updateShiftDto.location;
+
+    return this.prisma.shift.update({
+      where: { shift_Id: shiftId },
+      data: updateData,
+    });
+  }
+
+  async getOfficerShifts(officerId: string) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { traffic_Officer_Id: officerId },
+    });
+    if (!officer) throw new NotFoundException('Officer not found');
+    return this.prisma.shift.findMany({
+      where: { traffic_Officer_Id: officerId },
+      orderBy: { start_Time: 'desc' },
+    });
+  }
+
+  async getDivisionOfficers(headId: string, search?: string) {
+    const whereClause: {
+      divisional_Head_Id: string;
+      OR?: { [key: string]: { contains: string; mode: 'insensitive' } }[];
+    } = { divisional_Head_Id: headId };
+
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { badge_No: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const now = new Date();
+    const officers = await this.prisma.traffic_Officer.findMany({
+      where: whereClause,
+      select: {
+        traffic_Officer_Id: true,
+        name: true,
+        badge_No: true,
+        email: true,
+        shifts: {
+          where: {
+            start_Time: { lte: now },
+            end_Time: { gte: now },
+            is_Active: true,
+          },
+        },
+      },
+    });
+
+    return officers.map((off) => ({
+      ...off,
+      status: off.shifts.length > 0 ? 'ON_DUTY' : 'OFF_DUTY',
+      currentShift: off.shifts.length > 0 ? off.shifts[0] : null,
+    }));
+  }
+
+  async getAllDivisions() {
+    return this.prisma.division.findMany({
+      include: {
+        divisionalHeads: {
+          where: { is_Active: true },
+        },
+      },
+    });
+  }
+
+  async getAllDivisionalHeads() {
+    return this.prisma.divisional_Head.findMany({
+      select: {
+        divisional_Head_Id: true,
+        name: true,
+        username: true,
+        email: true,
+        is_Active: true,
+        division: {
+          select: {
+            division_Name: true,
+          },
+        },
+      },
+      orderBy: {
+        is_Active: 'desc',
+      },
+    });
+  }
+
+  async transferOfficer(
+    officerId: string,
+    newHeadId: string,
+    requesterRole?: string,
+    requesterId?: string,
+  ) {
+    const officer = await this.prisma.traffic_Officer.findUnique({
+      where: { traffic_Officer_Id: officerId },
+    });
+    if (!officer) throw new NotFoundException('Officer not found');
+
+    if (
+      requesterRole === 'DIVISIONAL_HEAD' &&
+      officer.divisional_Head_Id !== requesterId
+    ) {
+      throw new UnauthorizedException(
+        'You can only transfer officers from your own division.',
+      );
+    }
+
+    const newHead = await this.prisma.divisional_Head.findUnique({
+      where: { divisional_Head_Id: newHeadId },
+    });
+    if (!newHead) throw new NotFoundException('New Head not found');
+    if (!newHead.is_Active)
+      throw new BadRequestException('New Head is not active');
+
+    const now = new Date();
+
+    const activeShifts = await this.prisma.shift.findMany({
+      where: {
+        traffic_Officer_Id: officerId,
+        start_Time: { lte: now },
+        end_Time: { gt: now },
+        is_Active: true,
+      },
+    });
+
+    if (activeShifts.length > 0) {
+      throw new BadRequestException(
+        'Cannot transfer officer while they are currently on an active shift. Please wait until the shift ends.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedOfficer = await tx.traffic_Officer.update({
+        where: { traffic_Officer_Id: officerId },
+        data: { divisional_Head_Id: newHeadId },
+      });
+
+      await tx.shift.updateMany({
+        where: {
+          traffic_Officer_Id: officerId,
+          start_Time: { gt: now },
+          is_Active: true,
+        },
+        data: { is_Active: false },
+      });
+
+      return {
+        message: `Officer ${officer.name} transferred to ${newHead.name} successfully. Future shifts cancelled.`,
+        officer: updatedOfficer,
+      };
+    });
+  }
+}
+
+
+
+=== prisma.module.ts ===
+import { Global, Module } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+
+@Global()
+@Module({
+  providers: [PrismaService],
+  exports: [PrismaService],
+})
+export class PrismaModule {}
+
+
+
+=== prisma.service.ts ===
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+@Injectable()
+export class PrismaService extends PrismaClient implements OnModuleInit {
+  async onModuleInit() {
+    await this.$connect();
+  }
+}
+
+
+
+=== qr.controller.ts ===
+import { Controller, Post, Body, Param, Get } from '@nestjs/common';
+import { QrService } from './qr.service';
+
+@Controller('qr')
+export class QrController {
+  constructor(private readonly qrService: QrService) {}
+
+  @Post('generate')
+  async generateQr(@Body('userId') userId: string) {
+    return this.qrService.generateQrSession(userId);
+  }
+
+  @Get('status/:sessionId')
+  async getQrStatus(@Param('sessionId') sessionId: string): Promise<{
+    status: string;
+    expiresAt: Date | null;
+    scanned: boolean;
+  }> {
+    return await this.qrService.getQrStatus(sessionId);
+  }
+
+  @Post('scan/:sessionId')
+  async scanQrCode(@Param('sessionId') sessionId: string) {
+    return this.qrService.scanQr(sessionId);
+  }
+}
+
+
+
+=== qr.module.ts ===
+import { Module } from '@nestjs/common';
+import { QrService } from './qr.service';
+import { QrController } from './qr.controller';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Module({
+  controllers: [QrController],
+  providers: [QrService, PrismaService],
+  exports: [QrService],
+})
+export class QrModule {}
+
+
+
+=== qr.service.ts ===
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class QrService {
+  constructor(private prisma: PrismaService) {}
+
+  async generateQrSession(userId: string) {
+    const session = await this.prisma.qrSession.create({
+      data: {
+        userId: userId,
+        status: 'PENDING',
+      },
+    });
+    return { qrToken: session.id };
+  }
+
+  async getQrStatus(sessionId: string) {
+    const session = await this.prisma.qrSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Invalid QR Code');
+    }
+
+    const currentTime = new Date();
+    let status = session.status;
+
+    if (status === 'ACTIVE' && currentTime > session.expiresAt) {
+      await this.prisma.qrSession.update({
+        where: { id: sessionId },
+        data: { status: 'EXPIRED' },
+      });
+      status = 'EXPIRED';
+    }
+
+    return {
+      status: status,
+      expiresAt: session.expiresAt,
+      scanned: status === 'ACTIVE' || status === 'EXPIRED',
+    };
+  }
+
+  async scanQr(sessionId: string) {
+    const session = await this.prisma.qrSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        user: {
+          include: {
+            license: {
+              include: {
+                vehicleCategories: true,
+                temporaryLicenses: {
+                  where: {
+                    expiry_Date: { gte: new Date() },
+                  },
+                  orderBy: { expiry_Date: 'desc' },
+                  take: 1,
+                },
+                fines: {
+                  where: {
+                    status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
+                  },
+                  take: 5,
+                  orderBy: { issue_At: 'desc' },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Invalid QR Code');
+    }
+
+    if (!session.user || !session.user.license) {
+      throw new BadRequestException('No active license found for this user.');
+    }
+
+    const currentTime = new Date();
+
+    if (session.status === 'EXPIRED') {
+      throw new BadRequestException('This QR code has expired.');
+    }
+
+    const license = session.user.license;
+    const activeTempLicense = license.temporaryLicenses[0];
+
+    if (session.status === 'PENDING') {
+      const expiresAt = new Date(currentTime.getTime() + 10 * 60000);
+      const updatedSession = await this.prisma.qrSession.update({
+        where: { id: sessionId },
+        data: {
+          status: 'ACTIVE',
+          firstScannedAt: currentTime,
+          expiresAt: expiresAt,
+        },
+        include: {
+          user: {
+            include: {
+              license: {
+                include: {
+                  vehicleCategories: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Scan successful. Timer started.',
+        sessionId: updatedSession.id,
+        expiresAt: updatedSession.expiresAt,
+        driver: {
+          userId: updatedSession.user.user_Id,
+          name: updatedSession.user.name,
+          nic: updatedSession.user.nic_No,
+          email: updatedSession.user.email,
+          license: {
+            licenseId: license.license_Id,
+            licenseNo: license.license_No,
+            fullName: license.full_Name,
+            status: license.status,
+            points: license.points,
+            address: license.address,
+            bloodGroup: license.blood_Group,
+            dateOfBirth: license.date_of_birth,
+            issueDate: license.issue_Date,
+            image: license.image,
+            suspendedUntil: license.suspended_Until,
+            has24Suspension: license.has_24_Suspension,
+            has50Suspension: license.has_50_Suspension,
+            has100Revoke: license.has_100_Revoke,
+            vehicleCategories: license.vehicleCategories,
+            temporaryLicenseExpiry: activeTempLicense?.expiry_Date || null,
+          },
+        },
+      };
+    }
+
+    if (session.status === 'ACTIVE') {
+      if (currentTime > session.expiresAt) {
+        await this.prisma.qrSession.update({
+          where: { id: sessionId },
+          data: { status: 'EXPIRED' },
+        });
+        throw new BadRequestException('This QR code has expired.');
+      }
+
+      return {
+        success: true,
+        message: 'Scan successful. Valid within 10 mins.',
+        sessionId: session.id,
+        expiresAt: session.expiresAt,
+        driver: {
+          userId: session.user.user_Id,
+          name: session.user.name,
+          nic: session.user.nic_No,
+          email: session.user.email,
+          license: {
+            licenseId: license.license_Id,
+            licenseNo: license.license_No,
+            fullName: license.full_Name,
+            status: license.status,
+            points: license.points,
+            address: license.address,
+            bloodGroup: license.blood_Group,
+            dateOfBirth: license.date_of_birth,
+            issueDate: license.issue_Date,
+            image: license.image,
+            suspendedUntil: license.suspended_Until,
+            has24Suspension: license.has_24_Suspension,
+            has50Suspension: license.has_50_Suspension,
+            has100Revoke: license.has_100_Revoke,
+            vehicleCategories: license.vehicleCategories,
+            temporaryLicenseExpiry: activeTempLicense?.expiry_Date || null,
+          },
+        },
+      };
+    }
+  }
+}
+
+
+
+=== users.controller.ts ===
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import { UsersService } from './users.service';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { IsString, IsNotEmpty } from 'class-validator';
+
+export interface AuthRequest {
+  user: { id: string };
+}
+
+export class UpdateDeviceDto {
+  @IsString()
+  @IsNotEmpty()
+  deviceId: string;
+}
+
+@ApiTags('Users (Drivers)')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('users')
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @ApiOperation({ summary: 'Get current logged-in user profile' })
+  @Get('profile')
+  async getProfile(@Request() req: AuthRequest) {
+    return this.usersService.getUserById(req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Update driver device ID' })
+  @Patch('device')
+  async updateDevice(
+    @Request() req: AuthRequest,
+    @Body() data: UpdateDeviceDto,
+  ) {
+    return this.usersService.updateUserDevice(req.user.id, data.deviceId);
+  }
+
+  @ApiOperation({ summary: 'Verify Email Address' })
+  @Patch('verify-email')
+  async verifyEmail(@Request() req: AuthRequest) {
+    return this.usersService.verifyEmail(req.user.id);
+  }
+}
+
+
+
+=== users.module.ts ===
+import { Module } from '@nestjs/common';
+import { UsersService } from './users.service';
+import { UsersController } from './users.controller';
+
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService],
+})
+export class UsersModule {}
+
+
+
+=== users.service.ts ===
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class UsersService {
+  constructor(private prisma: PrismaService) {}
+
+  async getUserById(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { user_Id: userId },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async updateUserDevice(userId: string, newDeviceId: string) {
+    return this.prisma.user.update({
+      where: { user_Id: userId },
+      data: { device_Id: newDeviceId },
+    });
+  }
+
+  async verifyEmail(userId: string) {
+    return this.prisma.user.update({
+      where: { user_Id: userId },
+      data: { isEmailVerified: true },
+    });
+  }
+}
+
+
+
+=== app.controller.ts ===
+import { Controller, Get } from '@nestjs/common';
+import { AppService } from './app.service';
+import { ApiTags } from '@nestjs/swagger';
+
+@ApiTags('Root')
+@Controller()
+export class AppController {
+  constructor(private readonly appService: AppService) {}
+
+  @Get()
+  getHello(): string {
+    return this.appService.getHello();
+  }
+}
+
+
+
+=== app.module.ts ===
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { LicenseModule } from './license/license.module';
+import { FinesModule } from './fines/fines.module';
+import { QrModule } from './qr/qr.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    ScheduleModule.forRoot(),
+    PrismaModule,
+    AuthModule,
+    UsersModule,
+    LicenseModule,
+    FinesModule,
+    QrModule,
+  ],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}
+
+
+
+=== app.service.ts ===
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class AppService {
+  getHello(): string {
+    return 'Welcome to Auto-Ledger API!';
+  }
+}
+
+
+
+=== main.ts ===
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  app.enableCors();
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
+
+  const config = new DocumentBuilder()
+    .setTitle('Auto-Ledger API')
+    .setDescription('API documentation for the Auto-Ledger application')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
+  await app.listen(process.env.PORT || 3000);
+}
+
+bootstrap().catch(console.error);
+
+
+
+=== app.e2e-spec.ts ===
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { AppModule } from './../src/app.module';
+
+describe('Auto-Ledger API E2E Tests', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+  });
+
+  it('/ (GET) - Health Check should return 200', () => {
+    return request(app.getHttpServer()).get('/').expect(200);
+  });
+
+  it('/auth/login (POST) - Divisional Head should login successfully', () => {
+    return request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        badgeNumber: 'HEAD-GALLE-01',
+        password: 'headpassword123',
+      })
+      .expect(201)
+      .then((response) => {
+        const body = response.body as {
+          accessToken: string;
+          officer: { role: string };
+        };
+        expect(body).toHaveProperty('accessToken');
+        expect(body).toHaveProperty('officer');
+        expect(body.officer.role).toEqual('DIVISIONAL_HEAD');
+      });
+  });
+
+  it('/auth/login (POST) - Invalid credentials should return 401', () => {
+    return request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        badgeNumber: 'HEAD-GALLE-01',
+        password: 'wrongpassword',
+      })
+      .expect(401);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+});
+
