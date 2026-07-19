@@ -5,7 +5,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { JwtService } from '@nestjs/jwt';
 import * as nodemailer from 'nodemailer';
 import { License_Status, Fine_Status } from '@prisma/client';
 
@@ -22,10 +21,6 @@ export interface UpdateOffenseData {
   points?: number;
   amount?: number;
   isCourtCase?: boolean;
-}
-
-interface ScanTokenPayload {
-  licenseId: string;
 }
 
 type LicenseUpdatePayload = {
@@ -46,10 +41,7 @@ type FineWithPayment = {
 
 @Injectable()
 export class FinesService {
-  constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   private async sendWarningEmail(
     email: string,
@@ -134,20 +126,27 @@ export class FinesService {
   }
 
   async issueFine(data: {
-    scanToken: string;
+    sessionId: string;
     officerId: string;
     offenseIds: string[];
     comment?: string;
   }) {
-    let licenseId = '';
-    try {
-      const payload = this.jwtService.verify<ScanTokenPayload>(data.scanToken);
-      licenseId = payload.licenseId;
-    } catch {
+    const session = await this.prisma.qrSession.findUnique({
+      where: { id: data.sessionId },
+      include: { user: { include: { license: true } } },
+    });
+
+    if (!session || session.status !== 'ACTIVE') {
       throw new UnauthorizedException(
-        'Scan session expired. Please scan QR again.',
+        'Scan session expired or invalid. Please scan QR again.',
       );
     }
+
+    if (!session.user || !session.user.license) {
+      throw new NotFoundException('License not found for this user.');
+    }
+
+    const licenseId = session.user.license.license_Id;
 
     await this.autoActivateLicenses();
     await this.processOverdueFines();
@@ -237,7 +236,7 @@ export class FinesService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const fine = await tx.fine.create({
         data: {
           license_Id: licenseId,
@@ -261,17 +260,15 @@ export class FinesService {
         suspended_Until: suspendedUntil,
       };
 
-      if (actionTriggered) {
-        if (newPoints >= 24 && !license.has_24_Suspension) {
-          updateData.has_24_Suspension = true;
-        }
-        if (newPoints >= 50 && !license.has_50_Suspension) {
-          updateData.has_50_Suspension = true;
-        }
-        if (newPoints >= 100 && !license.has_100_Revoke) {
-          updateData.has_100_Revoke = true;
-          updateData.triggering_Fine_Id = fine.fine_Id;
-        }
+      if (actionTriggered && newPoints >= 24 && !license.has_24_Suspension) {
+        updateData.has_24_Suspension = true;
+      }
+      if (actionTriggered && newPoints >= 50 && !license.has_50_Suspension) {
+        updateData.has_50_Suspension = true;
+      }
+      if (actionTriggered && newPoints >= 100 && !license.has_100_Revoke) {
+        updateData.has_100_Revoke = true;
+        updateData.triggering_Fine_Id = fine.fine_Id;
       }
 
       await tx.driving_License.update({
@@ -285,6 +282,8 @@ export class FinesService {
         });
       }
 
+      let finalTempExpiry: Date | null = null;
+
       if (
         !isPointSuspension &&
         fineStatus !== 'COURT_CASE' &&
@@ -293,8 +292,9 @@ export class FinesService {
         const existingTemp = await tx.temporary_License.findFirst({
           where: { license_Id: licenseId },
         });
+
         if (!existingTemp) {
-          await tx.temporary_License.create({
+          const createdTemp = await tx.temporary_License.create({
             data: {
               license_Id: licenseId,
               expiry_Date: fineDueDate,
@@ -302,7 +302,11 @@ export class FinesService {
               head_Id: currentHeadId,
             },
           });
+          finalTempExpiry = createdTemp.expiry_Date;
+        } else {
+          finalTempExpiry = existingTemp.expiry_Date;
         }
+
         if (newStatus !== 'SUSPENDED') {
           await tx.driving_License.update({
             where: { license_Id: licenseId },
@@ -310,6 +314,11 @@ export class FinesService {
           });
         }
       }
+
+      const finalLicense = await tx.driving_License.findUnique({
+        where: { license_Id: licenseId },
+        select: { status: true },
+      });
 
       if (actionTriggered && warningSubject) {
         const user = await tx.user.findUnique({
@@ -324,8 +333,14 @@ export class FinesService {
         }
       }
 
-      return fine;
+      return {
+        fine: fine,
+        licenseStatus: finalLicense?.status ?? newStatus,
+        temporaryLicenseExpiry: finalTempExpiry,
+      };
     });
+
+    return result;
   }
 
   async getMyFines(userId: string) {
@@ -355,7 +370,6 @@ export class FinesService {
     });
     if (!fine) throw new NotFoundException('Fine not found');
 
-    // Check if payment already exists
     if (fine.status === 'PAID' || fine.payment)
       throw new BadRequestException('Fine already paid');
 
