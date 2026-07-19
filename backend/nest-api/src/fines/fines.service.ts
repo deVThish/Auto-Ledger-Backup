@@ -4,6 +4,7 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import * as nodemailer from 'nodemailer';
 import { License_Status, Fine_Status } from '@prisma/client';
@@ -42,6 +43,11 @@ type FineWithPayment = {
 @Injectable()
 export class FinesService {
   constructor(private prisma: PrismaService) {}
+
+  @Cron('*/5 * * * *')
+  async handleCron() {
+    await this.processOverdueFines();
+  }
 
   private async sendWarningEmail(
     email: string,
