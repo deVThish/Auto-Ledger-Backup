@@ -185,7 +185,14 @@ export class AuthService {
   async loginOfficer(badgeNo: string, pass: string) {
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { badge_No: badgeNo },
-      include: { shifts: true },
+      include: {
+        divisionalHead: {
+          include: {
+            division: true,
+          },
+        },
+        shifts: true,
+      },
     });
 
     if (!officer)
@@ -215,6 +222,7 @@ export class AuthService {
       badgeNo: officer.badge_No,
       headId: officer.divisional_Head_Id,
     };
+
     return {
       accessToken: this.jwtService.sign(payload),
       user: {
@@ -223,6 +231,8 @@ export class AuthService {
         email: officer.email,
         role: officer.role,
         badgeNo: officer.badge_No,
+        divisionName: officer.divisionalHead?.division?.division_Name || null,
+        divisionalHeadName: officer.divisionalHead?.name || null,
       },
     };
   }

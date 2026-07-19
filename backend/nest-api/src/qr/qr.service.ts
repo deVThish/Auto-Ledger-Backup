@@ -55,6 +55,13 @@ export class QrService {
             license: {
               include: {
                 vehicleCategories: true,
+                temporaryLicenses: {
+                  where: {
+                    expiry_Date: { gte: new Date() },
+                  },
+                  orderBy: { expiry_Date: 'desc' },
+                  take: 1,
+                },
                 fines: {
                   where: {
                     status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] },
@@ -83,6 +90,9 @@ export class QrService {
       throw new BadRequestException('This QR code has expired.');
     }
 
+    const license = session.user.license;
+    const activeTempLicense = license.temporaryLicenses[0];
+
     if (session.status === 'PENDING') {
       const expiresAt = new Date(currentTime.getTime() + 10 * 60000);
       const updatedSession = await this.prisma.qrSession.update({
@@ -104,8 +114,6 @@ export class QrService {
           },
         },
       });
-
-      const license = updatedSession.user.license;
 
       return {
         success: true,
@@ -133,6 +141,7 @@ export class QrService {
             has50Suspension: license.has_50_Suspension,
             has100Revoke: license.has_100_Revoke,
             vehicleCategories: license.vehicleCategories,
+            temporaryLicenseExpiry: activeTempLicense?.expiry_Date || null,
           },
         },
       };
@@ -146,8 +155,6 @@ export class QrService {
         });
         throw new BadRequestException('This QR code has expired.');
       }
-
-      const license = session.user.license;
 
       return {
         success: true,
@@ -175,6 +182,7 @@ export class QrService {
             has50Suspension: license.has_50_Suspension,
             has100Revoke: license.has_100_Revoke,
             vehicleCategories: license.vehicleCategories,
+            temporaryLicenseExpiry: activeTempLicense?.expiry_Date || null,
           },
         },
       };
