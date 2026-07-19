@@ -1,8 +1,6 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
@@ -17,26 +15,20 @@ class QrScannerScreen extends StatefulWidget {
   State<QrScannerScreen> createState() => _QrScannerScreenState();
 }
 
-class _QrScannerScreenState extends State<QrScannerScreen> {
+class _QrScannerScreenState extends State<QrScannerScreen>
+    with WidgetsBindingObserver {
   final _trafficFineService = TrafficFineService();
   final MobileScannerController _controller = MobileScannerController();
 
   bool _isLoading = false;
   bool _isScanning = false;
 
-  String _lastQrToken = '';
-  LicenseModel? _activeSessionLicense;
-
-  bool get _hasActiveSession {
-    final license = _activeSessionLicense;
-    if (license == null) return false;
-    return license.scanExpiresAt != null &&
-        DateTime.now().isBefore(license.scanExpiresAt!);
-  }
+  String _lastSessionId = '';
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _controller.start();
@@ -46,16 +38,32 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _restartCamera();
+    }
+  }
+
+  Future<void> _restartCamera() async {
+    if (!mounted) return;
+    try {
+      await _controller.stop();
+      await _controller.start();
+    } catch (_) {}
   }
 
   void _handleScan(BarcodeCapture capture) {
     if (_isScanning || _isLoading) return;
     if (capture.barcodes.isEmpty) return;
 
-    final qrToken = capture.barcodes.first.rawValue;
-    if (qrToken == null || qrToken.trim().isEmpty) {
+    final sessionId = capture.barcodes.first.rawValue;
+    if (sessionId == null || sessionId.trim().isEmpty) {
       AppErrorHandler.showPopup(
         context,
         message: 'Invalid QR code. Please try again.',
@@ -63,54 +71,38 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       return;
     }
 
-    final cleanedToken = qrToken.trim();
+    final cleanedSessionId = sessionId.trim();
 
-    if (_hasActiveSession &&
-        _lastQrToken.isNotEmpty &&
-        cleanedToken == _lastQrToken) {
-      final activeLicense = _activeSessionLicense;
-      if (activeLicense != null) {
-        _isScanning = true;
-        _openPreviewWithLicense(activeLicense, cleanedToken, reuseSession: true);
-        return;
-      }
+    if (_lastSessionId.isNotEmpty && cleanedSessionId == _lastSessionId) {
+      AppErrorHandler.showPopup(
+        context,
+        message: 'This QR session is already active. Please scan a new QR.',
+      );
+      return;
     }
 
     _isScanning = true;
-    _verifyLicense(cleanedToken);
+    _verifySession(cleanedSessionId);
   }
 
-  Future<void> _verifyLicense(String qrToken) async {
+  Future<void> _verifySession(String sessionId) async {
     if (!mounted) return;
 
     setState(() => _isLoading = true);
 
     try {
+      await _controller.stop();
+
       final license = await _trafficFineService.scanQr(
-        qrToken: qrToken,
+        sessionId: sessionId,
         location: 'Current Location',
       );
 
       if (!mounted) return;
 
-      await _controller.stop();
+      _lastSessionId = sessionId;
 
-      final sessionToken = license.scanToken.trim().isNotEmpty
-          ? license.scanToken.trim()
-          : qrToken.trim();
-
-      final now = license.scanVerifiedAt ?? DateTime.now();
-
-      final sessionLicense = license.copyWith(
-        scanToken: sessionToken,
-        scanVerifiedAt: now,
-        scanExpiresAt: _extractExpiryFromJwt(sessionToken) ?? now.add(const Duration(minutes: 10)),
-      );
-
-      _lastQrToken = qrToken;
-      _activeSessionLicense = sessionLicense;
-
-      await _openPreviewWithLicense(sessionLicense, sessionToken);
+      await _openPreviewWithLicense(license, sessionId);
 
       if (!mounted) return;
 
@@ -130,42 +122,30 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         _isLoading = false;
         _isScanning = false;
       });
+
+      if (error.message.toLowerCase().contains('expired')) {
+        _restartCamera();
+      }
     } catch (_) {
       if (!mounted) return;
 
       AppErrorHandler.showPopup(
         context,
-        message: 'Unable to verify license. Please try again.',
+        message: 'Unable to verify QR session. Please try again.',
       );
 
       setState(() {
         _isLoading = false;
         _isScanning = false;
       });
-    }
-  }
 
-  DateTime? _extractExpiryFromJwt(String token) {
-    try {
-      final parts = token.split('.');
-      if (parts.length != 3) return null;
-      final payload = parts[1];
-      final normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
-      final decoded = utf8.decode(base64Url.decode(normalized));
-      final json = Map<String, dynamic>.from(jsonDecode(decoded) as Map);
-      final exp = json['exp'];
-      if (exp is int) {
-        return DateTime.fromMillisecondsSinceEpoch(exp * 1000);
-      }
-      return null;
-    } catch (_) {
-      return null;
+      _restartCamera();
     }
   }
 
   Future<void> _openPreviewWithLicense(
     LicenseModel license,
-    String qrToken, {
+    String sessionId, {
     bool reuseSession = false,
   }) async {
     if (!mounted) return;
@@ -173,7 +153,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LicensePreviewScreen(
-          qrToken: qrToken,
+          qrToken: sessionId,
           license: license,
         ),
       ),
@@ -264,7 +244,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                     ),
                                     SizedBox(height: 14),
                                     Text(
-                                      'Verifying license...',
+                                      'Verifying QR session...',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 15,

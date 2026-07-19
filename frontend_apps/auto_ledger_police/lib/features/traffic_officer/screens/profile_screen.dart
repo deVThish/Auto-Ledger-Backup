@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import '../../../core/constants/app_routes.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/app_theme.dart';
@@ -26,6 +25,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _badgeNumber = '';
   String _email = '';
   String _role = '';
+  String _divisionName = '';
+  String _divisionalHeadName = '';
   String _shiftTime = '08:00 AM - 04:00 PM';
   int _selectedNavIndex = 0;
 
@@ -48,13 +49,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (session != null) {
           _name = session.officerName;
           _badgeNumber = session.officerBadgeNumber;
-          _email = session.officerName;
+          _email = session.email;
           _role = session.role.replaceAll('_', ' ');
+          _divisionName = session.divisionName;
+          _divisionalHeadName = session.divisionalHeadName;
         } else {
           _name = '';
           _badgeNumber = '';
           _email = '';
           _role = '';
+          _divisionName = '';
+          _divisionalHeadName = '';
         }
         _isLoading = false;
       });
@@ -317,6 +322,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 _InfoCard(
+                                  icon: Icons.badge_outlined,
+                                  title: 'Badge Number',
+                                  value: _badgeNumber.isEmpty ? 'N/A' : _badgeNumber,
+                                  compact: compact,
+                                ),
+                                const SizedBox(height: 8),
+                                _InfoCard(
                                   icon: Icons.schedule_outlined,
                                   title: 'Shift Time',
                                   value: _shiftTime,
@@ -324,9 +336,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 _InfoCard(
-                                  icon: Icons.badge_outlined,
-                                  title: 'Badge Number',
-                                  value: _badgeNumber.isEmpty ? 'N/A' : _badgeNumber,
+                                  icon: Icons.place_outlined,
+                                  title: 'Division',
+                                  value: _divisionName.isEmpty ? 'Not assigned' : _divisionName,
+                                  compact: compact,
+                                ),
+                                const SizedBox(height: 8),
+                                _InfoCard(
+                                  icon: Icons.people_outlined,
+                                  title: 'Divisional Head',
+                                  value: _divisionalHeadName.isEmpty ? 'Not assigned' : _divisionalHeadName,
                                   compact: compact,
                                 ),
                                 SizedBox(height: compact ? 10 : 12),

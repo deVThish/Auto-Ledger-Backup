@@ -63,6 +63,9 @@ class AuthService {
       officerBadgeNumber: authResponse.officer.badgeNumber,
       role: authResponse.officer.role,
       districtId: authResponse.officer.divisionId,
+      email: authResponse.officer.email,
+      divisionName: authResponse.officer.divisionName,
+      divisionalHeadName: authResponse.officer.divisionalHeadName,
     );
 
     final existingDeviceId = await _tokenStorage.getDeviceId();
@@ -99,6 +102,9 @@ class AuthService {
         officerBadgeNumber: authResponse.officer.badgeNumber,
         role: authResponse.officer.role,
         districtId: authResponse.officer.divisionId,
+        email: authResponse.officer.email,
+        divisionName: authResponse.officer.divisionName,
+        divisionalHeadName: authResponse.officer.divisionalHeadName,
       );
 
       final existingDeviceId = await _tokenStorage.getDeviceId();
@@ -133,6 +139,9 @@ class AuthService {
         officerBadgeNumber: authResponse.officer.badgeNumber,
         role: authResponse.officer.role,
         districtId: authResponse.officer.divisionId,
+        email: authResponse.officer.email,
+        divisionName: authResponse.officer.divisionName,
+        divisionalHeadName: authResponse.officer.divisionalHeadName,
       );
 
       final existingDeviceId = await _tokenStorage.getDeviceId();

@@ -1,6 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
-
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../models/fine_model.dart';
@@ -33,112 +30,70 @@ class TrafficFineService {
   }
 
   Future<LicenseModel> scanQr({
-    required String qrToken,
+    required String sessionId,
     required String location,
   }) async {
+    final url = '${ApiConstants.qrScan}$sessionId';
+
     final requestBody = <String, dynamic>{
-      'qrToken': qrToken.trim(),
       'location': location.trim().isEmpty
           ? 'Current Location'
           : location.trim(),
     };
 
-    debugPrint('==================== SCAN QR REQUEST ====================');
-    debugPrint('URL: ${ApiConstants.scanQr}');
-    debugPrint('BODY: $requestBody');
-    debugPrint('=========================================================');
-
     final response = await _apiClient.post(
-      ApiConstants.scanQr,
+      url,
       body: requestBody,
     );
 
-    debugPrint('==================== SCAN QR RESPONSE ===================');
-    debugPrint('RESPONSE: $response');
-    debugPrint('=========================================================');
-
     final payload = _unwrapMap(response);
-    final verifiedAt = DateTime.now();
-    final parsedLicense = LicenseModel.fromJson(payload);
+    final driverData = payload['driver'] as Map<String, dynamic>?;
 
-    final scanToken = parsedLicense.scanToken.trim().isNotEmpty
-        ? parsedLicense.scanToken.trim()
-        : qrToken.trim();
-
-    DateTime? expiresAt;
-
-    final directExpiry = _readDate(payload['expiresAt']);
-    if (directExpiry != null) {
-      expiresAt = directExpiry;
-      debugPrint('==================== EXPIRY FROM BE ====================');
-      debugPrint('expiresAt from BE: $expiresAt');
-      debugPrint('=========================================================');
-    } else {
-      expiresAt = _extractExpiryFromJwt(scanToken);
-      if (expiresAt == null) {
-        debugPrint('==================== SCAN TOKEN ERROR ===================');
-        debugPrint('Could not extract expiry date from JWT. Token is invalid or expired.');
-        debugPrint('=========================================================');
-        throw const ApiException(
-          statusCode: 400,
-          message: 'Invalid or expired QR token. Session duration could not be determined.',
-        );
-      }
-      debugPrint('==================== EXPIRY FROM JWT ====================');
-      debugPrint('expiresAt from JWT: $expiresAt');
-      debugPrint('=========================================================');
+    if (driverData == null) {
+      throw const ApiException(
+        statusCode: 400,
+        message: 'Invalid QR session. Driver data not found.',
+      );
     }
 
-    debugPrint('==================== SCAN TOKEN RESULT ==================');
-    debugPrint('parsedLicense.id: ${parsedLicense.id}');
-    debugPrint('parsedLicense.licenseNumber: ${parsedLicense.licenseNumber}');
-    debugPrint('parsedLicense.driverName: ${parsedLicense.driverName}');
-    debugPrint('scanToken used in app: $scanToken');
-    debugPrint('scanVerifiedAt: $verifiedAt');
-    debugPrint('scanExpiresAt: $expiresAt');
-    debugPrint('=========================================================');
+    final licenseData = driverData['license'] as Map<String, dynamic>?;
+    if (licenseData == null) {
+      throw const ApiException(
+        statusCode: 400,
+        message: 'Invalid QR session. License data not found.',
+      );
+    }
 
-    return parsedLicense.copyWith(
-      scanToken: scanToken,
-      scanVerifiedAt: verifiedAt,
+    final expiresAt = _readDate(payload['expiresAt']);
+    final sessionIdFromResponse = payload['sessionId']?.toString() ?? sessionId;
+
+    final license = LicenseModel.fromJson(licenseData);
+
+    final updatedLicense = license.copyWith(
+      scanToken: sessionIdFromResponse.trim(),
       scanExpiresAt: expiresAt,
+      driverName: driverData['name']?.toString() ?? license.driverName,
+      nicNo: driverData['nic']?.toString() ?? license.nicNo,
     );
+
+    return updatedLicense;
   }
 
   Future<FineIssueResultModel> issueFine({
-    required String scanToken,
+    required String sessionId,
     String? licenseId,
     required List<String> offenseIds,
     required String comment,
     required LicenseModel license,
     required List<OffenseModel> selectedOffenses,
   }) async {
-    final resolvedScanToken = _resolveScanToken(
-      scanToken: scanToken,
-      license: license,
-    );
-
     final resolvedOffenseIds = _resolveOffenseIds(
       offenseIds: offenseIds,
       selectedOffenses: selectedOffenses,
     );
 
-    debugPrint('==================== ISSUE FINE REQUEST ==================');
-    debugPrint('URL: ${ApiConstants.issueFine}');
-    debugPrint('scanToken raw: $scanToken');
-    debugPrint('scanToken resolved: $resolvedScanToken');
-    debugPrint('licenseId arg: $licenseId');
-    debugPrint('license.id: ${license.id}');
-    debugPrint('license.licenseNumber: ${license.licenseNumber}');
-    debugPrint('license.scanToken: ${license.scanToken}');
-    debugPrint('selected offenseIds raw: $offenseIds');
-    debugPrint('selected offenseIds resolved: $resolvedOffenseIds');
-    debugPrint('selectedOffenses count: ${selectedOffenses.length}');
-    debugPrint('comment: $comment');
-    debugPrint('=========================================================');
-
-    if (resolvedScanToken.trim().isEmpty) {
-      throw Exception('Scan token is missing.');
+    if (sessionId.trim().isEmpty) {
+      throw Exception('Session ID is missing.');
     }
 
     if (resolvedOffenseIds.isEmpty) {
@@ -146,7 +101,7 @@ class TrafficFineService {
     }
 
     final body = <String, dynamic>{
-      'scanToken': resolvedScanToken.trim(),
+      'sessionId': sessionId.trim(),
       'offenseIds': resolvedOffenseIds,
     };
 
@@ -155,18 +110,10 @@ class TrafficFineService {
       body['comment'] = trimmedComment;
     }
 
-    debugPrint('==================== ISSUE FINE BODY =====================');
-    debugPrint('$body');
-    debugPrint('=========================================================');
-
     final response = await _apiClient.post(
       ApiConstants.issueFine,
       body: body,
     );
-
-    debugPrint('==================== ISSUE FINE RESPONSE ================');
-    debugPrint('RESPONSE: $response');
-    debugPrint('=========================================================');
 
     final payload = _unwrapMap(response);
 
@@ -212,16 +159,6 @@ class TrafficFineService {
       ),
       fineDetails: fineDetails,
     );
-
-    debugPrint('==================== ISSUE FINE RESULT ==================');
-    debugPrint('fineId: ${fineResult.fineId}');
-    debugPrint('licenseId: ${fineResult.licenseId}');
-    debugPrint('status: ${fineResult.status}');
-    debugPrint('licenseStatus: ${fineResult.licenseStatus}');
-    debugPrint('accumulatedPoints: ${fineResult.accumulatedPoints}');
-    debugPrint('temporaryLicenseExpiry: ${fineResult.temporaryLicenseExpiry}');
-    debugPrint('fineDetails count: ${fineResult.fineDetails.length}');
-    debugPrint('=========================================================');
 
     return fineResult;
   }
@@ -326,28 +263,6 @@ class TrafficFineService {
     }).toList();
   }
 
-  String _resolveScanToken({
-    required String scanToken,
-    required LicenseModel license,
-  }) {
-    final licenseToken = license.scanToken.trim();
-    final requestToken = scanToken.trim();
-
-    if (_isJwtToken(licenseToken)) {
-      return licenseToken;
-    }
-
-    if (_isJwtToken(requestToken)) {
-      return requestToken;
-    }
-
-    if (licenseToken.isNotEmpty) {
-      return licenseToken;
-    }
-
-    return requestToken;
-  }
-
   List<String> _resolveOffenseIds({
     required List<String> offenseIds,
     required List<OffenseModel> selectedOffenses,
@@ -365,106 +280,6 @@ class TrafficFineService {
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
         .toList();
-  }
-
-  bool _isJwtToken(String value) {
-    final token = value.trim();
-    if (token.isEmpty) return false;
-    final parts = token.split('.');
-    return parts.length == 3 && parts.every((part) => part.isNotEmpty);
-  }
-
-  DateTime? _extractExpiryFromJwt(String token) {
-    final cleaned = token.trim();
-    if (cleaned.isEmpty) return null;
-
-    try {
-      return JwtDecoder.getExpirationDate(cleaned);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  DateTime? _parseScanExpiry(
-    Map<String, dynamic> payload,
-    DateTime verifiedAt,
-  ) {
-    final directExpiry = _readDate(
-      payload['scanExpiresAt'] ??
-          payload['scan_expires_at'] ??
-          payload['tokenExpiresAt'] ??
-          payload['token_expires_at'] ??
-          payload['expiresAt'] ??
-          payload['expires_at'],
-    );
-    if (directExpiry != null) return directExpiry;
-
-    final expiresIn = payload['expiresIn'] ??
-        payload['expires_in'] ??
-        payload['ttl'] ??
-        payload['duration'];
-
-    if (expiresIn == null) return null;
-
-    if (expiresIn is num) {
-      return verifiedAt.add(Duration(seconds: expiresIn.toInt()));
-    }
-
-    final text = expiresIn.toString().trim().toLowerCase();
-    if (text.isEmpty) return null;
-
-    final duration = _parseDurationString(text);
-    if (duration != null) {
-      return verifiedAt.add(duration);
-    }
-
-    final seconds = int.tryParse(text);
-    if (seconds != null) {
-      return verifiedAt.add(Duration(seconds: seconds));
-    }
-
-    return null;
-  }
-
-  Duration? _parseDurationString(String text) {
-    if (text.endsWith('ms')) {
-      final value = int.tryParse(text.substring(0, text.length - 2));
-      if (value != null) return Duration(milliseconds: value);
-    }
-
-    if (text.endsWith('s')) {
-      final value = int.tryParse(text.substring(0, text.length - 1));
-      if (value != null) return Duration(seconds: value);
-    }
-
-    if (text.endsWith('m')) {
-      final value = int.tryParse(text.substring(0, text.length - 1));
-      if (value != null) return Duration(minutes: value);
-    }
-
-    if (text.endsWith('h')) {
-      final value = int.tryParse(text.substring(0, text.length - 1));
-      if (value != null) return Duration(hours: value);
-    }
-
-    if (text.contains(':')) {
-      final parts = text.split(':').map((p) => int.tryParse(p) ?? 0).toList();
-      if (parts.length == 2) {
-        return Duration(
-          minutes: parts[0],
-          seconds: parts[1],
-        );
-      }
-      if (parts.length == 3) {
-        return Duration(
-          hours: parts[0],
-          minutes: parts[1],
-          seconds: parts[2],
-        );
-      }
-    }
-
-    return null;
   }
 
   String _readString(

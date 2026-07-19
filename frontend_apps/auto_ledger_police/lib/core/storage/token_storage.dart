@@ -11,6 +11,9 @@ class PoliceSession {
     required this.districtId,
     required this.loginAt,
     required this.tokenExpiresAt,
+    required this.email,
+    required this.divisionName,
+    required this.divisionalHeadName,
   });
 
   final String accessToken;
@@ -21,6 +24,9 @@ class PoliceSession {
   final String districtId;
   final DateTime loginAt;
   final DateTime? tokenExpiresAt;
+  final String email;
+  final String divisionName;
+  final String divisionalHeadName;
 
   bool get isValid {
     final now = DateTime.now();
@@ -54,6 +60,9 @@ class TokenStorage {
   static const String _loggedOutKey = 'logged_out';
   static const String _biometricEnabledKey = 'biometric_enabled';
   static const String _deviceIdKey = 'device_id';
+  static const String _emailKey = 'email';
+  static const String _divisionNameKey = 'division_name';
+  static const String _divisionalHeadNameKey = 'divisional_head_name';
 
   Future<void> saveSession({
     required String accessToken,
@@ -62,6 +71,9 @@ class TokenStorage {
     required String officerBadgeNumber,
     required String role,
     required String districtId,
+    required String email,
+    required String divisionName,
+    required String divisionalHeadName,
   }) async {
     final loginAt = DateTime.now();
     final tokenExpiresAt = _readJwtExpiry(accessToken);
@@ -81,6 +93,9 @@ class TokenStorage {
       value: tokenExpiresAt?.toIso8601String() ?? '',
     );
     await _storage.write(key: _loggedOutKey, value: 'false');
+    await _storage.write(key: _emailKey, value: email);
+    await _storage.write(key: _divisionNameKey, value: divisionName);
+    await _storage.write(key: _divisionalHeadNameKey, value: divisionalHeadName);
   }
 
   Future<String?> getAccessToken() async {
@@ -102,6 +117,9 @@ class TokenStorage {
     final districtId = await _storage.read(key: _districtIdKey);
     final loginAtValue = await _storage.read(key: _loginAtKey);
     final tokenExpiresAtValue = await _storage.read(key: _tokenExpiresAtKey);
+    final email = await _storage.read(key: _emailKey);
+    final divisionName = await _storage.read(key: _divisionNameKey);
+    final divisionalHeadName = await _storage.read(key: _divisionalHeadNameKey);
 
     if (accessToken == null ||
         officerId == null ||
@@ -132,6 +150,9 @@ class TokenStorage {
       districtId: districtId,
       loginAt: loginAt,
       tokenExpiresAt: tokenExpiresAt,
+      email: email ?? '',
+      divisionName: divisionName ?? '',
+      divisionalHeadName: divisionalHeadName ?? '',
     );
 
     if (!session.isValid) {
@@ -153,6 +174,9 @@ class TokenStorage {
     await _storage.delete(key: _tokenExpiresAtKey);
     await _storage.delete(key: _biometricEnabledKey);
     await _storage.delete(key: _deviceIdKey);
+    await _storage.delete(key: _emailKey);
+    await _storage.delete(key: _divisionNameKey);
+    await _storage.delete(key: _divisionalHeadNameKey);
     await _storage.write(key: _loggedOutKey, value: 'true');
   }
 

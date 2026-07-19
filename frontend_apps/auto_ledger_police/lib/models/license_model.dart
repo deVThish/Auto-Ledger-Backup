@@ -1,5 +1,4 @@
 import 'fine_model.dart';
-import 'package:flutter/foundation.dart';
 
 class VehicleCategory {
   const VehicleCategory({
@@ -29,7 +28,6 @@ class LicenseModel {
     this.expiryDate,
     this.temporaryLicenseExpiry,
     this.scanToken = '',
-    this.scanVerifiedAt,
     this.scanExpiresAt,
     this.nicNo,
     this.address,
@@ -49,7 +47,6 @@ class LicenseModel {
   final DateTime? expiryDate;
   final DateTime? temporaryLicenseExpiry;
   final String scanToken;
-  final DateTime? scanVerifiedAt;
   final DateTime? scanExpiresAt;
   final String? nicNo;
   final String? address;
@@ -68,16 +65,6 @@ class LicenseModel {
       imageUrl != null ||
       vehicleCategories.isNotEmpty;
 
-  bool get hasActiveScanWindow =>
-      scanExpiresAt != null && DateTime.now().isBefore(scanExpiresAt!);
-
-  int get scanRemainingSeconds {
-    final expiresAt = scanExpiresAt;
-    if (expiresAt == null) return 0;
-    final remaining = expiresAt.difference(DateTime.now()).inSeconds;
-    return remaining < 0 ? 0 : remaining;
-  }
-
   LicenseModel copyWith({
     String? id,
     String? licenseNumber,
@@ -89,7 +76,6 @@ class LicenseModel {
     DateTime? expiryDate,
     DateTime? temporaryLicenseExpiry,
     String? scanToken,
-    DateTime? scanVerifiedAt,
     DateTime? scanExpiresAt,
     String? nicNo,
     String? address,
@@ -108,9 +94,8 @@ class LicenseModel {
       issueDate: issueDate ?? this.issueDate,
       expiryDate: expiryDate ?? this.expiryDate,
       temporaryLicenseExpiry:
-          temporaryLicenseExpiry ?? this.temporaryLicenseExpiry,
+      temporaryLicenseExpiry ?? this.temporaryLicenseExpiry,
       scanToken: scanToken ?? this.scanToken,
-      scanVerifiedAt: scanVerifiedAt ?? this.scanVerifiedAt,
       scanExpiresAt: scanExpiresAt ?? this.scanExpiresAt,
       nicNo: nicNo ?? this.nicNo,
       address: address ?? this.address,
@@ -182,13 +167,6 @@ class LicenseModel {
       const ['blood_Group', 'bloodGroup', 'blood_group'],
     );
 
-    debugPrint('===== LICENSE MODEL PARSE =====');
-    debugPrint('nicNo: ${_readStringFromMaps([licenseData, json, user], const ['nic_No', 'nicNo', 'nic_no', 'nic'])}');
-    debugPrint('address: ${_readStringFromMaps([licenseData, json, user], const ['address', 'fullAddress'])}');
-    debugPrint('imageUrl: ${_readStringFromMaps([licenseData, json], const ['image', 'imageUrl', 'photo'])}');
-    debugPrint('vehicleCategories count: ${vehicleCategories.length}');
-    debugPrint('===============================');
-
     return LicenseModel(
       id: _readStringFromMaps(
         [licenseData, json],
@@ -215,6 +193,10 @@ class LicenseModel {
       scanToken: _readStringFromMaps(
         [licenseData, json],
         const ['scanToken', 'scan_token', 'qrToken', 'qr_token', 'token'],
+      ),
+      scanExpiresAt: _readDateFromMaps(
+        [licenseData, json],
+        const ['expiresAt', 'scanExpiresAt'],
       ),
       nicNo: _readStringFromMaps(
         [licenseData, json, user],

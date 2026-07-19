@@ -26,14 +26,16 @@ class ApiConstants {
   static const String licenseBase = '/license';
   static const String createLicense = '/license';
   static const String myLicense = '/license/my-license';
-  static const String generateQR = '/license/generate-qr';
-  static const String scanQr = '/license/scan-qr';
   static const String searchLicenseByNIC = '/license/search';
   static const String getAllLicenses = '/license/all';
   static const String getLicensesWithFines = '/license/with-fines';
   static const String getUploadUrl = '/license/get-upload-url';
   static const String revokedLicenses = '/license/revoked';
   static const String resolveRevokedLicense = '/license';
+
+  static const String qrGenerate = '/qr/generate';
+  static const String qrScan = '/qr/scan/';
+  static const String qrStatus = '/qr/status';
 
   static const String officersBase = '/officers';
   static const String createDivision = '/officers/division';

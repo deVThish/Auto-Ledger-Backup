@@ -1,9 +1,7 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
-
 import '../../../core/theme/app_theme.dart';
 import 'login_screen.dart';
 
@@ -26,6 +24,9 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
 
   bool _isAuthenticating = true;
   String _statusText = 'Preparing secure authentication...';
+  int _attemptCount = 0;
+  bool _isWaitingForRetry = false;
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -77,7 +78,19 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
     );
   }
 
+  void _resetAndRetry() {
+    setState(() {
+      _isWaitingForRetry = false;
+      _statusText = 'Touch the fingerprint sensor to continue...';
+      _isAuthenticating = true;
+    });
+    _authenticate();
+  }
+
   Future<void> _authenticate() async {
+    if (_isProcessing) return;
+    _isProcessing = true;
+
     setState(() {
       _isAuthenticating = true;
       _statusText = 'Checking device security...';
@@ -94,14 +107,15 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
         setState(() {
           _statusText = 'Fingerprint is not ready on this device.';
         });
-
         await Future.delayed(const Duration(milliseconds: 700));
+        _isProcessing = false;
         await _goToLogin();
         return;
       }
 
       setState(() {
         _statusText = 'Touch the fingerprint sensor to continue...';
+        _isWaitingForRetry = false;
       });
 
       final authenticated = await _localAuth.authenticate(
@@ -118,47 +132,52 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
       if (authenticated) {
         setState(() {
           _statusText = 'Authentication successful...';
+          _attemptCount = 0;
         });
-
+        _isProcessing = false;
         await Future.delayed(const Duration(milliseconds: 300));
         await _goToNextScreen();
       } else {
         setState(() {
-          _statusText = 'Authentication cancelled.';
+          _attemptCount++;
         });
-
-        await Future.delayed(const Duration(milliseconds: 500));
-        await _goToLogin();
+        _isProcessing = false;
+        await _handleFailedAttempt();
       }
     } on PlatformException catch (e) {
       if (!mounted) return;
-
-      debugPrint('Biometric auth error -> code: ${e.code}');
-      debugPrint('Biometric auth error -> message: ${e.message}');
-
       setState(() {
-        _statusText = _messageForCode(e.code);
+        _attemptCount++;
       });
-
-      await Future.delayed(const Duration(milliseconds: 900));
-      await _goToLogin();
+      _isProcessing = false;
+      await _handleFailedAttempt(e.code);
     } catch (e) {
       if (!mounted) return;
-
-      debugPrint('Biometric auth unexpected error: $e');
-
       setState(() {
-        _statusText = 'Unable to start fingerprint authentication.';
+        _attemptCount++;
       });
+      _isProcessing = false;
+      await _handleFailedAttempt();
+    }
+  }
 
+  Future<void> _handleFailedAttempt([String? errorCode]) async {
+    if (_attemptCount >= 3) {
+      setState(() {
+        _statusText = 'Too many failed attempts. Please login with password.';
+        _isAuthenticating = false;
+        _isWaitingForRetry = false;
+      });
       await Future.delayed(const Duration(milliseconds: 900));
       await _goToLogin();
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAuthenticating = false;
-        });
-      }
+    } else {
+      setState(() {
+        _statusText = errorCode != null
+            ? _messageForCode(errorCode)
+            : 'Authentication cancelled. Please try again.';
+        _isAuthenticating = false;
+        _isWaitingForRetry = true;
+      });
     }
   }
 
@@ -308,24 +327,91 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
                               ),
                             ),
                             const SizedBox(height: 18),
-                            SizedBox(
-                              width: 26,
-                              height: 26,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                color: AppTheme.policeBlue.withValues(alpha: 0.9),
+                            if (_isAuthenticating) ...[
+                              SizedBox(
+                                width: 26,
+                                height: 26,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: AppTheme.policeBlue.withValues(alpha: 0.9),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Authenticating...',
-                              style: TextStyle(
-                                color: AppTheme.textGray,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Authenticating...',
+                                style: TextStyle(
+                                  color: AppTheme.textGray,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
                               ),
-                            ),
+                            ] else if (_isWaitingForRetry) ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: _resetAndRetry,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.policeBlue,
+                                        side: BorderSide(
+                                          color: AppTheme.policeBlue.withValues(alpha: 0.3),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                      ),
+                                      child: const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.refresh_rounded, size: 18),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Try Again',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: _goToLogin,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.policeBlue,
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                      ),
+                                      child: const Text(
+                                        'Login',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${3 - _attemptCount} attempts remaining',
+                                style: const TextStyle(
+                                  color: AppTheme.textGray,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 10),
                           ],
                         ),

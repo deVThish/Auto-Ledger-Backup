@@ -7,6 +7,8 @@ class OfficerModel {
     required this.status,
     required this.role,
     required this.divisionId,
+    required this.divisionName,
+    required this.divisionalHeadName,
     required this.currentShift,
     this.shifts = const [],
   });
@@ -18,6 +20,8 @@ class OfficerModel {
   final String status;
   final String role;
   final String divisionId;
+  final String divisionName;
+  final String divisionalHeadName;
   final ShiftInfoModel? currentShift;
   final List<ShiftInfoModel> shifts;
 
@@ -216,6 +220,12 @@ class OfficerModel {
           json['division_Id']?.toString() ??
           json['districtId']?.toString() ??
           json['district_Id']?.toString() ??
+          '',
+      divisionName: json['divisionName']?.toString() ??
+          json['division_Name']?.toString() ??
+          '',
+      divisionalHeadName: json['divisionalHeadName']?.toString() ??
+          json['divisional_Head_Name']?.toString() ??
           '',
       currentShift: currentShiftJson is Map<String, dynamic>
           ? ShiftInfoModel.fromJson(currentShiftJson)

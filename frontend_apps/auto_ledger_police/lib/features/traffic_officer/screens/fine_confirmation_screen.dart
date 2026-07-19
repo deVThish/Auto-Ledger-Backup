@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
-
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
@@ -32,90 +30,19 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
   final _trafficFineService = TrafficFineService();
   final _commentController = TextEditingController();
 
-  Timer? _timer;
-  late final DateTime _expiresAt;
-  Duration _remaining = Duration.zero;
-  bool _expiredDialogShown = false;
   bool _isLoading = false;
 
-  String get _sessionToken {
+  String get _sessionId {
     final token = widget.qrToken.trim();
     if (token.isNotEmpty) return token;
     return widget.license.scanToken.trim();
   }
 
   @override
-  void initState() {
-    super.initState();
-
-    final expiresAt = widget.license.scanExpiresAt;
-
-    if (expiresAt == null) {
-      _expiresAt = DateTime.now();
-      _remaining = Duration.zero;
-      _expiredDialogShown = true;
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _showExpiredDialog();
-        }
-      });
-    } else {
-      _expiresAt = expiresAt;
-      _remaining = _expiresAt.difference(DateTime.now());
-      _updateRemaining();
-
-      _timer = Timer.periodic(
-        const Duration(seconds: 1),
-        (_) => _updateRemaining(),
-      );
-    }
-  }
-
-  @override
   void dispose() {
-    _timer?.cancel();
     _commentController.dispose();
     super.dispose();
   }
-
-  void _updateRemaining() {
-    if (!mounted) return;
-
-    final remaining = _expiresAt.difference(DateTime.now());
-    final safeRemaining =
-        remaining.isNegative ? Duration.zero : remaining;
-
-    setState(() {
-      _remaining = safeRemaining;
-    });
-
-    if (safeRemaining == Duration.zero && !_expiredDialogShown) {
-      _expiredDialogShown = true;
-      _timer?.cancel();
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _showExpiredDialog();
-        }
-      });
-    }
-  }
-
-  String _formatCountdown(Duration duration) {
-    final seconds = duration.inSeconds.clamp(0, 99999);
-    final minutes = seconds ~/ 60;
-    final remSeconds = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remSeconds.toString().padLeft(2, '0')}';
-  }
-
-  Color _timerColor() {
-    if (_remaining == Duration.zero) return AppTheme.errorRed;
-    if (_remaining.inSeconds <= 30) return Colors.orange;
-    return AppTheme.successGreen;
-  }
-
-  bool get _isExpired => _remaining == Duration.zero;
 
   String _offenseKey(OffenseModel offense) {
     if (offense.id.trim().isNotEmpty) return offense.id.trim();
@@ -133,113 +60,6 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
     return widget.selectedOffenses.fold<int>(
       0,
       (sum, offense) => sum + offense.points,
-    );
-  }
-
-  Future<void> _showExpiredDialog() async {
-    if (!mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.38),
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(34),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-              child: Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.78),
-                  borderRadius: BorderRadius.circular(34),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.60),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 40,
-                      offset: const Offset(0, 18),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 66,
-                      height: 66,
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorRed.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: const Icon(
-                        Icons.timer_off_rounded,
-                        color: AppTheme.errorRed,
-                        size: 34,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Session Expired',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'This QR verification window has expired. Scan the QR code again.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppTheme.textGray,
-                        fontSize: 13,
-                        height: 1.45,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (_) => const QrScannerScreen(),
-                            ),
-                            (route) => false,
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryBlack,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                        ),
-                        child: const Text(
-                          'Scan Again',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -384,11 +204,6 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
   }
 
   Future<void> _issueFine() async {
-    if (_isExpired) {
-      _showExpiredDialog();
-      return;
-    }
-
     if (widget.selectedOffenses.isEmpty) {
       AppErrorHandler.showPopup(
         context,
@@ -400,16 +215,11 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
     final confirmed = await _confirmIssueFine();
     if (!confirmed) return;
 
-    if (_isExpired) {
-      _showExpiredDialog();
-      return;
-    }
-
     setState(() => _isLoading = true);
 
     try {
-      final result = await _trafficFineService.issueFine(
-        scanToken: _sessionToken,
+      await _trafficFineService.issueFine(
+        sessionId: _sessionId,
         licenseId: widget.license.id.trim().isEmpty
             ? null
             : widget.license.id.trim(),
@@ -431,16 +241,10 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-
-      final message = error.message.toLowerCase();
-      if (message.contains('expired') || message.contains('session')) {
-        await _showExpiredDialog();
-      } else {
-        AppErrorHandler.showPopup(
-          context,
-          message: error.message,
-        );
-      }
+      AppErrorHandler.showPopup(
+        context,
+        message: error.message,
+      );
     } catch (_) {
       if (!mounted) return;
       AppErrorHandler.showPopup(
@@ -485,66 +289,6 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
           ),
           child: child,
         ),
-      ),
-    );
-  }
-
-  Widget _scanTimerBanner() {
-    final color = _timerColor();
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: color.withOpacity(0.28)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              _isExpired ? Icons.timer_off_rounded : Icons.timer_outlined,
-              color: color,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isExpired ? 'Scan session expired' : 'Scan session active',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _isExpired
-                      ? 'Please scan the QR code again.'
-                      : 'Time remaining: ${_formatCountdown(_remaining)}',
-                  style: const TextStyle(
-                    color: AppTheme.textGray,
-                    fontSize: 12,
-                    height: 1.3,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -685,7 +429,14 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                     children: [
                       _headerCard(),
                       const SizedBox(height: 14),
-                      _scanTimerBanner(),
+                      const Text(
+                        'Review Fine Details',
+                        style: TextStyle(
+                          color: AppTheme.primaryBlack,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                       const SizedBox(height: 14),
                       _summaryCard(),
                       const SizedBox(height: 18),
@@ -715,9 +466,7 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                         width: double.infinity,
                         height: 54,
                         child: ElevatedButton.icon(
-                          onPressed: (_isLoading || _isExpired)
-                              ? (_isExpired ? _showExpiredDialog : null)
-                              : _issueFine,
+                          onPressed: _isLoading ? null : _issueFine,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryBlack,
                             foregroundColor: Colors.white,

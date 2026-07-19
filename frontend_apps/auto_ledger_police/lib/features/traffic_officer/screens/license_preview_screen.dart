@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
-
 import '../../../core/theme/app_theme.dart';
 import '../../../models/fine_model.dart';
 import '../../../models/license_model.dart';
@@ -42,15 +40,14 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     final expiresAt = widget.license.scanExpiresAt;
 
     if (expiresAt == null) {
-      _expiresAt = DateTime.now();
-      _remaining = Duration.zero;
-      _expiredDialogShown = true;
+      _expiresAt = DateTime.now().add(const Duration(minutes: 5));
+      _remaining = const Duration(minutes: 5);
+      _expiredDialogShown = false;
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _showExpiredDialog();
-        }
-      });
+      _timer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => _updateRemaining(),
+      );
     } else {
       _expiresAt = expiresAt;
       _remaining = _expiresAt.difference(DateTime.now());
