@@ -4,6 +4,7 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import * as nodemailer from 'nodemailer';
 import { License_Status, Fine_Status } from '@prisma/client';
@@ -42,6 +43,54 @@ type FineWithPayment = {
 @Injectable()
 export class FinesService {
   constructor(private prisma: PrismaService) {}
+
+  @Cron('*/5 * * * *')
+  async handleCron() {
+    await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
+  }
+
+  private async expireLicensesIfExpired() {
+    const licenses = await this.prisma.driving_License.findMany({
+      where: {
+        status: {
+          notIn: ['EXPIRED', 'REVOKED'],
+        },
+      },
+      include: {
+        vehicleCategories: true,
+      },
+    });
+
+    const now = new Date();
+    const licensesToExpire: string[] = [];
+
+    for (const license of licenses) {
+      if (license.vehicleCategories.length === 0) {
+        continue;
+      }
+
+      const maxExpiry = license.vehicleCategories.reduce(
+        (max, cat) => (cat.expiry_Date > max ? cat.expiry_Date : max),
+        license.vehicleCategories[0].expiry_Date,
+      );
+
+      if (maxExpiry < now) {
+        licensesToExpire.push(license.license_Id);
+      }
+    }
+
+    if (licensesToExpire.length > 0) {
+      await this.prisma.driving_License.updateMany({
+        where: {
+          license_Id: { in: licensesToExpire },
+        },
+        data: {
+          status: 'EXPIRED',
+        },
+      });
+    }
+  }
 
   private async sendWarningEmail(
     email: string,
@@ -150,6 +199,7 @@ export class FinesService {
 
     await this.autoActivateLicenses();
     await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
 
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { traffic_Officer_Id: data.officerId },
@@ -346,6 +396,7 @@ export class FinesService {
   async getMyFines(userId: string) {
     await this.autoActivateLicenses();
     await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
 
     const license = await this.prisma.driving_License.findUnique({
       where: { user_Id: userId },
@@ -649,6 +700,7 @@ export class FinesService {
 
   async getAllFinesForDMT() {
     await this.autoActivateLicenses();
+    await this.expireLicensesIfExpired();
     return this.prisma.fine.findMany({
       include: {
         license: {
@@ -664,6 +716,7 @@ export class FinesService {
 
   async getProblematicLicensesForDMT() {
     await this.autoActivateLicenses();
+    await this.expireLicensesIfExpired();
     return this.prisma.driving_License.findMany({
       where: {
         status: { in: ['SUSPENDED', 'REVOKED'] },
@@ -675,6 +728,7 @@ export class FinesService {
   async getCourtCasesByDH(headId: string) {
     await this.autoActivateLicenses();
     await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
 
     return this.prisma.fine.findMany({
       where: {
@@ -696,6 +750,7 @@ export class FinesService {
   async getDashboardStats(headId: string) {
     await this.autoActivateLicenses();
     await this.processOverdueFines();
+    await this.expireLicensesIfExpired();
 
     const now = new Date();
     const officers = await this.prisma.traffic_Officer.findMany({
