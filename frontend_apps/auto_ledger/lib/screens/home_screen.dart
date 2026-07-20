@@ -613,20 +613,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildDetailText(String number, String value, {bool isBold = false}) {
+  Widget _buildDetailText(String number, String value, double fontSize,
+      {bool isBold = false}) {
     return Text.rich(
       TextSpan(
         children: [
           TextSpan(
               text: number,
               style: TextStyle(
-                  fontSize: 8.5,
+                  fontSize: fontSize * 0.85,
                   color: Colors.blueGrey[200],
                   fontWeight: FontWeight.bold)),
           TextSpan(
               text: value,
               style: TextStyle(
-                  fontSize: 9.5,
+                  fontSize: fontSize,
                   fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
                   color: Colors.white)),
         ],
@@ -641,12 +642,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (data == null) return const SizedBox.shrink();
 
     final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
+    final cardHeight = isSmallScreen ? screenWidth * 0.68 : screenWidth * 0.58;
+    final fontSize = isSmallScreen ? 8.0 : 9.5;
 
     return _buildLicenseGlassCard(
       padding: EdgeInsets.zero,
       child: SizedBox(
         width: double.infinity,
-        height: screenWidth * 0.58,
+        height: cardHeight,
         child: Stack(
           children: [
             Positioned.fill(
@@ -679,10 +683,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
               child: Column(
                 children: [
-                  _buildLicenseHeader(screenWidth),
+                  _buildLicenseHeader(screenWidth, fontSize),
                   const SizedBox(height: 10),
                   Expanded(
-                    child: _buildLicenseBody(data, screenWidth),
+                    child: _buildLicenseBody(data, screenWidth, fontSize),
                   ),
                 ],
               ),
@@ -693,7 +697,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildLicenseHeader(double screenWidth) {
+  Widget _buildLicenseHeader(double screenWidth, double fontSize) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -715,9 +719,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text('DRIVING LICENCE',
+              Text('DRIVING LICENCE',
                   style: TextStyle(
-                      fontSize: 14,
+                      fontSize: fontSize * 1.5,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                       letterSpacing: 1.0)),
@@ -726,10 +730,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   height: 1.0,
                   width: double.infinity,
                   color: Colors.white12),
-              const Text('DEMOCRATIC SOCIALIST REPUBLIC OF SRI LANKA',
+              Text('DEMOCRATIC SOCIALIST REPUBLIC OF SRI LANKA',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 8.5,
+                      fontSize: fontSize * 0.9,
                       fontWeight: FontWeight.w900,
                       color: Colors.white70)),
             ],
@@ -745,7 +749,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildLicenseBody(Map<String, dynamic> data, double screenWidth) {
+  Widget _buildLicenseBody(
+      Map<String, dynamic> data, double screenWidth, double fontSize) {
     final status = data['status'] ?? 'UNKNOWN';
     final imageUrl = data['image'];
 
@@ -770,12 +775,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 4),
               Text('4a. ${_formatDate(data['issue_Date'])}',
-                  style: const TextStyle(
-                      fontSize: 10,
+                  style: TextStyle(
+                      fontSize: fontSize * 1.1,
                       fontWeight: FontWeight.w600,
                       color: Colors.white70)),
               const SizedBox(height: 12),
-              _buildStatusBadge(status),
+              _buildStatusBadge(status, fontSize),
             ],
           ),
         ),
@@ -792,39 +797,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   children: [
                     Expanded(
                         child: _buildDetailText(
-                            '5. ', data['license_No'] ?? 'N/A',
+                            '5. ', data['license_No'] ?? 'N/A', fontSize,
                             isBold: true)),
                     const SizedBox(width: 8),
                     Expanded(
-                        child:
-                            _buildDetailText('4c. ', data['nic_No'] ?? 'N/A')),
+                        child: _buildDetailText(
+                            '4c. ', data['nic_No'] ?? 'N/A', fontSize)),
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildDetailText('1, 2. ', data['full_Name'] ?? 'N/A'),
+                _buildDetailText(
+                    '1, 2. ', data['full_Name'] ?? 'N/A', fontSize),
                 const SizedBox(height: 8),
-                _buildDetailText('8. ', data['address'] ?? 'N/A'),
+                _buildDetailText('8. ', data['address'] ?? 'N/A', fontSize),
                 const SizedBox(height: 8),
-                _buildDetailText('3. ', _formatDate(data['date_of_birth'])),
+                _buildDetailText(
+                    '3. ', _formatDate(data['date_of_birth']), fontSize),
                 const Spacer(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text('Blood Group  ',
+                    Text('Blood Group  ',
                         style: TextStyle(
-                            fontSize: 11,
+                            fontSize: fontSize * 1.2,
                             fontWeight: FontWeight.w600,
                             color: Colors.white70)),
                     Text(data['blood_Group'] ?? '-',
-                        style: const TextStyle(
-                            fontSize: 14,
+                        style: TextStyle(
+                            fontSize: fontSize * 1.5,
                             fontWeight: FontWeight.bold,
                             color: Colors.white)),
                     const Spacer(),
                     Text('SL',
                         style: TextStyle(
-                            fontSize: 26,
+                            fontSize: fontSize * 2.8,
                             fontWeight: FontWeight.w900,
                             color: Colors.purple.shade300)),
                   ],
@@ -838,7 +845,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildStatusBadge(String status, double fontSize) {
     final colors = status == 'ACTIVE'
         ? [const Color(0xFF00b09b), const Color(0xFF96c93d)]
         : status == 'SUSPENDED'
@@ -857,9 +864,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(status,
-              style: const TextStyle(
+              style: TextStyle(
                   color: Colors.white,
-                  fontSize: 9.5,
+                  fontSize: fontSize * 1.0,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.8))
         ],
@@ -867,7 +874,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  TableRow _buildCategoryRow(String code, String icon) {
+  TableRow _buildCategoryRow(String code, String icon, double fontSize) {
     final categories =
         _licenseData?['vehicleCategories'] as List<dynamic>? ?? [];
     final cat = categories.cast<Map<String, dynamic>>().firstWhere(
@@ -875,24 +882,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           orElse: () => <String, dynamic>{},
         );
     if (cat.isNotEmpty) {
-      return _buildTableRow('$code $icon', _formatDate(cat['issue_Date']),
-          _formatDate(cat['expiry_Date']), cat['restriction'] ?? '---');
+      return _buildTableRow(
+          '$code $icon',
+          _formatDate(cat['issue_Date']),
+          _formatDate(cat['expiry_Date']),
+          cat['restriction'] ?? '---',
+          fontSize);
     }
-    return _buildTableRow('$code $icon', '---', '---', '---');
+    return _buildTableRow('$code $icon', '---', '---', '---', fontSize);
   }
 
-  Widget _buildLegendText(String text) => Padding(
+  Widget _buildLegendText(String text, double fontSize) => Padding(
         padding: const EdgeInsets.only(bottom: 2.5),
         child: Text(text,
             style: TextStyle(
-                fontSize: 6.0,
+                fontSize: fontSize * 0.7,
                 color: Colors.blueGrey[300],
                 fontWeight: FontWeight.w600,
                 height: 1.0)),
       );
 
-  TableRow _buildTableRow(
-      String col1, String col2, String col3, String restriction,
+  TableRow _buildTableRow(String col1, String col2, String col3,
+      String restriction, double fontSize,
       {bool isHeader = false}) {
     return TableRow(
       decoration: BoxDecoration(
@@ -903,7 +914,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: Text(col1,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: isHeader ? 7.5 : 8.5,
+                  fontSize: isHeader ? fontSize * 0.8 : fontSize * 0.9,
                   fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
                   color: Colors.white)),
         ),
@@ -912,7 +923,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: Text(col2,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: isHeader ? 7.5 : 8.5,
+                  fontSize: isHeader ? fontSize * 0.8 : fontSize * 0.9,
                   fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
                   color: Colors.white70)),
         ),
@@ -921,7 +932,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: Text(col3,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: isHeader ? 7.5 : 8.5,
+                  fontSize: isHeader ? fontSize * 0.8 : fontSize * 0.9,
                   fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
                   color: Colors.white70)),
         ),
@@ -930,7 +941,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: Text(restriction,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: isHeader ? 7.5 : 8.5,
+                  fontSize: isHeader ? fontSize * 0.8 : fontSize * 0.9,
                   fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
                   color: Colors.white60)),
         ),
@@ -940,11 +951,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _buildBackCard() {
     final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
+    final cardHeight = isSmallScreen ? screenWidth * 0.68 : screenWidth * 0.58;
+    final fontSize = isSmallScreen ? 7.5 : 9.0;
+
     return _buildLicenseGlassCard(
       padding: EdgeInsets.zero,
       child: SizedBox(
         width: double.infinity,
-        height: screenWidth * 0.58,
+        height: cardHeight,
         child: Stack(
           children: [
             Positioned.fill(
@@ -968,7 +983,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   quarterTurns: 3,
                   child: Text('Department of Motor Traffic - Sri Lanka',
                       style: TextStyle(
-                          fontSize: 10,
+                          fontSize: fontSize * 1.1,
                           fontWeight: FontWeight.bold,
                           color: Colors.blueGrey[300])),
                 ),
@@ -976,7 +991,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             Padding(
               padding: const EdgeInsets.only(
-                  left: 28, right: 16, top: 12, bottom: 8),
+                  left: 28, right: 12, top: 12, bottom: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -986,23 +1001,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildLegendText('1. Surname'),
-                        _buildLegendText('2. Other names'),
-                        _buildLegendText('3. Date of birth'),
-                        _buildLegendText('4a. Date of Issue of the License'),
-                        _buildLegendText('4b. Issuing Authority'),
-                        _buildLegendText('4c. Administrative Number'),
-                        _buildLegendText('5. Number of the LICENCE'),
-                        _buildLegendText('7. Signature of the holder'),
-                        _buildLegendText('8. Permanent place of residence'),
-                        _buildLegendText('9. Categories of vehicles'),
-                        _buildLegendText('10. Date of Issue per category'),
-                        _buildLegendText('11. Date of Expiry per category'),
-                        _buildLegendText('12. Restrictions in code form'),
+                        _buildLegendText('1. Surname', fontSize),
+                        _buildLegendText('2. Other names', fontSize),
+                        _buildLegendText('3. Date of birth', fontSize),
+                        _buildLegendText(
+                            '4a. Date of Issue of the License', fontSize),
+                        _buildLegendText('4b. Issuing Authority', fontSize),
+                        _buildLegendText('4c. Administrative Number', fontSize),
+                        _buildLegendText('5. Number of the LICENCE', fontSize),
+                        _buildLegendText(
+                            '7. Signature of the holder', fontSize),
+                        _buildLegendText(
+                            '8. Permanent place of residence', fontSize),
+                        _buildLegendText('9. Categories of vehicles', fontSize),
+                        _buildLegendText(
+                            '10. Date of Issue per category', fontSize),
+                        _buildLegendText(
+                            '11. Date of Expiry per category', fontSize),
+                        _buildLegendText(
+                            '12. Restrictions in code form', fontSize),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Expanded(
                     flex: 7,
                     child: Align(
@@ -1011,28 +1032,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         border: TableBorder.all(
                             color: Colors.white.withAlpha(40), width: 0.5),
                         columnWidths: const {
-                          0: FlexColumnWidth(1.2),
-                          1: FlexColumnWidth(2.2),
-                          2: FlexColumnWidth(2.2),
-                          3: FlexColumnWidth(1.2),
+                          0: FlexColumnWidth(1.8),
+                          1: FlexColumnWidth(1.8),
+                          2: FlexColumnWidth(1.8),
+                          3: FlexColumnWidth(1.4),
                         },
                         children: [
-                          _buildTableRow('9.', '10.', '11.', '12.',
+                          _buildTableRow('9.', '10.', '11.', '12.', fontSize,
                               isHeader: true),
-                          _buildCategoryRow('A1', 'ðŸ›º'),
-                          _buildCategoryRow('A', 'ðŸï¸'),
-                          _buildCategoryRow('B1', 'ðŸ›º'),
-                          _buildCategoryRow('B', 'ðŸš—'),
-                          _buildCategoryRow('C1', 'ðŸšš'),
-                          _buildCategoryRow('C', 'ðŸš›'),
-                          _buildCategoryRow('CE', 'ðŸš›'),
-                          _buildCategoryRow('D1', 'ðŸš'),
-                          _buildCategoryRow('D', 'ðŸšŒ'),
-                          _buildCategoryRow('DE', 'ðŸšŒ'),
-                          _buildCategoryRow('G1', 'ðŸšœ'),
-                          _buildCategoryRow('G', 'ðŸšœ'),
-                          _buildCategoryRow('J', 'ðŸ—ï¸'),
-                          _buildCategoryRow('H', 'â™¿')
+                          _buildCategoryRow('A1', '🛺', fontSize),
+                          _buildCategoryRow('A', '🏍️', fontSize),
+                          _buildCategoryRow('B1', '🛺', fontSize),
+                          _buildCategoryRow('B', '🚗', fontSize),
+                          _buildCategoryRow('C1', '🚚', fontSize),
+                          _buildCategoryRow('C', '🚛', fontSize),
+                          _buildCategoryRow('CE', '🚛', fontSize),
+                          _buildCategoryRow('D1', '🚐', fontSize),
+                          _buildCategoryRow('D', '🚌', fontSize),
+                          _buildCategoryRow('DE', '🚌', fontSize),
+                          _buildCategoryRow('G1', '🚜', fontSize),
+                          _buildCategoryRow('G', '🚜', fontSize),
+                          _buildCategoryRow('J', '🏗️', fontSize),
+                          _buildCategoryRow('H', '♿', fontSize)
                         ],
                       ),
                     ),

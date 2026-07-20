@@ -432,16 +432,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     insetPadding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 24),
+                        horizontal: 24, vertical: 16),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         maxWidth: MediaQuery.of(context).size.width * 0.9,
-                        maxHeight: MediaQuery.of(context).size.height * 0.7,
+                        maxHeight: MediaQuery.of(context).size.height * 0.8,
                       ),
                       child: SingleChildScrollView(
                         physics: const ClampingScrollPhysics(),
                         child: Container(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             color: Colors.white.withAlpha(25),
                             borderRadius: BorderRadius.circular(24),
@@ -453,31 +453,31 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             children: [
                               const Icon(Icons.phonelink_lock,
                                   color: Colors.white, size: 40),
-                              const SizedBox(height: 15),
+                              const SizedBox(height: 12),
                               const Text(
                                 'Device Verification',
                                 style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 22,
+                                    fontSize: 20,
                                     fontWeight: FontWeight.bold),
                               ),
-                              const SizedBox(height: 15),
+                              const SizedBox(height: 12),
                               const Text(
                                 'A new device is detected. Enter the OTP sent to your email:',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                    color: Colors.white70, fontSize: 14),
+                                    color: Colors.white70, fontSize: 13),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Text(
                                 email,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                     color: Colors.cyanAccent,
-                                    fontSize: 15,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 16),
                               TextField(
                                 controller: localOtpController,
                                 keyboardType: TextInputType.number,
@@ -508,7 +508,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                               ),
                               if (errorMsg != null)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 12),
+                                  padding: const EdgeInsets.only(top: 8),
                                   child: Text(errorMsg!,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
@@ -518,7 +518,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                 ),
                               if (successMsg != null)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 12),
+                                  padding: const EdgeInsets.only(top: 8),
                                   child: Text(successMsg!,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
@@ -526,7 +526,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                           fontSize: 13,
                                           fontWeight: FontWeight.bold)),
                                 ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 12),
                               TextButton(
                                 onPressed: isResending || isVerifying
                                     ? null
@@ -574,7 +574,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Row(
                                 children: [
                                   Expanded(
@@ -598,11 +598,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                         }
                                       },
                                       child: const Text('Cancel',
-                                          style:
-                                              TextStyle(color: Colors.white)),
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13)),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
@@ -697,12 +698,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                               ? 'Verifying...'
                                               : 'Verify Device',
                                           style: const TextStyle(
-                                              fontWeight: FontWeight.bold)),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13)),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 8),
                             ],
                           ),
                         ),
@@ -994,7 +996,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.white.withAlpha(20),
-                              hintText: 'â€¢â€¢â€¢â€¢â€¢â€¢',
+                              hintText: '••••••',
                               hintStyle: const TextStyle(
                                   color: Colors.white54, letterSpacing: 8),
                               border: OutlineInputBorder(
