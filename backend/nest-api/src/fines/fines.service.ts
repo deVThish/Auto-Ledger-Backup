@@ -456,12 +456,21 @@ export class FinesService {
         });
 
         if (pendingCount === 0 && currentLicense?.status !== 'REVOKED') {
-          await tx.temporary_License.deleteMany({
-            where: { license_Id: fine.license_Id },
-          });
+          const isStillSuspended =
+            currentLicense?.suspended_Until &&
+            currentLicense.suspended_Until > now;
+
+          let newLicenseStatus = currentLicense.status;
+          if (!isStillSuspended) {
+            newLicenseStatus = 'ACTIVE';
+            await tx.temporary_License.deleteMany({
+              where: { license_Id: fine.license_Id },
+            });
+          }
+
           await tx.driving_License.update({
             where: { license_Id: fine.license_Id },
-            data: { status: 'ACTIVE' },
+            data: { status: newLicenseStatus },
           });
         }
       }
@@ -470,7 +479,7 @@ export class FinesService {
         message:
           isOverdue || fine.status === 'COURT_CASE'
             ? 'Payment recorded. Waiting for Divisional Head approval.'
-            : 'Payment successful. License activated.',
+            : 'Payment successful.',
         fineId: fineId,
       };
     });
@@ -531,12 +540,22 @@ export class FinesService {
         });
 
         if (pendingCount === 0 && currentLicense?.status !== 'REVOKED') {
-          await tx.temporary_License.deleteMany({
-            where: { license_Id: licenseId },
-          });
+          const now = new Date();
+          const isStillSuspended =
+            currentLicense?.suspended_Until &&
+            currentLicense.suspended_Until > now;
+
+          let newLicenseStatus = currentLicense.status;
+          if (!isStillSuspended) {
+            newLicenseStatus = 'ACTIVE';
+            await tx.temporary_License.deleteMany({
+              where: { license_Id: licenseId },
+            });
+          }
+
           await tx.driving_License.update({
             where: { license_Id: licenseId },
-            data: { status: 'ACTIVE' },
+            data: { status: newLicenseStatus },
           });
         }
       }
