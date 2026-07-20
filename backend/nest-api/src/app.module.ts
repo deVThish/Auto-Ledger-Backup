@@ -9,6 +9,7 @@ import { UsersModule } from './users/users.module';
 import { LicenseModule } from './license/license.module';
 import { FinesModule } from './fines/fines.module';
 import { QrModule } from './qr/qr.module';
+import { OfficersModule } from './officers/officers.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { QrModule } from './qr/qr.module';
     LicenseModule,
     FinesModule,
     QrModule,
+    OfficersModule, // <-- මෙය Add කරන්න
   ],
   controllers: [AppController],
   providers: [AppService],
