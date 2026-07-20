@@ -82,15 +82,26 @@ model Police_Admin {
 }
 
 model User {
-  user_Id              String           @id @default(uuid())
-  nic_No               String           @unique
-  email                String           @unique
+  user_Id              String   @id @default(uuid())
+  nic_No               String   @unique
+  email                String   @unique
   device_Id            String?
   name                 String
   password             String
-  isEmailVerified      Boolean          @default(false)
+  isEmailVerified      Boolean  @default(false)
+  
+  // Password Reset OTP
   reset_Otp            String?
   reset_Otp_Expires_At DateTime?
+  
+  // Registration OTP
+  registration_Otp            String?
+  registration_Otp_Expires_At DateTime?
+  
+  // Device Verification OTP
+  device_Otp            String?
+  device_Otp_Expires_At DateTime?
+  
   license              Driving_License?
   qrSessions           QrSession[]
 }

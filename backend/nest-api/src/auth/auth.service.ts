@@ -185,7 +185,14 @@ export class AuthService {
   async loginOfficer(badgeNo: string, pass: string) {
     const officer = await this.prisma.traffic_Officer.findUnique({
       where: { badge_No: badgeNo },
-      include: { shifts: true },
+      include: {
+        divisionalHead: {
+          include: {
+            division: true,
+          },
+        },
+        shifts: true,
+      },
     });
 
     if (!officer)
@@ -215,6 +222,7 @@ export class AuthService {
       badgeNo: officer.badge_No,
       headId: officer.divisional_Head_Id,
     };
+
     return {
       accessToken: this.jwtService.sign(payload),
       user: {
@@ -223,6 +231,8 @@ export class AuthService {
         email: officer.email,
         role: officer.role,
         badgeNo: officer.badge_No,
+        divisionName: officer.divisionalHead?.division?.division_Name || null,
+        divisionalHeadName: officer.divisionalHead?.name || null,
       },
     };
   }
@@ -503,8 +513,8 @@ export class AuthService {
         password: hashedPassword,
         device_Id: data.deviceId,
         isEmailVerified: false,
-        reset_Otp: otp,
-        reset_Otp_Expires_At: expiresAt,
+        registration_Otp: otp,
+        registration_Otp_Expires_At: expiresAt,
       },
     });
 
@@ -522,8 +532,12 @@ export class AuthService {
     });
 
     if (!user) throw new BadRequestException('User not found.');
-    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
-    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+    if (user.registration_Otp !== otp)
+      throw new BadRequestException('Invalid OTP.');
+    if (
+      !user.registration_Otp_Expires_At ||
+      new Date() > user.registration_Otp_Expires_At
+    ) {
       throw new BadRequestException('OTP has expired.');
     }
 
@@ -531,8 +545,8 @@ export class AuthService {
       where: { nic_No: nicNo },
       data: {
         isEmailVerified: true,
-        reset_Otp: null,
-        reset_Otp_Expires_At: null,
+        registration_Otp: null,
+        registration_Otp_Expires_At: null,
       },
     });
 
@@ -571,8 +585,11 @@ export class AuthService {
     });
 
     if (!user) throw new BadRequestException('User not found.');
-    if (user.reset_Otp !== otp) throw new BadRequestException('Invalid OTP.');
-    if (!user.reset_Otp_Expires_At || new Date() > user.reset_Otp_Expires_At) {
+    if (user.device_Otp !== otp) throw new BadRequestException('Invalid OTP.');
+    if (
+      !user.device_Otp_Expires_At ||
+      new Date() > user.device_Otp_Expires_At
+    ) {
       throw new BadRequestException('OTP has expired.');
     }
 
@@ -581,8 +598,8 @@ export class AuthService {
       data: {
         device_Id: newDeviceId,
         isEmailVerified: true,
-        reset_Otp: null,
-        reset_Otp_Expires_At: null,
+        device_Otp: null,
+        device_Otp_Expires_At: null,
       },
     });
 
@@ -728,8 +745,8 @@ export class AuthService {
     await this.prisma.user.update({
       where: { nic_No: nicNo },
       data: {
-        reset_Otp: otp,
-        reset_Otp_Expires_At: expiresAt,
+        registration_Otp: otp,
+        registration_Otp_Expires_At: expiresAt,
       },
     });
 
@@ -782,8 +799,8 @@ export class AuthService {
     await this.prisma.user.update({
       where: { nic_No: nicNo },
       data: {
-        reset_Otp: otp,
-        reset_Otp_Expires_At: expiresAt,
+        device_Otp: otp,
+        device_Otp_Expires_At: expiresAt,
       },
     });
 

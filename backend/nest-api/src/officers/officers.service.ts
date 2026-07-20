@@ -87,22 +87,20 @@ export class OfficersService {
           },
           data: { head_Id: headId },
         });
+
+        await tx.traffic_Officer.updateMany({
+          where: {
+            divisional_Head_Id: currentActiveHead.divisional_Head_Id,
+          },
+          data: {
+            divisional_Head_Id: headId,
+          },
+        });
       }
 
       const activatedHead = await tx.divisional_Head.update({
         where: { divisional_Head_Id: headId },
         data: { is_Active: true },
-      });
-
-      await tx.traffic_Officer.updateMany({
-        where: {
-          divisionalHead: {
-            division_Id: targetHead.division_Id,
-          },
-        },
-        data: {
-          divisional_Head_Id: headId,
-        },
       });
 
       return {
@@ -116,12 +114,81 @@ export class OfficersService {
   async disableDivisionalHead(headId: string) {
     const head = await this.prisma.divisional_Head.findUnique({
       where: { divisional_Head_Id: headId },
+      include: {
+        division: {
+          include: {
+            divisionalHeads: {
+              where: {
+                is_Active: true,
+                divisional_Head_Id: { not: headId },
+              },
+            },
+          },
+        },
+      },
     });
-    if (!head) throw new NotFoundException('Divisional Head not found');
 
-    return this.prisma.divisional_Head.update({
-      where: { divisional_Head_Id: headId },
-      data: { is_Active: false },
+    if (!head) throw new NotFoundException('Divisional Head not found');
+    if (!head.is_Active)
+      throw new BadRequestException('Head is already inactive');
+
+    const activeHead = head.division.divisionalHeads[0];
+
+    if (!activeHead) {
+      throw new BadRequestException(
+        'Cannot disable the only active head. Please activate another head first.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const unresolvedFines = await tx.fine.findMany({
+        where: {
+          head_Id: headId,
+          OR: [
+            { status: { in: ['PENDING', 'OVERDUE', 'COURT_CASE'] } },
+            { revokedLicense: { status: { in: ['REVOKED', 'SUSPENDED'] } } },
+          ],
+        },
+        select: { fine_Id: true },
+      });
+
+      const fineIdsToTransfer = unresolvedFines.map((f) => f.fine_Id);
+
+      if (fineIdsToTransfer.length > 0) {
+        await tx.fine.updateMany({
+          where: { fine_Id: { in: fineIdsToTransfer } },
+          data: { head_Id: activeHead.divisional_Head_Id },
+        });
+      }
+
+      await tx.temporary_License.updateMany({
+        where: {
+          head_Id: headId,
+          expiry_Date: { gte: new Date() },
+        },
+        data: { head_Id: activeHead.divisional_Head_Id },
+      });
+
+      await tx.traffic_Officer.updateMany({
+        where: {
+          divisional_Head_Id: headId,
+        },
+        data: {
+          divisional_Head_Id: activeHead.divisional_Head_Id,
+        },
+      });
+
+      const disabledHead = await tx.divisional_Head.update({
+        where: { divisional_Head_Id: headId },
+        data: { is_Active: false },
+      });
+
+      return {
+        message: `Head disabled successfully. All unresolved records and officers reassigned to ${activeHead.name}.`,
+        disabledHead,
+        newActiveHead: activeHead,
+        transferredFinesCount: fineIdsToTransfer.length,
+      };
     });
   }
 
