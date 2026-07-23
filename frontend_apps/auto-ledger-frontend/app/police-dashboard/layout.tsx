@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Shield, Gavel, Users, LogOut, Map } from "lucide-react";
+import { Shield, Gavel, Users, LogOut, Map, Menu } from "lucide-react";
 
 export default function PoliceLayout({
   children,
@@ -14,6 +14,7 @@ export default function PoliceLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const checkAuth = setTimeout(() => {
@@ -27,6 +28,16 @@ export default function PoliceLayout({
 
     return () => clearTimeout(checkAuth);
   }, [router]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -57,7 +68,6 @@ export default function PoliceLayout({
 
   const header = getHeaderDetails();
 
-  // Prevent rendering until authorization is confirmed
   if (isLoading) {
     return null;
   }
@@ -66,7 +76,20 @@ export default function PoliceLayout({
     <div className="flex h-screen bg-[#061022] text-slate-200 overflow-hidden font-sans relative">
       <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#040b17] via-[#091730] to-[#040b17]"></div>
 
-      <aside className="w-72 bg-[#091730]/90 backdrop-blur-xl border-r border-[#1a2f5c] flex flex-col p-6 m-4 rounded-3xl shadow-2xl z-10">
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+        ></div>
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#091730]/90 backdrop-blur-xl border-r border-[#1a2f5c] flex flex-col p-6 transition-transform duration-300 ease-in-out transform ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:relative md:translate-x-0`}
+      >
         <div className="mb-8 text-center flex flex-col items-center">
           <div className="w-24 h-28 mb-4 flex items-center justify-center drop-shadow-xl relative">
             <Image
@@ -125,12 +148,21 @@ export default function PoliceLayout({
         </button>
       </aside>
 
-      <main className="flex-1 flex flex-col p-8 overflow-y-auto z-10 custom-scrollbar">
-        <header className="flex justify-between items-center mb-8 bg-[#0b1c3b]/60 backdrop-blur-md p-4 px-8 rounded-3xl border border-[#1a2f5c]">
-          <div>
-            <h2 className="text-2xl font-bold text-white capitalize flex items-center">
+      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto z-10 custom-scrollbar">
+        <header className="flex justify-between items-center mb-8 bg-[#0b1c3b]/60 backdrop-blur-md p-3 md:p-4 px-4 md:px-8 rounded-3xl border border-[#1a2f5c]">
+          <div className="flex items-center">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden text-amber-500 mr-3 p-1 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+            <h2 className="text-xl md:text-2xl font-bold text-white capitalize flex items-center">
               {header.icon}
-              {header.title}
+              <span className="hidden sm:inline">{header.title}</span>
+              <span className="sm:hidden">
+                {header.title.split(" ").slice(0, 2).join(" ")}
+              </span>
             </h2>
           </div>
           <div className="flex items-center space-x-4">
@@ -138,7 +170,7 @@ export default function PoliceLayout({
               <div className="w-9 h-9 rounded-full bg-amber-600 flex items-center justify-center font-bold text-white">
                 PA
               </div>
-              <span className="text-sm font-semibold text-amber-500">
+              <span className="text-sm font-semibold text-amber-500 hidden sm:inline">
                 Police Admin
               </span>
             </div>
@@ -176,10 +208,16 @@ function SidebarBtn({
   return (
     <Link
       href={to}
-      className={`flex items-center w-full px-5 py-3.5 rounded-2xl transition-all duration-300 group text-sm ${isActive ? "bg-amber-600 text-white shadow-lg shadow-amber-900/40 border border-amber-500" : "hover:bg-[#132752] text-slate-300 hover:text-amber-400 border border-transparent"}`}
+      className={`flex items-center w-full px-5 py-3.5 rounded-2xl transition-all duration-300 group text-sm ${
+        isActive
+          ? "bg-amber-600 text-white shadow-lg shadow-amber-900/40 border border-amber-500"
+          : "hover:bg-[#132752] text-slate-300 hover:text-amber-400 border border-transparent"
+      }`}
     >
       <span
-        className={`mr-4 transition-transform duration-300 ${isActive ? "text-white scale-110" : "group-hover:scale-110"}`}
+        className={`mr-4 transition-transform duration-300 ${
+          isActive ? "text-white scale-110" : "group-hover:scale-110"
+        }`}
       >
         {icon}
       </span>
