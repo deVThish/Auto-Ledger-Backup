@@ -90,6 +90,7 @@ export default function IssuedLicensesPage() {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editFormData, setEditFormData] = useState<Driver | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [modalErrors, setModalErrors] = useState<{ dob?: string; issueDate?: string }>({});
 
   const vehicleCategoriesList = [
     { class: "A1", desc: "Light Motor Cycles", icon: <Bike size={16} /> },
@@ -168,16 +169,54 @@ export default function IssuedLicensesPage() {
     setEditFormData(JSON.parse(JSON.stringify(driver)));
     setImageFile(null);
     setIsEditing(false);
+    setModalErrors({});
   };
 
   const closeModal = () => {
     setSelectedDriver(null);
     setIsEditing(false);
+    setModalErrors({});
   };
 
   const handleEditChange = (field: keyof Driver, value: string) => {
     if (editFormData) {
       setEditFormData({ ...editFormData, [field]: value });
+      if (field === "dob") {
+        validateAge(value);
+      }
+      if (field === "issueDate") {
+        validateIssueDate(value);
+      }
+    }
+  };
+
+  const validateAge = (dob: string) => {
+    if (dob) {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        setModalErrors((prev) => ({ ...prev, dob: "Driver must be at least 18 years old." }));
+      } else {
+        setModalErrors((prev) => ({ ...prev, dob: undefined }));
+      }
+    }
+  };
+
+  const validateIssueDate = (issueDate: string) => {
+    if (issueDate) {
+      const selected = new Date(issueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (selected > today) {
+        setModalErrors((prev) => ({ ...prev, issueDate: "Issue date cannot be in the future." }));
+      } else {
+        setModalErrors((prev) => ({ ...prev, issueDate: undefined }));
+      }
     }
   };
 
@@ -187,12 +226,31 @@ export default function IssuedLicensesPage() {
     value: string | boolean,
   ) => {
     if (editFormData) {
-      setEditFormData({
-        ...editFormData,
-        categories: {
-          ...editFormData.categories,
-          [catClass]: { ...editFormData.categories[catClass], [field]: value },
-        },
+      setEditFormData((prev) => {
+        if (!prev) return null;
+
+        const updated = {
+          ...prev,
+          categories: {
+            ...prev.categories,
+            [catClass]: { ...prev.categories[catClass], [field]: value },
+          },
+        };
+
+        if (field === "issue" && value) {
+          const issueDate = new Date(value as string);
+          if (!isNaN(issueDate.getTime())) {
+            const expiryDate = new Date(issueDate);
+            expiryDate.setFullYear(expiryDate.getFullYear() + 8);
+            const expiryStr = expiryDate.toISOString().split("T")[0];
+            updated.categories[catClass] = {
+              ...updated.categories[catClass],
+              expiry: expiryStr,
+            };
+          }
+        }
+
+        return updated;
       });
     }
   };
@@ -211,6 +269,11 @@ export default function IssuedLicensesPage() {
 
   const saveUpdates = async () => {
     if (!editFormData) return;
+
+    if (modalErrors.dob || modalErrors.issueDate) {
+      alert("Please fix validation errors before updating.");
+      return;
+    }
 
     try {
       let finalImageUrl = editFormData.profilePic;
@@ -276,6 +339,8 @@ export default function IssuedLicensesPage() {
       name.includes(searchLower)
     );
   });
+
+  const today = new Date().toISOString().split("T")[0];
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-8 duration-700 pb-10">
@@ -417,7 +482,7 @@ export default function IssuedLicensesPage() {
                       onClick={saveUpdates}
                       className="flex items-center px-5 py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-[#030407] rounded-xl font-black text-sm transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)]"
                     >
-                      <Save size={16} className="mr-2" /> Save
+                      <Save size={16} className="mr-2" /> Update
                     </button>
                   </>
                 )}
@@ -536,14 +601,21 @@ export default function IssuedLicensesPage() {
                       Date of Birth
                     </p>
                     {isEditing ? (
-                      <input
-                        type="date"
-                        value={editFormData.dob}
-                        onChange={(e) =>
-                          handleEditChange("dob", e.target.value)
-                        }
-                        className="w-full bg-[#030508] border border-cyan-500/40 rounded-xl p-2.5 mt-1.5 text-cyan-100 outline-none [color-scheme:dark] focus:border-cyan-300 transition-all"
-                      />
+                      <>
+                        <input
+                          type="date"
+                          value={editFormData.dob}
+                          onChange={(e) =>
+                            handleEditChange("dob", e.target.value)
+                          }
+                          className={`w-full bg-[#030508] border ${
+                            modalErrors.dob ? "border-red-500/50" : "border-cyan-500/40"
+                          } rounded-xl p-2.5 mt-1.5 text-cyan-100 outline-none [color-scheme:dark] focus:border-cyan-300 transition-all`}
+                        />
+                        {modalErrors.dob && (
+                          <p className="text-red-400 text-xs mt-1">{modalErrors.dob}</p>
+                        )}
+                      </>
                     ) : (
                       <p className="font-bold text-slate-200 mt-1">
                         {selectedDriver.dob}
@@ -594,6 +666,32 @@ export default function IssuedLicensesPage() {
                     ) : (
                       <p className="font-bold text-slate-300 mt-1">
                         {selectedDriver.address}
+                      </p>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-[10px] text-cyan-500/70 uppercase font-bold tracking-widest flex items-center">
+                      <Calendar size={12} className="mr-1.5 text-purple-400" />{" "}
+                      Initial Issue Date
+                    </p>
+                    {isEditing ? (
+                      <>
+                        <input
+                          type="date"
+                          value={editFormData.issueDate}
+                          onChange={(e) => handleEditChange("issueDate", e.target.value)}
+                          max={today}
+                          className={`w-full bg-[#030508] border ${
+                            modalErrors.issueDate ? "border-red-500/50" : "border-cyan-500/40"
+                          } rounded-xl p-2.5 mt-1.5 text-cyan-100 outline-none [color-scheme:dark] focus:border-cyan-300 transition-all`}
+                        />
+                        {modalErrors.issueDate && (
+                          <p className="text-red-400 text-xs mt-1">{modalErrors.issueDate}</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="font-bold text-slate-200 mt-1">
+                        {selectedDriver.issueDate}
                       </p>
                     )}
                   </div>
@@ -707,6 +805,7 @@ export default function IssuedLicensesPage() {
                                       e.target.value,
                                     )
                                   }
+                                  max={today} // <-- FUTURE DATES DISABLED
                                   className="bg-[#030508] border border-cyan-500/40 text-cyan-100 rounded-lg p-1.5 mt-1 w-full outline-none [color-scheme:dark] text-xs"
                                 />
                               ) : (
@@ -723,14 +822,8 @@ export default function IssuedLicensesPage() {
                                 <input
                                   type="date"
                                   value={catData.expiry || ""}
-                                  onChange={(e) =>
-                                    handleCategoryEdit(
-                                      cat.class,
-                                      "expiry",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="bg-[#030508] border border-purple-500/40 text-cyan-100 rounded-lg p-1.5 mt-1 w-full outline-none [color-scheme:dark] text-xs"
+                                  readOnly
+                                  className="bg-[#030508] border border-purple-500/40 text-slate-400 rounded-lg p-1.5 mt-1 w-full outline-none cursor-not-allowed text-xs"
                                 />
                               ) : (
                                 <span className="text-purple-400 font-bold text-xs mt-0.5 block drop-shadow-[0_0_2px_rgba(168,85,247,0.5)]">
