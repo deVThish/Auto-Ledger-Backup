@@ -2,36 +2,36 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  ShieldAlert,
+  Users,
   PlusCircle,
-  Edit,
-  Save,
+  MapPin,
   AlertCircle,
   CheckCircle2,
   X,
-  ChevronLeft,
-  ChevronRight,
-  Search,
   Power,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
-interface OffenseBackend {
-  offense_Id: string;
-  code: string;
+interface DivisionalHeadInfo {
+  divisional_Head_Id: string;
   name: string;
-  points_Value: number;
-  amount: number;
-  is_Court_Case: boolean;
 }
 
-interface Offense {
-  id: string;
-  code: string;
+interface Division {
+  division_Id: string;
+  division_Name: string;
+  divisionalHeads?: DivisionalHeadInfo[];
+}
+
+interface DivisionalHead {
+  divisional_Head_Id: string;
   name: string;
-  points: number;
-  amount: number;
-  isCourtCase: boolean;
+  username: string;
+  email: string;
+  is_Active: boolean;
+  division?: {
+    division_Name: string;
+  };
 }
 
 interface ApiError {
@@ -42,131 +42,95 @@ interface ApiError {
   };
 }
 
-export default function ManageOffenses() {
-  const [fines, setFines] = useState<Offense[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [fineForm, setFineForm] = useState({
-    code: "",
+export default function ManageHeads() {
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  const [heads, setHeads] = useState<DivisionalHead[]>([]);
+  const [headForm, setHeadForm] = useState({
     name: "",
-    points: "",
-    amount: "",
-    isCourtCase: false,
+    divisionName: "",
+    email: "",
   });
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
-
-  // Modal state
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState<Offense | null>(null);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 4000);
   };
 
-  const loadFines = async () => {
+  const loadData = async () => {
     try {
-      const res = await api.get<OffenseBackend[]>("/fines/offenses");
-      const mapped = res.data.map((o) => ({
-        id: o.offense_Id,
-        code: o.code,
-        name: o.name,
-        points: o.points_Value,
-        amount: o.amount,
-        isCourtCase: Boolean(o.is_Court_Case),
-      }));
-      setFines(mapped.reverse());
-    } catch (error) {
-      console.error(error);
+      const [divRes, headRes] = await Promise.all([
+        api.get<Division[]>("/officers/divisions"),
+        api.get<DivisionalHead[]>("/officers/divisional-heads"),
+      ]);
+      setDivisions(divRes.data);
+      setHeads(headRes.data);
+    } catch (err) {
+      console.error(err);
     }
   };
 
   useEffect(() => {
-    async function fetchOffenses() {
-      await loadFines();
+    async function fetchData() {
+      await loadData();
     }
-    void fetchOffenses();
+    void fetchData();
   }, []);
 
-  const handleFineSubmit = async (e: React.FormEvent) => {
+  const handleHeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Generate username from email (before @) and a default password
+    const username = headForm.email.split("@")[0] || "head";
+    const passwordStr = "Head@123";
+
     try {
-      const payload = {
-        code: fineForm.code,
-        name: fineForm.name,
-        points: Number(fineForm.points),
-        amount: Number(fineForm.amount),
-        isCourtCase: Boolean(fineForm.isCourtCase),
-      };
-
-      await api.post("/fines/offenses", payload);
-      showToast("success", "New Traffic Offense Added Successfully!");
-      setCurrentPage(1);
-
-      setFineForm({
-        code: "",
-        name: "",
-        points: "",
-        amount: "",
-        isCourtCase: false,
+      await api.post("/officers/head", {
+        divisionName: headForm.divisionName,
+        username: username,
+        email: headForm.email,
+        name: headForm.name,
+        passwordStr: passwordStr,
       });
-      await loadFines();
+
+      showToast(
+        "success",
+        "Divisional Head registered & activated successfully!",
+      );
+      setHeadForm({
+        name: "",
+        divisionName: "",
+        email: "",
+      });
+      await loadData();
     } catch (err: unknown) {
       const error = err as ApiError;
       showToast(
         "error",
-        error.response?.data?.message ||
-          "Error saving offense. Code might already exist.",
+        error.response?.data?.message || "Error registering head",
       );
     }
   };
 
-  const handleEditClick = (fine: Offense) => {
-    setEditForm({ ...fine });
-    setShowEditModal(true);
-  };
-
-  const handleModalSave = async () => {
-    if (!editForm) return;
+  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     try {
-      const payload = {
-        code: editForm.code,
-        name: editForm.name,
-        points: Number(editForm.points),
-        amount: Number(editForm.amount),
-        isCourtCase: Boolean(editForm.isCourtCase),
-      };
-
-      await api.patch(`/fines/offenses/${editForm.id}`, payload);
-      showToast("success", "Traffic Offense Updated Successfully!");
-      setShowEditModal(false);
-      setEditForm(null);
-      await loadFines();
-    } catch (err: unknown) {
-      const error = err as ApiError;
-      showToast(
-        "error",
-        error.response?.data?.message || "Error updating offense.",
-      );
-    }
-  };
-
-  const handleToggleActive = async (id: string) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to change the status of this offense?",
-      )
-    )
-      return;
-    try {
-      await api.patch(`/fines/offenses/${id}/toggle`);
-      showToast("success", "Offense status updated successfully");
-      await loadFines();
+      if (currentStatus) {
+        await api.patch(`/officers/head/${id}/disable`);
+        showToast("success", "Divisional Head disabled successfully");
+      } else {
+        if (
+          !window.confirm(
+            "Activating this head will automatically disable the currently active head for this division. Do you want to continue?",
+          )
+        )
+          return;
+        await api.patch(`/officers/head/${id}/activate`);
+        showToast("success", "Divisional Head activated & officers reassigned");
+      }
+      await loadData();
     } catch (err: unknown) {
       const error = err as ApiError;
       showToast(
@@ -176,27 +140,14 @@ export default function ManageOffenses() {
     }
   };
 
-  const filteredFines = fines.filter(
-    (f) =>
-      f.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      f.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredFines.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredFines.length / itemsPerPage);
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-500 relative pb-10">
+    <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 relative">
       {toast && (
         <div
-          className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-top-6 duration-300 max-w-md ${
+          className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl ${
             toast.type === "error"
-              ? "bg-red-950/90 border-red-500/50 text-red-200"
-              : "bg-emerald-950/90 border-emerald-500/50 text-emerald-200"
+              ? "bg-red-950/80 border-red-500/50 text-red-200"
+              : "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"
           }`}
         >
           {toast.type === "error" ? (
@@ -210,402 +161,178 @@ export default function ManageOffenses() {
               size={20}
             />
           )}
-          <span className="text-sm font-semibold tracking-wide leading-relaxed">
+          <span className="text-xs font-bold tracking-wide leading-relaxed">
             {toast.message}
           </span>
           <button
             onClick={() => setToast(null)}
             className="ml-4 p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-[#0b1c3b]/40 p-6 rounded-3xl border border-[#1a2f5c] backdrop-blur-sm gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-white flex items-center">
-            <ShieldAlert className="mr-3 text-amber-500" size={28} /> Manage
-            Offenses
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Add, update, or toggle traffic violations and fine configurations.
-          </p>
-        </div>
-      </div>
-
-      {/* Add Form (no longer used for editing) */}
       <form
-        onSubmit={handleFineSubmit}
-        className="bg-gradient-to-br from-[#0b1c3b]/80 to-[#050d1a]/80 p-8 rounded-3xl border border-[#1a2f5c] shadow-2xl backdrop-blur-md relative overflow-hidden"
+        onSubmit={handleHeadSubmit}
+        className="bg-[#0b1c3b]/60 p-8 rounded-3xl border border-[#1a2f5c] shadow-xl backdrop-blur-sm"
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[80px] pointer-events-none"></div>
-
-        <h3 className="text-sm font-bold text-amber-500 mb-6 uppercase tracking-widest flex items-center relative z-10">
-          Register New Offense Configuration
+        <h3 className="text-lg font-bold text-amber-500 mb-6 flex items-center">
+          <Users className="mr-2" size={18} /> Register Divisional Head
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Offense Code *
+            <label className="text-[11px] font-bold text-slate-400 uppercase">
+              Full Name *
             </label>
             <input
               required
-              value={fineForm.code}
+              value={headForm.name}
               onChange={(e) =>
-                setFineForm({ ...fineForm, code: e.target.value })
+                setHeadForm({ ...headForm, name: e.target.value })
               }
               type="text"
-              placeholder="O-001"
-              className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white font-mono shadow-inner"
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white"
             />
           </div>
-          <div className="space-y-2 col-span-2 md:col-span-3">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Detailed Description *
-            </label>
-            <input
-              required
-              value={fineForm.name}
-              onChange={(e) =>
-                setFineForm({ ...fineForm, name: e.target.value })
-              }
-              type="text"
-              placeholder="e.g. Speeding over 70kmph within city limits"
-              className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white shadow-inner"
-            />
-          </div>
+
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Demerit Points *
+            <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center">
+              <MapPin size={12} className="mr-1 text-amber-500" /> Assign to
+              Division *
+            </label>
+            <select
+              required
+              value={headForm.divisionName}
+              onChange={(e) =>
+                setHeadForm({ ...headForm, divisionName: e.target.value })
+              }
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white"
+            >
+              <option value="" disabled>
+                -- Select a Division --
+              </option>
+              {divisions.map((div) => {
+                const hasActiveHead =
+                  div.divisionalHeads && div.divisionalHeads.length > 0;
+                return (
+                  <option
+                    key={div.division_Id}
+                    value={div.division_Name}
+                    disabled={hasActiveHead}
+                    className={
+                      hasActiveHead
+                        ? "text-slate-600 bg-[#030508]"
+                        : "text-white"
+                    }
+                  >
+                    {div.division_Name} ({div.division_Id}){" "}
+                    {hasActiveHead ? " - [ Active Head Exists ]" : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Username and Password fields removed */}
+
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase">
+              Official Email *
             </label>
             <input
               required
-              min="0"
-              value={fineForm.points}
+              value={headForm.email}
               onChange={(e) =>
-                setFineForm({ ...fineForm, points: e.target.value })
+                setHeadForm({ ...headForm, email: e.target.value })
               }
-              type="number"
-              placeholder="0"
-              className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white shadow-inner"
+              type="email"
+              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white"
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Fine Amount (LKR) *
-            </label>
-            <input
-              required
-              min="0"
-              value={fineForm.amount}
-              onChange={(e) =>
-                setFineForm({ ...fineForm, amount: e.target.value })
-              }
-              type="number"
-              placeholder="3000"
-              className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white shadow-inner"
-            />
-          </div>
-          <div className="space-y-2 flex items-center md:col-span-2 pt-6">
-            <label className="flex items-center cursor-pointer group bg-[#030508] border border-[#1a2f5c] px-4 py-3.5 rounded-xl w-full sm:w-auto hover:border-amber-500/50 transition-colors">
-              <input
-                type="checkbox"
-                checked={fineForm.isCourtCase}
-                onChange={(e) =>
-                  setFineForm({ ...fineForm, isCourtCase: e.target.checked })
-                }
-                className="w-5 h-5 rounded border-slate-600 text-amber-500 bg-[#030508] focus:ring-amber-500"
-              />
-              <span className="ml-3 text-sm font-bold text-slate-300 group-hover:text-white transition-colors">
-                Requires Court Appearance?
-              </span>
-            </label>
           </div>
         </div>
 
-        <div className="flex justify-end border-t border-[#1a2f5c] pt-6 relative z-10">
+        <div className="flex justify-end border-t border-[#1a2f5c] pt-6">
           <button
             type="submit"
-            className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center transition-all shadow-[0_0_20px_rgba(217,119,6,0.3)] hover:shadow-[0_0_30px_rgba(217,119,6,0.5)] transform hover:-translate-y-0.5"
+            className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center shadow-lg shadow-amber-900/40 transition-all"
           >
-            <PlusCircle size={18} className="mr-2" /> Save Offense
+            <PlusCircle size={18} className="mr-2" /> Register & Activate Head
           </button>
         </div>
       </form>
 
-      {/* Table */}
       <div className="bg-[#0b1c3b]/60 border border-[#1a2f5c] rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
-        <div className="p-6 border-b border-[#1a2f5c] flex flex-col sm:flex-row justify-between items-center gap-4 bg-[#050d1a]/50">
-          <h3 className="text-white font-bold flex items-center text-lg">
-            Registered Offenses Database
-            <span className="ml-3 bg-[#1a2f5c] text-amber-400 text-xs py-1 px-3 rounded-full font-bold">
-              {filteredFines.length} Total
-            </span>
-          </h3>
-          <div className="relative w-full sm:w-72">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              size={16}
-            />
-            <input
-              type="text"
-              placeholder="Search by code or name..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full bg-[#030508] border border-[#1a2f5c] rounded-full pl-10 pr-4 py-2 text-sm focus:border-amber-500 outline-none text-white transition-colors"
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#030508] text-slate-400 text-xs uppercase tracking-widest">
-              <tr>
-                <th className="p-5 font-semibold">Code</th>
-                <th className="p-5 font-semibold">Description</th>
-                <th className="p-5 font-semibold">Points</th>
-                <th className="p-5 font-semibold">Amount (LKR)</th>
-                <th className="p-5 font-semibold">Court</th>
-                <th className="p-5 text-right font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1a2f5c]">
-              {currentItems.map((fine) => (
-                <tr
-                  key={fine.id}
-                  className="hover:bg-[#132752]/50 transition-colors group"
-                >
-                  <td className="p-5 font-mono font-bold text-amber-500 whitespace-nowrap">
-                    {fine.code}
-                  </td>
-                  <td className="p-5 font-medium text-slate-200">
-                    {fine.name}
-                  </td>
-                  <td className="p-5 whitespace-nowrap">
-                    <span className="bg-red-500/10 text-red-400 px-2.5 py-1 rounded-md border border-red-500/20 font-bold text-xs">
-                      {fine.points} pts
-                    </span>
-                  </td>
-                  <td className="p-5 font-bold text-slate-200 whitespace-nowrap">
-                    {fine.amount.toLocaleString()}
-                  </td>
-                  <td className="p-5 whitespace-nowrap">
-                    {fine.isCourtCase ? (
-                      <span className="text-red-400 font-bold text-xs bg-red-950/30 px-2.5 py-1 rounded-md border border-red-900/50">
-                        Required
-                      </span>
-                    ) : (
-                      <span className="text-slate-500 font-bold text-xs bg-slate-800/30 px-2.5 py-1 rounded-md border border-slate-700/50">
-                        No
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-5 text-right space-x-2 whitespace-nowrap">
-                    <button
-                      onClick={() => handleEditClick(fine)}
-                      className="p-2 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 rounded-lg transition-colors"
-                      title="Edit Offense"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleToggleActive(fine.id)}
-                      className="p-2 text-orange-400 hover:bg-orange-500/20 hover:text-orange-300 rounded-lg transition-colors"
-                      title="Enable / Disable Offense"
-                    >
-                      <Power size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {currentItems.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="p-12 text-center text-slate-500 font-bold text-sm"
-                  >
-                    <ShieldAlert
-                      size={40}
-                      className="mx-auto mb-3 opacity-20"
-                    />
-                    No offenses found matching your criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-[#1a2f5c] bg-[#050d1a]/80 flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">
-              Showing <span className="text-white">{indexOfFirstItem + 1}</span>{" "}
-              to{" "}
-              <span className="text-white">
-                {Math.min(indexOfLastItem, filteredFines.length)}
-              </span>{" "}
-              of <span className="text-white">{filteredFines.length}</span>{" "}
-              entries
-            </span>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => paginate(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-2 rounded-lg bg-[#132752] text-slate-300 hover:bg-[#1a2f5c] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        <table className="w-full text-left text-sm">
+          <thead className="bg-[#050d1a] text-slate-400 text-xs uppercase tracking-widest">
+            <tr>
+              <th className="p-4">Name</th>
+              <th className="p-4">Username</th>
+              <th className="p-4">Division</th>
+              <th className="p-4">Status</th>
+              <th className="p-4 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#1a2f5c]">
+            {heads.map((head) => (
+              <tr
+                key={head.divisional_Head_Id}
+                className="hover:bg-[#132752]/50 transition-all"
               >
-                <ChevronLeft size={16} />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (number) => (
+                <td className="p-4 font-bold text-white">{head.name}</td>
+                <td className="p-4 font-mono font-bold text-blue-400">
+                  {head.username}
+                </td>
+                <td className="p-4">
+                  <span className="bg-[#1a2f5c] px-2 py-1 rounded text-amber-400 text-xs border border-amber-500/20">
+                    {head.division?.division_Name}
+                  </span>
+                </td>
+                <td className="p-4">
+                  {head.is_Active ? (
+                    <span className="text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded font-bold">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded font-bold">
+                      Disabled
+                    </span>
+                  )}
+                </td>
+                <td className="p-4 text-center">
                   <button
-                    key={number}
-                    onClick={() => paginate(number)}
-                    className={`w-8 h-8 rounded-lg text-sm font-bold transition-colors ${
-                      currentPage === number
-                        ? "bg-amber-600 text-white"
-                        : "bg-[#132752] text-slate-300 hover:bg-[#1a2f5c] hover:text-white"
+                    onClick={() =>
+                      handleToggleStatus(
+                        head.divisional_Head_Id,
+                        head.is_Active,
+                      )
+                    }
+                    className={`p-2 rounded-lg transition-colors ${
+                      head.is_Active
+                        ? "text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                        : "text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
                     }`}
+                    title={head.is_Active ? "Disable Head" : "Activate Head"}
                   >
-                    {number}
+                    <Power size={18} />
                   </button>
-                ),
-              )}
-
-              <button
-                onClick={() => paginate(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-2 rounded-lg bg-[#132752] text-slate-300 hover:bg-[#1a2f5c] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+                </td>
+              </tr>
+            ))}
+            {heads.length === 0 && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="p-8 text-center text-slate-500 font-bold uppercase text-xs"
+                >
+                  No divisional heads registered.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
-
-      {/* Edit Modal */}
-      {showEditModal && editForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030407]/90 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-[#0b1c3b]/95 border border-amber-500/20 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_0_50px_rgba(217,119,6,0.1)] custom-scrollbar relative">
-            <div className="sticky top-0 bg-[#050d1a]/80 backdrop-blur-xl p-6 border-b border-[#1a2f5c] flex justify-between items-center z-10">
-              <h3 className="text-xl font-black text-white flex items-center">
-                <ShieldAlert className="mr-3 text-amber-500" size={24} />
-                Edit Offense
-              </h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="p-2 text-slate-400 hover:text-white bg-white/5 rounded-full hover:bg-white/10 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Offense Code
-                  </label>
-                  <input
-                    value={editForm.code}
-                    disabled
-                    className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm text-slate-400 outline-none cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Detailed Description *
-                  </label>
-                  <input
-                    required
-                    value={editForm.name}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, name: e.target.value })
-                    }
-                    type="text"
-                    className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Demerit Points *
-                  </label>
-                  <input
-                    required
-                    min="0"
-                    value={editForm.points}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        points: Number(e.target.value),
-                      })
-                    }
-                    type="number"
-                    className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Fine Amount (LKR) *
-                  </label>
-                  <input
-                    required
-                    min="0"
-                    value={editForm.amount}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        amount: Number(e.target.value),
-                      })
-                    }
-                    type="number"
-                    className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white"
-                  />
-                </div>
-                <div className="space-y-2 flex items-center md:col-span-2 pt-2">
-                  <label className="flex items-center cursor-pointer group bg-[#030508] border border-[#1a2f5c] px-4 py-3.5 rounded-xl w-full hover:border-amber-500/50 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={editForm.isCourtCase}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          isCourtCase: e.target.checked,
-                        })
-                      }
-                      className="w-5 h-5 rounded border-slate-600 text-amber-500 bg-[#030508] focus:ring-amber-500"
-                    />
-                    <span className="ml-3 text-sm font-bold text-slate-300 group-hover:text-white transition-colors">
-                      Requires Court Appearance?
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-4 border-t border-[#1a2f5c] pt-6">
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="px-6 py-3 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-[#132752] transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleModalSave}
-                  className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center transition-all shadow-[0_0_20px_rgba(217,119,6,0.3)] hover:shadow-[0_0_30px_rgba(217,119,6,0.5)] transform hover:-translate-y-0.5"
-                >
-                  <Save size={18} className="mr-2" /> Update Offense
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
