@@ -132,12 +132,43 @@ export default function ManageLicensesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<FormData>(getInitialFormData);
+  const [errors, setErrors] = useState<{ dob?: string; issueDate?: string }>({});
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("editDriver");
     }
   }, []);
+
+  useEffect(() => {
+    if (formData.dob) {
+      const birthDate = new Date(formData.dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        setErrors((prev) => ({ ...prev, dob: "Driver must be at least 18 years old." }));
+      } else {
+        setErrors((prev) => ({ ...prev, dob: undefined }));
+      }
+    }
+  }, [formData.dob]);
+
+  useEffect(() => {
+    if (formData.issueDate) {
+      const selected = new Date(formData.issueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (selected > today) {
+        setErrors((prev) => ({ ...prev, issueDate: "Issue date cannot be in the future." }));
+      } else {
+        setErrors((prev) => ({ ...prev, issueDate: undefined }));
+      }
+    }
+  }, [formData.issueDate]);
 
   const vehicleCategories = [
     { class: "A1", desc: "Light Motor Cycles", icon: <Bike size={16} /> },
@@ -166,13 +197,28 @@ export default function ManageLicensesPage() {
     field: string,
     value: string | boolean,
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      categories: {
-        ...prev.categories,
-        [catClass]: { ...prev.categories[catClass], [field]: value },
-      },
-    }));
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        categories: {
+          ...prev.categories,
+          [catClass]: { ...prev.categories[catClass], [field]: value },
+        },
+      };
+      if (field === "issue" && value) {
+        const issueDate = new Date(value as string);
+        if (!isNaN(issueDate.getTime())) {
+          const expiryDate = new Date(issueDate);
+          expiryDate.setFullYear(expiryDate.getFullYear() + 8);
+          const expiryStr = expiryDate.toISOString().split("T")[0];
+          updated.categories[catClass] = {
+            ...updated.categories[catClass],
+            expiry: expiryStr,
+          };
+        }
+      }
+      return updated;
+    });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,6 +233,12 @@ export default function ManageLicensesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (errors.dob || errors.issueDate) {
+      alert("Please fix validation errors before submitting.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -267,11 +319,13 @@ export default function ManageLicensesPage() {
       profilePic: "",
       categories: {},
     });
+    setErrors({});
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const inputClass =
     "w-full bg-[#030508] border border-white/10 rounded-xl p-3 text-sm focus:border-cyan-400/50 outline-none text-cyan-50 focus:ring-1 focus:ring-cyan-400/30 transition-all";
+  const today = new Date().toISOString().split("T")[0];
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right-8 duration-700 pb-10">
@@ -370,7 +424,9 @@ export default function ManageLicensesPage() {
                 }
                 type="text"
                 disabled={!!editingId}
-                className={`${inputClass} ${editingId ? "opacity-50 cursor-not-allowed text-gray-500" : ""}`}
+                className={`${inputClass} ${
+                  editingId ? "opacity-50 cursor-not-allowed text-gray-500" : ""
+                }`}
               />
             </div>
             <div className="space-y-1">
@@ -384,8 +440,13 @@ export default function ManageLicensesPage() {
                   setFormData({ ...formData, dob: e.target.value })
                 }
                 type="date"
-                className={`${inputClass} [color-scheme:dark]`}
+                className={`${inputClass} [color-scheme:dark] ${
+                  errors.dob ? "border-red-500/50" : ""
+                }`}
               />
+              {errors.dob && (
+                <p className="text-red-400 text-xs mt-1">{errors.dob}</p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-cyan-500/70 uppercase tracking-widest">
@@ -442,7 +503,9 @@ export default function ManageLicensesPage() {
                 }
                 type="text"
                 disabled={!!editingId}
-                className={`${inputClass} font-mono tracking-wider font-bold text-cyan-300 drop-shadow-[0_0_2px_rgba(34,211,238,0.5)] ${editingId ? "opacity-50 cursor-not-allowed" : ""}`}
+                className={`${inputClass} font-mono tracking-wider font-bold text-cyan-300 drop-shadow-[0_0_2px_rgba(34,211,238,0.5)] ${
+                  editingId ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               />
             </div>
             <div className="space-y-1">
@@ -456,8 +519,14 @@ export default function ManageLicensesPage() {
                   setFormData({ ...formData, issueDate: e.target.value })
                 }
                 type="date"
-                className={`${inputClass} [color-scheme:dark]`}
+                max={today}
+                className={`${inputClass} [color-scheme:dark] ${
+                  errors.issueDate ? "border-red-500/50" : ""
+                }`}
               />
+              {errors.issueDate && (
+                <p className="text-red-400 text-xs mt-1">{errors.issueDate}</p>
+              )}
             </div>
           </div>
         </div>
@@ -474,7 +543,11 @@ export default function ManageLicensesPage() {
               return (
                 <div
                   key={cat.class}
-                  className={`border rounded-[1.2rem] p-4 transition-all duration-500 ${isChecked ? "bg-gradient-to-br from-cyan-900/20 to-transparent border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.1)]" : "bg-[#050810]/50 border-white/5 hover:border-white/10"}`}
+                  className={`border rounded-[1.2rem] p-4 transition-all duration-500 ${
+                    isChecked
+                      ? "bg-gradient-to-br from-cyan-900/20 to-transparent border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.1)]"
+                      : "bg-[#050810]/50 border-white/5 hover:border-white/10"
+                  }`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <label className="flex items-center cursor-pointer group flex-1">
@@ -492,13 +565,21 @@ export default function ManageLicensesPage() {
                       />
                       <div className="ml-4 flex items-center">
                         <span
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 ${isChecked ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.2)]" : "bg-[#0a0f16] text-slate-500 border-white/5"}`}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 ${
+                            isChecked
+                              ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                              : "bg-[#0a0f16] text-slate-500 border-white/5"
+                          }`}
                         >
                           {cat.icon}
                         </span>
                         <div className="ml-3">
                           <span
-                            className={`font-black text-lg tracking-wide ${isChecked ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" : "text-slate-400"}`}
+                            className={`font-black text-lg tracking-wide ${
+                              isChecked
+                                ? "text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]"
+                                : "text-slate-400"
+                            }`}
                           >
                             {cat.class}
                           </span>
@@ -542,6 +623,7 @@ export default function ManageLicensesPage() {
                               e.target.value,
                             )
                           }
+                          max={today} // <-- FUTURE DATES DISABLED
                           className="w-full bg-[#030508] border border-cyan-500/20 rounded-lg px-2 py-1.5 text-xs text-cyan-50 outline-none [color-scheme:dark]"
                         />
                       </div>
@@ -553,14 +635,8 @@ export default function ManageLicensesPage() {
                           required
                           type="date"
                           value={catData.expiry || ""}
-                          onChange={(e) =>
-                            handleCategoryChange(
-                              cat.class,
-                              "expiry",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full bg-[#030508] border border-cyan-500/20 rounded-lg px-2 py-1.5 text-xs text-cyan-50 outline-none [color-scheme:dark]"
+                          readOnly
+                          className="w-full bg-[#030508] border border-cyan-500/20 rounded-lg px-2 py-1.5 text-xs text-slate-400 outline-none cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -588,7 +664,7 @@ export default function ManageLicensesPage() {
             {isSubmitting
               ? "Processing..."
               : editingId
-                ? "Save Changes"
+                ? "Update"
                 : "Issue Digital License"}
           </button>
         </div>

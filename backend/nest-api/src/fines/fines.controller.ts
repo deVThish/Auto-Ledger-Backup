@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { DeviceGuard } from '../common/guard/device.guard';
+import { ActiveShiftGuard } from '../common/guard/active-shift.guard';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 export interface AuthRequest {
@@ -29,7 +30,7 @@ export interface AuthRequest {
 export class FinesController {
   constructor(private readonly finesService: FinesService) {}
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveShiftGuard)
   @Roles('TRAFFIC_OFFICER')
   @Post()
   issueFine(
@@ -44,14 +45,14 @@ export class FinesController {
     });
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveShiftGuard)
   @Roles('TRAFFIC_OFFICER')
   @Get('officer-stats')
   getTrafficOfficerStats(@Request() req: AuthRequest) {
     return this.finesService.getTrafficOfficerStats(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveShiftGuard)
   @Roles('TRAFFIC_OFFICER')
   @Get('officer-fines')
   async getOfficerFines(@Request() req: AuthRequest) {
