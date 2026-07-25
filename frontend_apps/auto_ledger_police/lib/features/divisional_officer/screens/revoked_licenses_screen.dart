@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
-import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -29,9 +29,11 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
   Future<List<LicenseModel>> _loadRevokedLicenses() async {
     try {
       final response = await _apiClient.get(ApiConstants.revokedLicenses);
-      return (response as List)
+      final licenses = (response as List)
           .map((e) => LicenseModel.fromJson(e as Map<String, dynamic>))
           .toList();
+      _cachedLicenses = licenses;
+      return licenses;
     } catch (e) {
       return [];
     }
@@ -50,30 +52,41 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
   }) async {
     final isActive = verdict == 'ACTIVE';
 
+    if (license.id.trim().isEmpty) {
+      if (!mounted) return;
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Invalid license data. Please refresh and try again.',
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 22),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(28),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
               child: Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.78),
-                  borderRadius: BorderRadius.circular(32),
+                  color: const Color(0xFFF1F5F9).withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.48),
-                    width: 1.4,
+                    color: Colors.white.withValues(alpha: 0.6),
+                    width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 36,
-                      offset: const Offset(0, 18),
+                      color: const Color(0xFF0B1A30).withValues(alpha: 0.12),
+                      blurRadius: 32,
+                      offset: const Offset(0, 16),
                     ),
                   ],
                 ),
@@ -81,19 +94,21 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 62,
-                      height: 62,
+                      width: 60,
+                      height: 60,
                       decoration: BoxDecoration(
                         color: isActive
-                            ? AppTheme.successGreen.withValues(alpha: 0.12)
-                            : AppTheme.errorRed.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(22),
+                            ? const Color(0xFF059669).withValues(alpha: 0.1)
+                            : AppTheme.errorRed.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
                         isActive
                             ? Icons.check_circle_outline_rounded
                             : Icons.cancel_outlined,
-                        color: isActive ? AppTheme.successGreen : AppTheme.errorRed,
+                        color: isActive
+                            ? const Color(0xFF059669)
+                            : AppTheme.errorRed,
                         size: 32,
                       ),
                     ),
@@ -102,9 +117,10 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
                       isActive ? 'Activate License?' : 'Keep Revoked?',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: AppTheme.primaryBlack,
+                        color: Color(0xFF0B1A30),
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
+                        letterSpacing: -0.4,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -114,23 +130,23 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
                           : 'This will keep the license revoked permanently.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: AppTheme.textGray,
+                        color: Color(0xFF64748B),
                         fontSize: 13,
-                        height: 1.45,
                         fontWeight: FontWeight.w600,
+                        height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 22),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(dialogContext, false),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryBlack,
-                              side: const BorderSide(color: AppTheme.borderGray),
+                              foregroundColor: const Color(0xFF0B1A30),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(22),
+                                borderRadius: BorderRadius.circular(25),
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
@@ -146,12 +162,12 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
                             onPressed: () => Navigator.pop(dialogContext, true),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isActive
-                                  ? AppTheme.successGreen
+                                  ? const Color(0xFF059669)
                                   : AppTheme.errorRed,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(22),
+                                borderRadius: BorderRadius.circular(25),
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
@@ -179,13 +195,14 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
     setState(() => _isResolving = true);
 
     try {
+      final url = '${ApiConstants.resolveRevokedLicense}/${license.id}/resolve-revoked';
+
       await _apiClient.patch(
-        '${ApiConstants.resolveRevokedLicense}/$license.id/resolve-revoked',
+        url,
         body: {'verdict': verdict},
       );
 
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: isActive
@@ -221,103 +238,127 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
-      appBar: AppBar(
-        title: const Text(
-          'Revoked Licenses',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.primaryBlack,
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: _refreshLicenses,
-            icon: const Icon(
-              Icons.refresh_rounded,
-              color: AppTheme.primaryBlack,
-            ),
-          ),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F8FB),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                iconTheme: const IconThemeData(
+                  color: Color(0xFF0B1A30),
+                ),
+                centerTitle: false,
+                title: const Text(
+                  'Revoked Licenses',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0B1A30),
+                    fontSize: 22,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                actions: const [],
+              ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 24.0;
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: FutureBuilder<List<LicenseModel>>(
+                          future: _revokedLicensesFuture,
+                          builder: (context, snapshot) {
+                            final snapshotData = snapshot.data;
+                            final licenses = snapshotData ?? _cachedLicenses;
+                            final isFirstLoad = snapshot.connectionState ==
+                                    ConnectionState.waiting &&
+                                _cachedLicenses.isEmpty &&
+                                snapshotData == null;
 
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: FutureBuilder<List<LicenseModel>>(
-                  future: _revokedLicensesFuture,
-                  builder: (context, snapshot) {
-                    final snapshotData = snapshot.data;
-                    final licenses = snapshotData ?? _cachedLicenses;
-                    final isFirstLoad = snapshot.connectionState ==
-                            ConnectionState.waiting &&
-                        _cachedLicenses.isEmpty &&
-                        snapshotData == null;
+                            if (snapshot.hasError && licenses.isEmpty) {
+                              return Column(
+                                children: [
+                                  const SizedBox(height: 16),
+                                  const _HeaderCard(),
+                                  const SizedBox(height: 24),
+                                  _ErrorCard(
+                                    onRetry: _refreshLicenses,
+                                    message: snapshot.error is ApiException
+                                        ? (snapshot.error as ApiException).message
+                                        : 'Unable to load revoked licenses.',
+                                  ),
+                                ],
+                              );
+                            }
 
-                    if (snapshot.hasError && licenses.isEmpty) {
-                      return Column(
-                        children: [
-                          const SizedBox(height: 18),
-                          _HeaderCard(),
-                          const SizedBox(height: 24),
-                          _ErrorCard(
-                            onRetry: _refreshLicenses,
-                            message: snapshot.error is ApiException
-                                ? (snapshot.error as ApiException).message
-                                : 'Unable to load revoked licenses.',
-                          ),
-                        ],
-                      );
-                    }
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 18),
-                        _HeaderCard(),
-                        const SizedBox(height: 24),
-                        _HeaderStats(licenses: licenses),
-                        const SizedBox(height: 14),
-                        if (isFirstLoad)
-                          const SizedBox.shrink()
-                        else if (licenses.isEmpty)
-                          const _EmptyCard()
-                        else
-                          ...licenses.map(
-                            (license) => Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: _RevokedLicenseCard(
-                                license: license,
-                                issuedDate: _formatDate(license.issueDate),
-                                isResolving: _isResolving,
-                                onActivate: () => _resolveLicense(
-                                  license: license,
-                                  verdict: 'ACTIVE',
+                            if (isFirstLoad) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 80),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFF0B1A30),
+                                    strokeWidth: 3,
+                                  ),
                                 ),
-                                onRevoke: () => _resolveLicense(
-                                  license: license,
-                                  verdict: 'REVOKED',
-                                ),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 18),
-                      ],
+                              );
+                            }
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 16),
+                                const _HeaderCard(),
+                                const SizedBox(height: 24),
+                                _HeaderStats(licenses: licenses),
+                                const SizedBox(height: 14),
+                                if (licenses.isEmpty)
+                                  const _EmptyCard()
+                                else
+                                  ...licenses.map(
+                                    (license) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 14),
+                                      child: _RevokedLicenseCard(
+                                        license: license,
+                                        issuedDate: _formatDate(license.issueDate),
+                                        isResolving: _isResolving,
+                                        onActivate: () => _resolveLicense(
+                                          license: license,
+                                          verdict: 'ACTIVE',
+                                        ),
+                                        onRevoke: () => _resolveLicense(
+                                          license: license,
+                                          verdict: 'REVOKED',
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(height: 32),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
                     );
                   },
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -333,32 +374,47 @@ class _HeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: const [
-            Color(0xFF6B1A30),
-            AppTheme.policeBlueDark,
+          colors: [
+            Color(0xFF0B1A30),
+            Color(0xFF162A4A),
+            Color(0xFF0F213C),
           ],
         ),
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.policeBlue.withValues(alpha: 0.3),
-            blurRadius: 20,
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.28),
+            blurRadius: 24,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(
-            Icons.cancel_outlined,
-            color: Colors.white,
-            size: 34,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.15),
+              ),
+            ),
+            child: const Icon(
+              Icons.cancel_outlined,
+              color: Colors.white,
+              size: 28,
+            ),
           ),
-          SizedBox(width: 14),
-          Expanded(
+          const SizedBox(width: 16),
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -368,8 +424,9 @@ class _HeaderCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
                   ),
                 ),
                 SizedBox(height: 4),
@@ -394,33 +451,32 @@ class _HeaderCard extends StatelessWidget {
 
 class _HeaderStats extends StatelessWidget {
   const _HeaderStats({required this.licenses});
-
   final List<LicenseModel> licenses;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Expanded(
-          child: Text(
-            'Revoked List',
-            style: TextStyle(
-              color: AppTheme.primaryBlack,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
+        const Text(
+          'Revoked List',
+          style: TextStyle(
+            color: Color(0xFF0B1A30),
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: AppTheme.lightGray,
-            borderRadius: BorderRadius.circular(18),
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '${licenses.length} Licenses',
             style: const TextStyle(
-              color: AppTheme.primaryBlack,
+              color: Color(0xFF0B1A30),
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -448,37 +504,24 @@ class _RevokedLicenseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final licenseNumber = license.licenseNumber.isEmpty
+        ? 'Unknown License'
+        : license.licenseNumber;
+    final driverName = license.driverName.isEmpty
+        ? 'Unknown Driver'
+        : license.driverName;
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.primaryBlack.withValues(alpha: 0.12),
-          width: 1.5,
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.4),
-            blurRadius: 30,
-            offset: const Offset(-4, -4),
-            spreadRadius: -2,
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(4, 4),
-            spreadRadius: -1,
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -487,19 +530,16 @@ class _RevokedLicenseCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.errorRed.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: AppTheme.errorRed.withValues(alpha: 0.3),
-                  ),
+                  color: AppTheme.errorRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.cancel_outlined,
                   color: AppTheme.errorRed,
-                  size: 28,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 14),
@@ -508,26 +548,23 @@ class _RevokedLicenseCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      license.licenseNumber.isEmpty
-                          ? 'Unknown License'
-                          : license.licenseNumber,
+                      licenseNumber,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 17,
+                        color: Color(0xFF0B1A30),
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
-                      license.driverName.isEmpty
-                          ? 'Unknown Driver'
-                          : license.driverName,
+                      driverName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppTheme.textGray,
+                        color: Color(0xFF64748B),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -535,10 +572,11 @@ class _RevokedLicenseCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppTheme.errorRed.withValues(alpha: 0.12),
+                  color: AppTheme.errorRed.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
@@ -557,10 +595,10 @@ class _RevokedLicenseCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: const Color(0xFFE2E8F0),
               ),
             ),
             child: Column(
@@ -594,23 +632,24 @@ class _RevokedLicenseCard extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: isResolving ? null : onActivate,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.successGreen,
-                    disabledForegroundColor: AppTheme.textGray,
+                    foregroundColor: const Color(0xFF059669),
+                    disabledForegroundColor: const Color(0xFF94A3B8),
                     side: BorderSide(
                       color: isResolving
-                          ? AppTheme.primaryBlack.withValues(alpha: 0.12)
-                          : AppTheme.successGreen,
+                          ? const Color(0xFFCBD5E1)
+                          : const Color(0xFF059669),
                     ),
-                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    backgroundColor: const Color(0xFF059669).withValues(alpha: 0.04),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
-                    minimumSize: const Size(0, 48),
+                    minimumSize: const Size(0, 46),
                   ),
                   child: const Text(
                     'Activate',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
+                      fontSize: 13,
                     ),
                   ),
                 ),
@@ -622,18 +661,19 @@ class _RevokedLicenseCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.errorRed,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppTheme.primaryBlack.withValues(alpha: 0.12),
-                    disabledForegroundColor: AppTheme.textGray,
+                    disabledBackgroundColor: const Color(0xFFE2E8F0),
+                    disabledForegroundColor: const Color(0xFF94A3B8),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
-                    minimumSize: const Size(0, 48),
+                    minimumSize: const Size(0, 46),
                   ),
                   child: const Text(
                     'Keep Revoked',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
+                      fontSize: 13,
                     ),
                   ),
                 ),
@@ -665,17 +705,17 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(
           icon,
-          color: AppTheme.primaryBlack,
-          size: 20,
+          color: const Color(0xFF0B1A30),
+          size: 18,
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             title,
             style: const TextStyle(
-              color: AppTheme.textGray,
+              color: Color(0xFF64748B),
               fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -687,7 +727,7 @@ class _InfoRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.end,
             style: TextStyle(
-              color: valueColor ?? AppTheme.primaryBlack,
+              color: valueColor ?? const Color(0xFF0B1A30),
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -703,7 +743,6 @@ class _ErrorCard extends StatelessWidget {
     required this.onRetry,
     required this.message,
   });
-
   final VoidCallback onRetry;
   final String message;
 
@@ -711,20 +750,30 @@ class _ErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.errorRed.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: AppTheme.errorRed.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         children: [
           const Icon(
-            Icons.error_outline,
+            Icons.error_outline_rounded,
             color: AppTheme.errorRed,
-            size: 32,
+            size: 36,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
@@ -734,7 +783,7 @@ class _ErrorCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: onRetry,
             style: OutlinedButton.styleFrom(
@@ -743,8 +792,12 @@ class _ErrorCard extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(25),
               ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
             ),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
             label: const Text(
               'Retry',
               style: TextStyle(
@@ -765,25 +818,35 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.primaryBlack.withValues(alpha: 0.1)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: const Column(
         children: [
           Icon(
             Icons.check_circle_outline_rounded,
-            color: AppTheme.primaryBlack,
-            size: 34,
+            color: Color(0xFF0B1A30),
+            size: 36,
           ),
           SizedBox(height: 12),
           Text(
             'No revoked licenses',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppTheme.primaryBlack,
+              color: Color(0xFF0B1A30),
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
@@ -793,7 +856,7 @@ class _EmptyCard extends StatelessWidget {
             'All licenses are currently active.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppTheme.textGray,
+              color: Color(0xFF64748B),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),

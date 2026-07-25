@@ -16,40 +16,55 @@ class OfficerService {
     required String badgeNumber,
     required String password,
   }) async {
-    final response = await _apiClient.post(
-      ApiConstants.registerOfficer,
-      body: {
-        'badgeNo': badgeNumber.trim(),
-        'email': email.trim(),
-        'name': name.trim(),
-        'passwordStr': password.trim(),
-      },
-    );
+    final payload = {
+      'badgeNo': badgeNumber.trim(),
+      'email': email.trim(),
+      'name': name.trim(),
+      'passwordStr': password.trim(),
+    };
 
-    final data = _extractMap(response);
-    if (data != null) {
-      return OfficerModel.fromJson(data);
+    try {
+      final response = await _apiClient.post(
+        ApiConstants.registerOfficer,
+        body: payload,
+      );
+
+      final data = _extractMap(response);
+      if (data != null) {
+        return OfficerModel.fromJson(data);
+      }
+      return OfficerModel.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
     }
-
-    return OfficerModel.fromJson(response as Map<String, dynamic>);
   }
 
   Future<List<OfficerModel>> getDistrictTrafficOfficers() async {
-    final response = await _apiClient.get(
-      ApiConstants.districtOfficers,
-    );
+    try {
+      final response = await _apiClient.get(
+        ApiConstants.districtOfficers,
+      );
 
-    final rawList = _extractList(response);
-    return rawList.map(OfficerModel.fromJson).toList();
+      final rawList = _extractList(response);
+      final officers = rawList.map(OfficerModel.fromJson).toList();
+      return officers;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<List<ShiftModel>> getOfficerShifts(String officerId) async {
-    final response = await _apiClient.get(
-      '/officers/$officerId/shifts',
-    );
+    try {
+      final response = await _apiClient.get(
+        '/officers/$officerId/shifts',
+      );
 
-    final rawList = _extractList(response);
-    return rawList.map(ShiftModel.fromJson).toList();
+      final rawList = _extractList(response);
+      final shifts = rawList.map(ShiftModel.fromJson).toList();
+      return shifts;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<ShiftModel> assignShift({
@@ -66,16 +81,20 @@ class OfficerService {
       'location': location,
     };
 
-    final response = await _apiClient.post(
-      ApiConstants.assignShift,
-      body: payload,
-    );
+    try {
+      final response = await _apiClient.post(
+        ApiConstants.assignShift,
+        body: payload,
+      );
 
-    final data = _extractMap(response);
-    if (data != null) {
-      return ShiftModel.fromJson(data);
+      final data = _extractMap(response);
+      if (data != null) {
+        return ShiftModel.fromJson(data);
+      }
+      return ShiftModel.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
     }
-    return ShiftModel.fromJson(response as Map<String, dynamic>);
   }
 
   Future<ShiftModel> updateShift({
@@ -88,35 +107,39 @@ class OfficerService {
       'endTime': endTime.toUtc().toIso8601String(),
       'location': location,
     };
-
     if (startTime != null) {
       payload['date'] = startTime.toUtc().toIso8601String();
       payload['startTime'] = startTime.toUtc().toIso8601String();
     }
 
-    final response = await _apiClient.patch(
-      '/officers/shift/$shiftId',
-      body: payload,
-    );
+    try {
+      final response = await _apiClient.patch(
+        '/officers/shift/$shiftId',
+        body: payload,
+      );
 
-    final data = _extractMap(response);
-    if (data != null) {
-      return ShiftModel.fromJson(data);
+      final data = _extractMap(response);
+      if (data != null) {
+        return ShiftModel.fromJson(data);
+      }
+      return ShiftModel.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
     }
-
-    return ShiftModel.fromJson(response as Map<String, dynamic>);
   }
 
   Future<void> transferOfficer({
     required String officerId,
     required String newHeadId,
   }) async {
-    await _apiClient.patch(
-      '/officers/transfer/$officerId',
-      body: {
-        'newHeadId': newHeadId,
-      },
-    );
+    try {
+      await _apiClient.patch(
+        '/officers/transfer/$officerId',
+        body: {'newHeadId': newHeadId},
+      );
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<List<DivisionalHeadModel>> getDivisionalHeads() async {
@@ -126,8 +149,9 @@ class OfficerService {
       );
 
       final rawList = _extractList(response);
-      return rawList.map(DivisionalHeadModel.fromJson).toList();
-    } catch (_) {
+      final heads = rawList.map(DivisionalHeadModel.fromJson).toList();
+      return heads;
+    } catch (e) {
       return [];
     }
   }
@@ -164,6 +188,7 @@ class OfficerService {
         'result',
         'item',
         'officer',
+        'shift',
       ];
       for (final key in dataKeys) {
         final candidate = response[key];
@@ -203,7 +228,9 @@ class DivisionalHeadModel {
       name: json['name']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
-      divisionId: json['division_Id']?.toString() ?? division['division_Id']?.toString() ?? '',
+      divisionId: json['division_Id']?.toString() ??
+          division['division_Id']?.toString() ??
+          '',
       divisionName: division['division_Name']?.toString() ?? '',
       isActive: json['is_Active'] == true || json['isActive'] == true,
     );

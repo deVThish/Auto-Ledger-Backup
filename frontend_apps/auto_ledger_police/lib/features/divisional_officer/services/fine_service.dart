@@ -10,39 +10,51 @@ class FineService {
   final ApiClient _apiClient;
 
   Future<List<FineModel>> getDistrictCourtCases() async {
-    final response = await _apiClient.get(
-      ApiConstants.districtCourtCases,
-    );
+    try {
+      final response = await _apiClient.get(
+        ApiConstants.districtCourtCases,
+      );
 
-    if (response is! List) {
-      return <FineModel>[];
+      if (response is! List) {
+        return <FineModel>[];
+      }
+
+      final fines = response
+          .whereType<Map<String, dynamic>>()
+          .map(FineModel.fromJson)
+          .toList();
+      return fines;
+    } catch (e) {
+      rethrow;
     }
-
-    return response
-        .whereType<Map<String, dynamic>>()
-        .map(FineModel.fromJson)
-        .toList();
   }
 
   Future<void> resolveCourtCase({
     required String fineId,
     required String verdict,
   }) async {
-    await _apiClient.patch(
-      '/fines/$fineId/resolve-overdue',
-      body: {
-        'verdict': verdict,
-      },
-    );
+    try {
+      await _apiClient.patch(
+        '/fines/$fineId/resolve-overdue',
+        body: {'verdict': verdict},
+      );
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<DistrictStatisticsModel> getDistrictStatistics() async {
-    final response = await _apiClient.get(
-      ApiConstants.districtStatistics,
-    );
+    try {
+      final response = await _apiClient.get(
+        ApiConstants.districtStatistics,
+      );
 
-    return DistrictStatisticsModel.fromJson(
-      response as Map<String, dynamic>,
-    );
+      final stats = DistrictStatisticsModel.fromJson(
+        response as Map<String, dynamic>,
+      );
+      return stats;
+    } catch (e) {
+      rethrow;
+    }
   }
 }

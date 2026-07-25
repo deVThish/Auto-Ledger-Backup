@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
@@ -13,7 +14,6 @@ class AssignShiftScreen extends StatefulWidget {
     this.initialOfficer,
     this.initialShift,
   });
-
   final OfficerModel? initialOfficer;
   final ShiftModel? initialShift;
 
@@ -23,24 +23,19 @@ class AssignShiftScreen extends StatefulWidget {
 
 class _AssignShiftScreenState extends State<AssignShiftScreen> {
   final _officerService = OfficerService();
-
   late Future<List<OfficerModel>> _officersFuture;
   List<OfficerModel> _cachedOfficers = [];
-
   OfficerModel? _selectedOfficer;
   DateTime? _startDateTime;
   DateTime? _endDateTime;
-
   String? _trackedShiftId;
   DateTime? _originalStartDateTime;
-
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _selectedOfficer = widget.initialOfficer;
-
     if (widget.initialShift != null) {
       _startDateTime = widget.initialShift!.startTime;
       _endDateTime = widget.initialShift!.endTime;
@@ -49,14 +44,17 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
     } else {
       _fillShiftTimes(widget.initialOfficer);
     }
-
     _officersFuture = _loadOfficers();
   }
 
   Future<List<OfficerModel>> _loadOfficers() async {
-    final officers = await _officerService.getDistrictTrafficOfficers();
-    _cachedOfficers = officers;
-    return officers;
+    try {
+      final officers = await _officerService.getDistrictTrafficOfficers();
+      _cachedOfficers = officers;
+      return officers;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   void _fillShiftTimes(OfficerModel? officer) {
@@ -82,11 +80,9 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
   Future<void> _selectDateTime({required bool isStart}) async {
     final now = DateTime.now();
     final today = _dateOnly(now);
-
     final baseValue = isStart
         ? (_startDateTime ?? now)
         : (_endDateTime ?? _startDateTime ?? now);
-
     final safeInitialDate = _dateOnly(baseValue).isBefore(today)
         ? today
         : _dateOnly(baseValue);
@@ -97,7 +93,6 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
       firstDate: today,
       lastDate: DateTime(now.year + 2, 12, 31),
     );
-
     if (selectedDate == null || !mounted) return;
 
     final initialTimeSource = isStart
@@ -108,7 +103,6 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(initialTimeSource),
     );
-
     if (selectedTime == null || !mounted) return;
 
     final selectedDateTime = DateTime(
@@ -130,20 +124,16 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
 
   String _formatDateTime(DateTime? dateTime) {
     if (dateTime == null) return 'Select date and time';
-
     final local = dateTime.toLocal();
     final date =
         '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
-
     final hour = local.hour > 12
         ? local.hour - 12
         : local.hour == 0
             ? 12
             : local.hour;
-
     final minute = local.minute.toString().padLeft(2, '0');
     final period = local.hour >= 12 ? 'PM' : 'AM';
-
     return '$date  $hour:$minute $period';
   }
 
@@ -326,7 +316,6 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
     setState(() {
       _selectedOfficer = updated;
       _officersFuture = Future.value(officers);
-
       final activeShift = updated?.activeShift;
       if (activeShift != null) {
         _startDateTime = activeShift.startTime;
@@ -340,7 +329,6 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
   OfficerModel? _resolveSelectedOfficer(List<OfficerModel> officers) {
     final selected = _selectedOfficer;
     if (selected == null) return null;
-
     for (final officer in officers) {
       if (officer.id == selected.id) {
         return officer;
@@ -351,147 +339,209 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(
-          color: Color(0xFF0B1A30),
-        ),
-        title: const Text(
-          'Assign Shift',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF0B1A30),
-          ),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
-
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 18),
-                    const _HeaderCard(),
-                    const SizedBox(height: 24),
-                    FutureBuilder<List<OfficerModel>>(
-                      future: _officersFuture,
-                      builder: (context, snapshot) {
-                        final snapshotData = snapshot.data;
-                        final officers = snapshotData ?? _cachedOfficers;
-                        final isFirstLoad = snapshot.connectionState ==
-                                ConnectionState.waiting &&
-                            _cachedOfficers.isEmpty &&
-                            snapshotData == null;
-
-                        if (snapshot.hasError && officers.isEmpty) {
-                          return _ErrorView(
-                            message: snapshot.error is ApiException
-                                ? (snapshot.error as ApiException).message
-                                : 'Unable to load traffic officers.',
-                            onRetry: _refreshOfficers,
-                          );
-                        }
-
-                        if (isFirstLoad) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 60),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: Color(0xFF0B1A30),
-                                strokeWidth: 3,
-                              ),
-                            ),
-                          );
-                        }
-
-                        if (officers.isEmpty) {
-                          return const _EmptyView();
-                        }
-
-                        final selected = _resolveSelectedOfficer(officers);
-
-                        return Container(
-                          padding: const EdgeInsets.all(22),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withValues(alpha: 0.88),
-                                Colors.white.withValues(alpha: 0.60),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(32),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              width: 1.8,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF0B1A30).withValues(alpha: 0.05),
-                                blurRadius: 24,
-                                offset: const Offset(0, 12),
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withValues(alpha: 0.6),
-                                blurRadius: 1,
-                                offset: const Offset(-1, -1),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              _OfficerDropdown(
-                                officers: officers,
-                                selectedOfficer: selected,
-                                onChanged: _handleOfficerChanged,
-                              ),
-                              const SizedBox(height: 18),
-                              if (selected?.hasActiveShift == true)
-                                _ExistingShiftNotice(officer: selected!),
-                              if (selected?.hasActiveShift == true)
-                                const SizedBox(height: 18),
-                              _DateTimeSelector(
-                                title: 'Start Time',
-                                value: _formatDateTime(_startDateTime),
-                                icon: Icons.play_circle_outline_rounded,
-                                onTap: () => _selectDateTime(isStart: true),
-                              ),
-                              const SizedBox(height: 18),
-                              _DateTimeSelector(
-                                title: 'End Time',
-                                value: _formatDateTime(_endDateTime),
-                                icon: Icons.stop_circle_outlined,
-                                onTap: () =>
-                                    _selectDateTime(isStart: false),
-                              ),
-                              const SizedBox(height: 26),
-                              AppButton(
-                                text: _submitText,
-                                isLoading: _isLoading,
-                                onPressed: _handleAssignShift,
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F8FB),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                iconTheme: const IconThemeData(
+                  color: Color(0xFF0B1A30),
+                ),
+                title: const Text(
+                  'Assign Shift',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0B1A30),
+                    fontSize: 22,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
-            );
-          },
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final horizontalPadding =
+                        constraints.maxWidth < 380 ? 20.0 : 24.0;
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        inputDecorationTheme: InputDecorationTheme(
+                          labelStyle: const TextStyle(
+                            color: Color(0xFF0B1A30),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          hintStyle: TextStyle(
+                            color: const Color(0xFF0B1A30).withValues(alpha: 0.35),
+                            fontWeight: FontWeight.w400,
+                          ),
+                          suffixIconColor: const Color(0xFF0B1A30),
+                          prefixIconColor: const Color(0xFF0B1A30),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(25),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                              width: 1.2,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(25),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                              width: 1.2,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(25),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF0B1A30),
+                              width: 1.8,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
+                              const _HeaderCard(),
+                              const SizedBox(height: 24),
+                              FutureBuilder<List<OfficerModel>>(
+                                future: _officersFuture,
+                                builder: (context, snapshot) {
+                                  final snapshotData = snapshot.data;
+                                  final officers =
+                                      snapshotData ?? _cachedOfficers;
+                                  final isFirstLoad =
+                                      snapshot.connectionState ==
+                                              ConnectionState.waiting &&
+                                          _cachedOfficers.isEmpty &&
+                                          snapshotData == null;
+
+                                  if (snapshot.hasError && officers.isEmpty) {
+                                    return _ErrorView(
+                                      message: snapshot.error is ApiException
+                                          ? (snapshot.error as ApiException)
+                                              .message
+                                          : 'Unable to load traffic officers.',
+                                      onRetry: _refreshOfficers,
+                                    );
+                                  }
+
+                                  if (isFirstLoad) {
+                                    return const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 80),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: Color(0xFF0B1A30),
+                                          strokeWidth: 3,
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  if (officers.isEmpty) {
+                                    return const _EmptyView();
+                                  }
+
+                                  final selected =
+                                      _resolveSelectedOfficer(officers);
+                                  return Container(
+                                    padding: const EdgeInsets.all(22),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(28),
+                                      border: Border.all(
+                                        color: const Color(0xFFE2E8F0),
+                                        width: 1.2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF0B1A30)
+                                              .withValues(alpha: 0.04),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        _OfficerDropdown(
+                                          officers: officers,
+                                          selectedOfficer: selected,
+                                          onChanged: _handleOfficerChanged,
+                                        ),
+                                        const SizedBox(height: 18),
+                                        if (selected?.hasActiveShift == true)
+                                          _ExistingShiftNotice(
+                                              officer: selected!),
+                                        if (selected?.hasActiveShift == true)
+                                          const SizedBox(height: 18),
+                                        _DateTimeSelector(
+                                          title: 'Start Time',
+                                          value:
+                                              _formatDateTime(_startDateTime),
+                                          icon: Icons.play_circle_outline_rounded,
+                                          onTap: () =>
+                                              _selectDateTime(isStart: true),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        _DateTimeSelector(
+                                          title: 'End Time',
+                                          value: _formatDateTime(_endDateTime),
+                                          icon: Icons.stop_circle_outlined,
+                                          onTap: () =>
+                                              _selectDateTime(isStart: false),
+                                        ),
+                                        const SizedBox(height: 26),
+                                        AppButton(
+                                          text: _submitText,
+                                          isLoading: _isLoading,
+                                          onPressed: _handleAssignShift,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 32),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -507,28 +557,47 @@ class _HeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: const [
+          colors: [
             Color(0xFF0B1A30),
-            AppTheme.policeBlueDark,
+            Color(0xFF162A4A),
+            Color(0xFF0F213C),
           ],
         ),
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0B1A30).withValues(alpha: 0.25),
-            blurRadius: 20,
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.28),
+            blurRadius: 24,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.schedule_outlined, color: Colors.white, size: 34),
-          SizedBox(width: 14),
-          Expanded(
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.15),
+              ),
+            ),
+            child: const Icon(
+              Icons.schedule_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -538,8 +607,9 @@ class _HeaderCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
                   ),
                 ),
                 SizedBox(height: 4),
@@ -585,7 +655,7 @@ class _OfficerDropdown extends StatelessWidget {
                 .firstWhere((officer) => officer.id == selectedOfficer!.id);
 
     return DropdownButtonFormField<OfficerModel>(
-      initialValue: selected,
+      value: selected,
       isExpanded: true,
       items: officers.map((officer) {
         return DropdownMenuItem(
@@ -600,39 +670,12 @@ class _OfficerDropdown extends StatelessWidget {
       },
       onChanged: onChanged,
       iconEnabledColor: const Color(0xFF0B1A30),
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         labelText: 'Traffic Officer',
-        labelStyle: const TextStyle(
-          color: Color(0xFF0B1A30),
-        ),
         hintText: 'Select officer',
-        hintStyle: TextStyle(
-          color: const Color(0xFF0B1A30).withValues(alpha: 0.35),
-          fontWeight: FontWeight.w400,
-          fontSize: 14,
-        ),
-        prefixIcon: const Icon(Icons.local_police_outlined, color: Color(0xFF0B1A30)),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.3),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(25),
-          borderSide: BorderSide(
-            color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(25),
-          borderSide: BorderSide(
-            color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
-            width: 1.5,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(25),
-          borderSide: const BorderSide(
-            color: Color(0xFF0B1A30),
-            width: 2,
-          ),
+        prefixIcon: Icon(
+          Icons.badge_outlined,
+          color: Color(0xFF0B1A30),
         ),
       ),
     );
@@ -641,7 +684,6 @@ class _OfficerDropdown extends StatelessWidget {
 
 class _OfficerDropdownText extends StatelessWidget {
   const _OfficerDropdownText({required this.officer});
-
   final OfficerModel officer;
 
   @override
@@ -649,29 +691,21 @@ class _OfficerDropdownText extends StatelessWidget {
     final name = officer.name.isEmpty ? 'Unnamed Officer' : officer.name;
     final badgeNumber =
         officer.badgeNumber.isEmpty ? 'No badge' : officer.badgeNumber;
-
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            '$name - $badgeNumber',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF0B1A30),
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
+    return Text(
+      '$name - $badgeNumber',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Color(0xFF0B1A30),
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }
 
 class _ExistingShiftNotice extends StatelessWidget {
   const _ExistingShiftNotice({required this.officer});
-
   final OfficerModel officer;
 
   @override
@@ -680,9 +714,11 @@ class _ExistingShiftNotice extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1A30).withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF0B1A30).withValues(alpha: 0.08)),
+        color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF0B1A30).withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         children: [
@@ -736,13 +772,13 @@ class _DateTimeSelector extends StatelessWidget {
         borderRadius: BorderRadius.circular(25),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.3),
+            color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(25),
             border: Border.all(
-              color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
-              width: 1.5,
+              color: const Color(0xFFE2E8F0),
+              width: 1.2,
             ),
           ),
           child: Row(
@@ -750,7 +786,7 @@ class _DateTimeSelector extends StatelessWidget {
               Icon(
                 icon,
                 color: const Color(0xFF0B1A30),
-                size: 24,
+                size: 22,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -761,28 +797,28 @@ class _DateTimeSelector extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         color: Color(0xFF0B1A30),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                  ),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: const Color(0xFF0B1A30).withValues(alpha: 0.6),
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
               ),
               const Icon(
-                Icons.calendar_month_outlined,
+                Icons.calendar_month_rounded,
                 color: Color(0xFF0B1A30),
-                size: 21,
+                size: 20,
               ),
             ],
           ),
@@ -797,48 +833,70 @@ class _ErrorView extends StatelessWidget {
     required this.message,
     required this.onRetry,
   });
-
   final String message;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Icon(
-          Icons.error_outline,
-          color: AppTheme.errorRed,
-          size: 32,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: AppTheme.errorRed.withValues(alpha: 0.3),
+          width: 1.2,
         ),
-        const SizedBox(height: 10),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
             color: AppTheme.errorRed,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+            size: 36,
           ),
-        ),
-        const SizedBox(height: 14),
-        OutlinedButton.icon(
-          onPressed: onRetry,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.errorRed,
-            side: const BorderSide(color: AppTheme.errorRed),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(25),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppTheme.errorRed,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text(
-            'Retry',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.errorRed,
+              side: const BorderSide(color: AppTheme.errorRed),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text(
+              'Retry',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -848,34 +906,53 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        Icon(
-          Icons.person_off_outlined,
-          color: Color(0xFF0B1A30),
-          size: 34,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+          width: 1.2,
         ),
-        SizedBox(height: 12),
-        Text(
-          'No traffic officers found',
-          textAlign: TextAlign.center,
-          style: TextStyle(
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: const Column(
+        children: [
+          Icon(
+            Icons.person_off_outlined,
             color: Color(0xFF0B1A30),
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            size: 36,
           ),
-        ),
-        SizedBox(height: 6),
-        Text(
-          'Create a traffic officer account first.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppTheme.textGray,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+          SizedBox(height: 12),
+          Text(
+            'No traffic officers found',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF0B1A30),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-      ],
+          SizedBox(height: 6),
+          Text(
+            'Create a traffic officer account first.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

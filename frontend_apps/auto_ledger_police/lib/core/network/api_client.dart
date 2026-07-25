@@ -30,8 +30,9 @@ class ApiClient {
     String path, {
     bool requiresAuth = true,
   }) async {
+    final uri = _buildUri(path);
     final response = await _client.get(
-      _buildUri(path),
+      uri,
       headers: await _buildHeaders(requiresAuth: requiresAuth),
     );
     return _handleResponse(response);
@@ -42,8 +43,9 @@ class ApiClient {
     Map<String, dynamic>? body,
     bool requiresAuth = true,
   }) async {
+    final uri = _buildUri(path);
     final response = await _client.post(
-      _buildUri(path),
+      uri,
       headers: await _buildHeaders(requiresAuth: requiresAuth),
       body: jsonEncode(body ?? {}),
     );
@@ -55,8 +57,9 @@ class ApiClient {
     Map<String, dynamic>? body,
     bool requiresAuth = true,
   }) async {
+    final uri = _buildUri(path);
     final response = await _client.patch(
-      _buildUri(path),
+      uri,
       headers: await _buildHeaders(requiresAuth: requiresAuth),
       body: jsonEncode(body ?? {}),
     );

@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
@@ -14,7 +16,6 @@ class CourtCasesScreen extends StatefulWidget {
 
 class _CourtCasesScreenState extends State<CourtCasesScreen> {
   final _fineService = FineService();
-
   late Future<List<FineModel>> _courtCasesFuture;
   List<FineModel> _cachedCourtCases = [];
   bool _isResolving = false;
@@ -26,9 +27,13 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
   }
 
   Future<List<FineModel>> _loadCourtCases() async {
-    final courtCases = await _fineService.getDistrictCourtCases();
-    _cachedCourtCases = courtCases;
-    return courtCases;
+    try {
+      final courtCases = await _fineService.getDistrictCourtCases();
+      _cachedCourtCases = courtCases;
+      return courtCases;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> _refreshCourtCases() async {
@@ -46,60 +51,135 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
-          ),
-          title: Text(
-            isActivate ? 'Activate License?' : 'Revoke License?',
-            style: const TextStyle(
-              color: AppTheme.primaryBlack,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          content: Text(
-            isActivate
-                ? 'This will mark the court case as resolved and activate this license.'
-                : 'This will mark the court case as resolved and revoke this license.',
-            style: const TextStyle(
-              color: AppTheme.textGray,
-              fontWeight: FontWeight.w600,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: AppTheme.textGray,
-                  fontWeight: FontWeight.w800,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
+                      blurRadius: 32,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: isActivate
+                            ? const Color(0xFF059669).withValues(alpha: 0.1)
+                            : AppTheme.errorRed.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        isActivate
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.cancel_outlined,
+                        color: isActivate
+                            ? const Color(0xFF059669)
+                            : AppTheme.errorRed,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      isActivate ? 'Activate License?' : 'Revoke License?',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF0B1A30),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isActivate
+                          ? 'This will mark the court case as resolved and activate this license.'
+                          : 'This will mark the court case as resolved and revoke this license.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                Navigator.of(dialogContext).pop(false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0B1A30),
+                              side: const BorderSide(
+                                color: Color(0xFFCBD5E1),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                Navigator.of(dialogContext).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isActivate
+                                  ? const Color(0xFF059669)
+                                  : AppTheme.errorRed,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
+                            ),
+                            child: Text(
+                              isActivate ? 'Activate' : 'Revoke',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    isActivate ? AppTheme.successGreen : AppTheme.errorRed,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-              ),
-              child: Text(
-                isActivate ? 'Activate' : 'Revoke',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
+          ),
         );
       },
     );
@@ -127,7 +207,6 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
       );
 
       if (!mounted) return;
-
       AppErrorHandler.showPopup(
         context,
         message: verdict == 'ACTIVE'
@@ -167,176 +246,254 @@ class _CourtCasesScreenState extends State<CourtCasesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
-      appBar: AppBar(
-        title: const Text(
-          'Court Cases',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 26.0;
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F8FB),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                iconTheme: const IconThemeData(
+                  color: Color(0xFF0B1A30),
+                ),
+                centerTitle: false,
+                title: const Text(
+                  'Court Cases',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0B1A30),
+                    fontSize: 22,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final horizontalPadding =
+                        constraints.maxWidth < 380 ? 20.0 : 24.0;
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: FutureBuilder<List<FineModel>>(
+                          future: _courtCasesFuture,
+                          builder: (context, snapshot) {
+                            final snapshotData = snapshot.data;
+                            final courtCases =
+                                snapshotData ?? _cachedCourtCases;
+                            final isFirstLoad = snapshot.connectionState ==
+                                    ConnectionState.waiting &&
+                                _cachedCourtCases.isEmpty &&
+                                snapshotData == null;
 
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: FutureBuilder<List<FineModel>>(
-                  future: _courtCasesFuture,
-                  builder: (context, snapshot) {
-                    final snapshotData = snapshot.data;
-                    final courtCases = snapshotData ?? _cachedCourtCases;
-                    final isFirstLoad = snapshot.connectionState ==
-                            ConnectionState.waiting &&
-                        _cachedCourtCases.isEmpty &&
-                        snapshotData == null;
+                            if (snapshot.hasError && courtCases.isEmpty) {
+                              return Column(
+                                children: [
+                                  const SizedBox(height: 16),
+                                  const _HeaderCard(),
+                                  const SizedBox(height: 24),
+                                  _ErrorCard(
+                                    onRetry: _refreshCourtCases,
+                                    message: snapshot.error is ApiException
+                                        ? (snapshot.error as ApiException)
+                                            .message
+                                        : 'Unable to load court cases.',
+                                  ),
+                                ],
+                              );
+                            }
 
-                    if (snapshot.hasError && courtCases.isEmpty) {
-                      return _ErrorCard(
-                        onRetry: _refreshCourtCases,
-                        message: snapshot.error is ApiException
-                            ? (snapshot.error as ApiException).message
-                            : 'Unable to load court cases.',
-                      );
-                    }
+                            if (isFirstLoad) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 80),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFF0B1A30),
+                                    strokeWidth: 3,
+                                  ),
+                                ),
+                              );
+                            }
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 18),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(22),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppTheme.primaryBlack,
-                                AppTheme.primaryBlack.withValues(alpha: 0.85),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primaryBlack.withValues(alpha: 0.3),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.gavel_outlined,
-                                color: Colors.white,
-                                size: 34,
-                              ),
-                              SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 16),
+                                const _HeaderCard(),
+                                const SizedBox(height: 24),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Pending Court Cases',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    const Text(
+                                      'Pending Cases',
                                       style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 23,
+                                        color: Color(0xFF0B1A30),
+                                        fontSize: 18,
                                         fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.3,
                                       ),
                                     ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'Review and resolve court cases',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0B1A30)
+                                            .withValues(alpha: 0.06),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${courtCases.length} Cases',
+                                        style: const TextStyle(
+                                          color: Color(0xFF0B1A30),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
+                                const SizedBox(height: 14),
+                                if (courtCases.isEmpty)
+                                  const _EmptyCard()
+                                else
+                                  ...courtCases.map(
+                                    (courtCase) => Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 14),
+                                      child: _CourtCaseCard(
+                                        courtCase: courtCase,
+                                        issuedDate:
+                                            _formatDate(courtCase.issuedAt),
+                                        amount: _formatAmount(courtCase.amount),
+                                        isResolving: _isResolving,
+                                        onActivate: () => _confirmResolve(
+                                          courtCase: courtCase,
+                                          verdict: 'ACTIVE',
+                                        ),
+                                        onRevoke: () => _confirmResolve(
+                                          courtCase: courtCase,
+                                          verdict: 'REVOKED',
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(height: 32),
+                              ],
+                            );
+                          },
                         ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'Pending Cases',
-                                style: TextStyle(
-                                  color: AppTheme.primaryBlack,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.lightGray,
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              child: Text(
-                                '${courtCases.length} Cases',
-                                style: const TextStyle(
-                                  color: AppTheme.primaryBlack,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        if (isFirstLoad)
-                          const SizedBox.shrink()
-                        else if (courtCases.isEmpty)
-                          const _EmptyCard()
-                        else
-                          ...courtCases.map(
-                            (courtCase) => Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: _CourtCaseCard(
-                                courtCase: courtCase,
-                                issuedDate: _formatDate(courtCase.issuedAt),
-                                amount: _formatAmount(courtCase.amount),
-                                isResolving: _isResolving,
-                                onActivate: () => _confirmResolve(
-                                  courtCase: courtCase,
-                                  verdict: 'ACTIVE',
-                                ),
-                                onRevoke: () => _confirmResolve(
-                                  courtCase: courtCase,
-                                  verdict: 'REVOKED',
-                                ),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 18),
-                      ],
+                      ),
                     );
                   },
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  const _HeaderCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0B1A30),
+            Color(0xFF162A4A),
+            Color(0xFF0F213C),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.15),
+              ),
+            ),
+            child: const Icon(
+              Icons.gavel_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pending Court Cases',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Review and resolve court cases',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -361,42 +518,24 @@ class _CourtCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final licenseNumber =
-        courtCase.licenseNumber.isEmpty ? 'Unknown License' : courtCase.licenseNumber;
-    final officerName =
-        courtCase.officerName.isEmpty ? 'Unknown Officer' : courtCase.officerName;
+    final licenseNumber = courtCase.licenseNumber.isEmpty
+        ? 'Unknown License'
+        : courtCase.licenseNumber;
+    final officerName = courtCase.officerName.isEmpty
+        ? 'Unknown Officer'
+        : courtCase.officerName;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.primaryBlack.withValues(alpha: 0.12),
-          width: 1.5,
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.4),
-            blurRadius: 30,
-            offset: const Offset(-4, -4),
-            spreadRadius: -2,
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(4, 4),
-            spreadRadius: -1,
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -405,19 +544,19 @@ class _CourtCaseCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(18),
+                  color: const Color(0xFF0B1A30).withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: const Color(0xFF0B1A30).withValues(alpha: 0.1),
                   ),
                 ),
                 child: const Icon(
-                  Icons.balance_outlined,
-                  color: AppTheme.primaryBlack,
-                  size: 28,
+                  Icons.balance_rounded,
+                  color: Color(0xFF0B1A30),
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 14),
@@ -430,18 +569,19 @@ class _CourtCaseCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 17,
+                        color: Color(0xFF0B1A30),
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       officerName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppTheme.textGray,
+                        color: Color(0xFF64748B),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -451,13 +591,11 @@ class _CourtCaseCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppTheme.errorRed.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(18),
+                  color: AppTheme.errorRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
                   'Pending',
@@ -475,10 +613,10 @@ class _CourtCaseCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: const Color(0xFFE2E8F0),
               ),
             ),
             child: Column(
@@ -522,23 +660,24 @@ class _CourtCaseCard extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: isResolving ? null : onActivate,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.successGreen,
-                    disabledForegroundColor: AppTheme.textGray,
+                    foregroundColor: const Color(0xFF059669),
+                    disabledForegroundColor: const Color(0xFF94A3B8),
                     side: BorderSide(
                       color: isResolving
-                          ? AppTheme.primaryBlack.withValues(alpha: 0.12)
-                          : AppTheme.successGreen,
+                          ? const Color(0xFFCBD5E1)
+                          : const Color(0xFF059669),
                     ),
-                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    backgroundColor: const Color(0xFF059669).withValues(alpha: 0.04),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
-                    minimumSize: const Size(0, 48),
+                    minimumSize: const Size(0, 46),
                   ),
                   child: const Text(
                     'Activate',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
+                      fontSize: 13,
                     ),
                   ),
                 ),
@@ -550,18 +689,19 @@ class _CourtCaseCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.errorRed,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppTheme.primaryBlack.withValues(alpha: 0.12),
-                    disabledForegroundColor: AppTheme.textGray,
+                    disabledBackgroundColor: const Color(0xFFE2E8F0),
+                    disabledForegroundColor: const Color(0xFF94A3B8),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
-                    minimumSize: const Size(0, 48),
+                    minimumSize: const Size(0, 46),
                   ),
                   child: const Text(
                     'Revoke',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
+                      fontSize: 13,
                     ),
                   ),
                 ),
@@ -591,17 +731,17 @@ class _CaseInfoRow extends StatelessWidget {
       children: [
         Icon(
           icon,
-          color: AppTheme.primaryBlack,
-          size: 20,
+          color: const Color(0xFF0B1A30),
+          size: 18,
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             title,
             style: const TextStyle(
-              color: AppTheme.textGray,
+              color: Color(0xFF64748B),
               fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -613,7 +753,7 @@ class _CaseInfoRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.end,
             style: const TextStyle(
-              color: AppTheme.primaryBlack,
+              color: Color(0xFF0B1A30),
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -629,7 +769,6 @@ class _ErrorCard extends StatelessWidget {
     required this.onRetry,
     required this.message,
   });
-
   final VoidCallback onRetry;
   final String message;
 
@@ -637,20 +776,30 @@ class _ErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.errorRed.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: AppTheme.errorRed.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         children: [
           const Icon(
-            Icons.error_outline,
+            Icons.error_outline_rounded,
             color: AppTheme.errorRed,
-            size: 32,
+            size: 36,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
@@ -660,7 +809,7 @@ class _ErrorCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: onRetry,
             style: OutlinedButton.styleFrom(
@@ -669,8 +818,12 @@ class _ErrorCard extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(25),
               ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
             ),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
             label: const Text(
               'Retry',
               style: TextStyle(
@@ -691,25 +844,35 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.primaryBlack.withValues(alpha: 0.1)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: const Column(
         children: [
           Icon(
             Icons.gavel_outlined,
-            color: AppTheme.primaryBlack,
-            size: 34,
+            color: Color(0xFF0B1A30),
+            size: 36,
           ),
           SizedBox(height: 12),
           Text(
             'No pending court cases',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppTheme.primaryBlack,
+              color: Color(0xFF0B1A30),
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
@@ -719,7 +882,7 @@ class _EmptyCard extends StatelessWidget {
             'Court cases assigned to your district will appear here.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppTheme.textGray,
+              color: Color(0xFF64748B),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),

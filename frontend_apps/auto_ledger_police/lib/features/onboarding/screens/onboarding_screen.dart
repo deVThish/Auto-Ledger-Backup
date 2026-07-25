@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_routes.dart';
 
 class OnboardingScreen extends StatelessWidget {
@@ -27,56 +25,57 @@ class OnboardingScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF0B1A30),
         body: SafeArea(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            padding: const EdgeInsets.symmetric(horizontal: 28.0),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                const Spacer(),
                 Container(
-                  width: 140,
-                  height: 140,
+                  width: 150,
+                  height: 150,
                   decoration: BoxDecoration(
-                    color: Colors.transparent,
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 1.5,
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.10),
+                        color: const Color(0xFF000000).withValues(alpha: 0.35),
                         blurRadius: 40,
-                        offset: const Offset(0, 15),
+                        offset: const Offset(0, 16),
                       ),
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(35),
-                    child: Image.asset(
-                      'assets/images/sl_police_logo.png',
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(35),
-                          ),
-                          child: const Icon(
-                            Icons.local_police_rounded,
-                            color: Colors.white,
-                            size: 70,
-                          ),
-                        );
-                      },
+                    borderRadius: BorderRadius.circular(25),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Image.asset(
+                        'assets/images/sl_police_logo.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Icon(
+                              Icons.local_police_rounded,
+                              color: Colors.white,
+                              size: 75,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 36),
                 const Text(
                   'Auto-Ledger Police',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 32,
+                    fontSize: 30,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.6,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -85,85 +84,92 @@ class OnboardingScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.3,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 const Text(
                   'Secure Traffic Management System',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white38,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0.5,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.4,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 18),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 6,
+                    horizontal: 16,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Text(
-                    '🇱🇰 Sri Lanka Police',
-                    style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.8,
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 1.2,
                     ),
                   ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '🇱🇰 Sri Lanka Police',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 48),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(25),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                    child: Container(
-                      width: double.infinity,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: AppTheme.policeBlue,
+                const Spacer(),
+                Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () => _navigateToLogin(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0B1A30),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.policeBlue.withValues(alpha: 0.4),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
                       ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _navigateToLogin(context),
-                          borderRadius: BorderRadius.circular(25),
-                          splashColor: Colors.white.withValues(alpha: 0.1),
-                          highlightColor: Colors.transparent,
-                          child: const Center(
-                            child: Text(
-                              'Get Started',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Get Started',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3,
                           ),
                         ),
-                      ),
+                        SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
                 ),
