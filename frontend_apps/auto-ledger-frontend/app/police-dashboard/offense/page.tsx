@@ -12,7 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  Power, // <-- අලුතින් add කරපු Icon එක
+  Power,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -60,6 +60,10 @@ export default function ManageOffenses() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
+  // Modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState<Offense | null>(null);
+
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 4000);
@@ -100,15 +104,9 @@ export default function ManageOffenses() {
         isCourtCase: Boolean(fineForm.isCourtCase),
       };
 
-      if (editingId) {
-        await api.patch(`/fines/offenses/${editingId}`, payload);
-        showToast("success", "Traffic Offense Updated Successfully!");
-        setEditingId(null);
-      } else {
-        await api.post("/fines/offenses", payload);
-        showToast("success", "New Traffic Offense Added Successfully!");
-        setCurrentPage(1);
-      }
+      await api.post("/fines/offenses", payload);
+      showToast("success", "New Traffic Offense Added Successfully!");
+      setCurrentPage(1);
 
       setFineForm({
         code: "",
@@ -128,19 +126,36 @@ export default function ManageOffenses() {
     }
   };
 
-  const handleEdit = (fine: Offense) => {
-    setFineForm({
-      code: fine.code,
-      name: fine.name,
-      points: fine.points.toString(),
-      amount: fine.amount.toString(),
-      isCourtCase: Boolean(fine.isCourtCase),
-    });
-    setEditingId(fine.id);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleEditClick = (fine: Offense) => {
+    setEditForm({ ...fine });
+    setShowEditModal(true);
   };
 
-  // Toggle Active/Disable action
+  const handleModalSave = async () => {
+    if (!editForm) return;
+    try {
+      const payload = {
+        code: editForm.code,
+        name: editForm.name,
+        points: Number(editForm.points),
+        amount: Number(editForm.amount),
+        isCourtCase: Boolean(editForm.isCourtCase),
+      };
+
+      await api.patch(`/fines/offenses/${editForm.id}`, payload);
+      showToast("success", "Traffic Offense Updated Successfully!");
+      setShowEditModal(false);
+      setEditForm(null);
+      await loadFines();
+    } catch (err: unknown) {
+      const error = err as ApiError;
+      showToast(
+        "error",
+        error.response?.data?.message || "Error updating offense.",
+      );
+    }
+  };
+
   const handleToggleActive = async (id: string) => {
     if (
       !window.confirm(
@@ -161,17 +176,6 @@ export default function ManageOffenses() {
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setFineForm({
-      code: "",
-      name: "",
-      points: "",
-      amount: "",
-      isCourtCase: false,
-    });
-  };
-
   const filteredFines = fines.filter(
     (f) =>
       f.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -189,7 +193,11 @@ export default function ManageOffenses() {
     <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-500 relative pb-10">
       {toast && (
         <div
-          className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-top-6 duration-300 max-w-md ${toast.type === "error" ? "bg-red-950/90 border-red-500/50 text-red-200" : "bg-emerald-950/90 border-emerald-500/50 text-emerald-200"}`}
+          className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-top-6 duration-300 max-w-md ${
+            toast.type === "error"
+              ? "bg-red-950/90 border-red-500/50 text-red-200"
+              : "bg-emerald-950/90 border-emerald-500/50 text-emerald-200"
+          }`}
         >
           {toast.type === "error" ? (
             <AlertCircle
@@ -226,6 +234,7 @@ export default function ManageOffenses() {
         </div>
       </div>
 
+      {/* Add Form (no longer used for editing) */}
       <form
         onSubmit={handleFineSubmit}
         className="bg-gradient-to-br from-[#0b1c3b]/80 to-[#050d1a]/80 p-8 rounded-3xl border border-[#1a2f5c] shadow-2xl backdrop-blur-md relative overflow-hidden"
@@ -233,9 +242,7 @@ export default function ManageOffenses() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[80px] pointer-events-none"></div>
 
         <h3 className="text-sm font-bold text-amber-500 mb-6 uppercase tracking-widest flex items-center relative z-10">
-          {editingId
-            ? "Editing Existing Offense Configuration"
-            : "Register New Offense Configuration"}
+          Register New Offense Configuration
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 relative z-10">
@@ -245,14 +252,13 @@ export default function ManageOffenses() {
             </label>
             <input
               required
-              disabled={!!editingId}
               value={fineForm.code}
               onChange={(e) =>
                 setFineForm({ ...fineForm, code: e.target.value })
               }
               type="text"
               placeholder="O-001"
-              className={`w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white font-mono shadow-inner ${editingId ? "opacity-50 cursor-not-allowed" : ""}`}
+              className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white font-mono shadow-inner"
             />
           </div>
           <div className="space-y-2 col-span-2 md:col-span-3">
@@ -319,33 +325,17 @@ export default function ManageOffenses() {
           </div>
         </div>
 
-        <div className="flex justify-end space-x-4 border-t border-[#1a2f5c] pt-6 relative z-10">
-          {editingId && (
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="px-6 py-3 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-[#132752] transition-all"
-            >
-              Cancel Edit
-            </button>
-          )}
+        <div className="flex justify-end border-t border-[#1a2f5c] pt-6 relative z-10">
           <button
             type="submit"
             className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center transition-all shadow-[0_0_20px_rgba(217,119,6,0.3)] hover:shadow-[0_0_30px_rgba(217,119,6,0.5)] transform hover:-translate-y-0.5"
           >
-            {editingId ? (
-              <>
-                <Save size={18} className="mr-2" /> Update Configuration
-              </>
-            ) : (
-              <>
-                <PlusCircle size={18} className="mr-2" /> Save Offense
-              </>
-            )}
+            <PlusCircle size={18} className="mr-2" /> Save Offense
           </button>
         </div>
       </form>
 
+      {/* Table */}
       <div className="bg-[#0b1c3b]/60 border border-[#1a2f5c] rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
         <div className="p-6 border-b border-[#1a2f5c] flex flex-col sm:flex-row justify-between items-center gap-4 bg-[#050d1a]/50">
           <h3 className="text-white font-bold flex items-center text-lg">
@@ -417,13 +407,12 @@ export default function ManageOffenses() {
                   </td>
                   <td className="p-5 text-right space-x-2 whitespace-nowrap">
                     <button
-                      onClick={() => handleEdit(fine)}
+                      onClick={() => handleEditClick(fine)}
                       className="p-2 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 rounded-lg transition-colors"
                       title="Edit Offense"
                     >
                       <Edit size={18} />
                     </button>
-                    {/* Changed from Trash2 to Power Icon with Orange color for Toggle Status */}
                     <button
                       onClick={() => handleToggleActive(fine.id)}
                       className="p-2 text-orange-400 hover:bg-orange-500/20 hover:text-orange-300 rounded-lg transition-colors"
@@ -477,7 +466,11 @@ export default function ManageOffenses() {
                   <button
                     key={number}
                     onClick={() => paginate(number)}
-                    className={`w-8 h-8 rounded-lg text-sm font-bold transition-colors ${currentPage === number ? "bg-amber-600 text-white" : "bg-[#132752] text-slate-300 hover:bg-[#1a2f5c] hover:text-white"}`}
+                    className={`w-8 h-8 rounded-lg text-sm font-bold transition-colors ${
+                      currentPage === number
+                        ? "bg-amber-600 text-white"
+                        : "bg-[#132752] text-slate-300 hover:bg-[#1a2f5c] hover:text-white"
+                    }`}
                   >
                     {number}
                   </button>
@@ -495,6 +488,124 @@ export default function ManageOffenses() {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030407]/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-[#0b1c3b]/95 border border-amber-500/20 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_0_50px_rgba(217,119,6,0.1)] custom-scrollbar relative">
+            <div className="sticky top-0 bg-[#050d1a]/80 backdrop-blur-xl p-6 border-b border-[#1a2f5c] flex justify-between items-center z-10">
+              <h3 className="text-xl font-black text-white flex items-center">
+                <ShieldAlert className="mr-3 text-amber-500" size={24} />
+                Edit Offense
+              </h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="p-2 text-slate-400 hover:text-white bg-white/5 rounded-full hover:bg-white/10 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Offense Code
+                  </label>
+                  <input
+                    value={editForm.code}
+                    disabled
+                    className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm text-slate-400 outline-none cursor-not-allowed"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Detailed Description *
+                  </label>
+                  <input
+                    required
+                    value={editForm.name}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, name: e.target.value })
+                    }
+                    type="text"
+                    className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Demerit Points *
+                  </label>
+                  <input
+                    required
+                    min="0"
+                    value={editForm.points}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        points: Number(e.target.value),
+                      })
+                    }
+                    type="number"
+                    className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Fine Amount (LKR) *
+                  </label>
+                  <input
+                    required
+                    min="0"
+                    value={editForm.amount}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        amount: Number(e.target.value),
+                      })
+                    }
+                    type="number"
+                    className="w-full bg-[#030508] border border-[#1a2f5c] rounded-xl p-3.5 text-sm focus:border-amber-500 outline-none text-white"
+                  />
+                </div>
+                <div className="space-y-2 flex items-center md:col-span-2 pt-2">
+                  <label className="flex items-center cursor-pointer group bg-[#030508] border border-[#1a2f5c] px-4 py-3.5 rounded-xl w-full hover:border-amber-500/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editForm.isCourtCase}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          isCourtCase: e.target.checked,
+                        })
+                      }
+                      className="w-5 h-5 rounded border-slate-600 text-amber-500 bg-[#030508] focus:ring-amber-500"
+                    />
+                    <span className="ml-3 text-sm font-bold text-slate-300 group-hover:text-white transition-colors">
+                      Requires Court Appearance?
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4 border-t border-[#1a2f5c] pt-6">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="px-6 py-3 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-[#132752] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleModalSave}
+                  className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold flex items-center transition-all shadow-[0_0_20px_rgba(217,119,6,0.3)] hover:shadow-[0_0_30px_rgba(217,119,6,0.5)] transform hover:-translate-y-0.5"
+                >
+                  <Save size={18} className="mr-2" /> Update Offense
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
