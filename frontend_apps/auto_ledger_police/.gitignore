@@ -60,3 +60,9 @@ app.*.map.json
 .env.productionauto_ledger/linux/
 auto_ledger/macos/
 auto_ledger/windows/
+
+# Build caches & local generated files
+android/.gradle/
+android/local.properties
+ios/Runner/GeneratedPluginRegistrant.*
+macos/Flutter/GeneratedPluginRegistrant.*
