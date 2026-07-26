@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../../../core/constants/app_routes.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
+import '../../auth/services/auth_service.dart';
 import '../widgets/about_dialog.dart';
 import '../widgets/change_password_dialog.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/glass_dialog.dart';
 import '../widgets/liquid_nav_bar.dart';
 import 'profile_screen.dart';
 
@@ -21,20 +24,25 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final LocalAuthentication _localAuth = LocalAuthentication();
   final TokenStorage _tokenStorage = const TokenStorage();
+  final AuthService _authService = AuthService();
 
   bool _biometricSupported = false;
   bool _biometricEnabled = false;
   bool _isCheckingBiometric = true;
   bool _isUpdatingBiometric = false;
-  int _selectedNavIndex = 2;
+  int _autoLockMinutes = 1;
+  final int _selectedNavIndex = 2;
+
+  // Options limited to 1, 5, and 10 minutes
+  final List<int> _lockOptions = [1, 5, 10];
 
   @override
   void initState() {
     super.initState();
-    _initBiometrics();
+    _initBiometricsAndSettings();
   }
 
-  Future<void> _initBiometrics() async {
+  Future<void> _initBiometricsAndSettings() async {
     bool isDeviceSupported = false;
     bool canCheckBiometrics = false;
     List<BiometricType> availableBiometrics = const [];
@@ -43,10 +51,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       isDeviceSupported = await _localAuth.isDeviceSupported();
       canCheckBiometrics = await _localAuth.canCheckBiometrics;
       availableBiometrics = await _localAuth.getAvailableBiometrics();
-
-      debugPrint('local_auth -> isDeviceSupported: $isDeviceSupported');
-      debugPrint('local_auth -> canCheckBiometrics: $canCheckBiometrics');
-      debugPrint('local_auth -> availableBiometrics: $availableBiometrics');
     } on PlatformException catch (e) {
       debugPrint('local_auth init error: ${e.code} / ${e.message}');
       isDeviceSupported = false;
@@ -80,9 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _onNavTap(int index) async {
-    if (index == 2) {
-      return;
-    }
+    if (index == 2) return;
 
     if (index == 1) {
       if (Navigator.of(context).canPop()) {
@@ -124,16 +126,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _toggleBiometric(bool value) async {
-    if (!value) {
-      if (!mounted) return;
-      setState(() {
-        _biometricEnabled = false;
-      });
-      await _tokenStorage.saveBiometricEnabled(false);
-      return;
-    }
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (dialogContext) {
+        return GlassDialogShell(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const GlassDialogIcon(
+                icon: Icons.logout_rounded,
+                backgroundColor: Color(0x1A142C5C),
+                iconColor: AppTheme.policeBlue,
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Log out?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppTheme.policeBlue,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'You will need to sign in again to continue using the Traffic Officer portal.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppTheme.textGray,
+                  fontSize: 13,
+                  height: 1.45,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: GlassDialogAction(
+                      text: 'Cancel',
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GlassDialogAction(
+                      text: 'Logout',
+                      isPrimary: true,
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
 
+    if (confirmed == true) {
+      await _authService.logout();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (route) => false,
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleBiometric(bool value) async {
     if (_isUpdatingBiometric) return;
 
     if (_isCheckingBiometric) {
@@ -158,9 +223,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isUpdatingBiometric = true;
     });
 
+    final reason = value
+        ? 'Authenticate to enable fingerprint login.'
+        : 'Authenticate to disable fingerprint login.';
+
     try {
       final authenticated = await _localAuth.authenticate(
-        localizedReason: 'Authenticate to enable fingerprint login.',
+        localizedReason: reason,
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
@@ -172,9 +241,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (authenticated) {
         setState(() {
-          _biometricEnabled = true;
+          _biometricEnabled = value;
         });
-        await _tokenStorage.saveBiometricEnabled(true);
+        await _tokenStorage.saveBiometricEnabled(value);
       } else {
         AppErrorHandler.showPopup(
           context,
@@ -183,9 +252,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } on PlatformException catch (e) {
       if (!mounted) return;
-
-      debugPrint('Fingerprint auth error -> code: ${e.code}');
-      debugPrint('Fingerprint auth error -> message: ${e.message}');
 
       String message = 'Unable to use fingerprint on this device right now.';
 
@@ -215,11 +281,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context,
         message: message,
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-
-      debugPrint('Fingerprint auth unexpected error: $e');
-
       AppErrorHandler.showPopup(
         context,
         message: 'Unable to use fingerprint on this device right now.',
@@ -231,6 +294,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
       }
     }
+  }
+
+  void _updateAutoLockTime(int minutes) {
+    setState(() {
+      _autoLockMinutes = minutes;
+    });
   }
 
   String _biometricSubtitle() {
@@ -247,6 +316,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : 'Fingerprint login is available but turned off.';
   }
 
+  String _getLockTimeLabel(int mins) {
+    if (mins == 1) return '1 Minute';
+    return '$mins Minutes';
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -258,217 +332,137 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F8FF),
         body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final horizontalPadding = constraints.maxWidth < 380 ? 14.0 : 18.0;
-              final compact = constraints.maxHeight < 700;
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFF8FBFF),
+                  Color(0xFFF1F6FF),
+                ],
+              ),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final horizontalPadding =
+                    constraints.maxWidth < 380 ? 16.0 : 20.0;
 
-              final headerFlex = compact ? 1 : 1;
-              final fingerprintFlex = compact ? 3 : 3;
-              final cardsFlex = compact ? 5 : 5;
-              final footerFlex = compact ? 1 : 1;
-
-              return Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xFFF8FBFF),
-                      Color(0xFFF1F6FF),
-                    ],
-                  ),
-                ),
-                child: Padding(
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
                     horizontalPadding,
-                    compact ? 12 : 16,
+                    24,
                     horizontalPadding,
-                    compact ? 10 : 14,
+                    16,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(flex: headerFlex, child: const _PageHeader()),
-                      SizedBox(height: compact ? 8 : 12),
-                      Flexible(
-                        flex: fingerprintFlex,
-                        child: GlassCard(
-                          borderRadius: 30,
-                          padding: EdgeInsets.fromLTRB(
-                            16,
-                            compact ? 16 : 18,
-                            16,
-                            compact ? 16 : 18,
+                      const _PageHeader(),
+                      const SizedBox(height: 18),
+
+                      if (_isCheckingBiometric)
+                        const SizedBox(
+                          height: 150,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.policeBlue,
+                            ),
                           ),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppTheme.policeBlue.withValues(alpha: 0.94),
-                              AppTheme.policeBlueDark.withValues(alpha: 0.94),
-                            ],
-                          ),
-                          borderColor: Colors.white.withValues(alpha: 0.16),
-                          shadowColor: AppTheme.policeBlue,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: compact ? 46 : 52,
-                                    height: compact ? 46 : 52,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.14),
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                    child: const Icon(
-                                      Icons.fingerprint_rounded,
-                                      color: Colors.white,
-                                      size: 28,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  const Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Fingerprint Login',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        SizedBox(height: 4),
-                                        Text(
-                                          'Use device biometrics to enable quick access.',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12.5,
-                                            height: 1.35,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              _SecurityTile(
-                                supported:
-                                    !_isCheckingBiometric && _biometricSupported,
-                                enabled: _biometricEnabled,
-                                busy: _isUpdatingBiometric || _isCheckingBiometric,
-                                subtitle: _biometricSubtitle(),
-                                onChanged: _toggleBiometric,
-                              ),
-                            ],
+                        )
+                      else ...[
+                        // Biometrics & Lock Card
+                        _BiometricCard(
+                          isChecking: _isCheckingBiometric,
+                          supported: _biometricSupported,
+                          enabled: _biometricEnabled,
+                          updating: _isUpdatingBiometric,
+                          subtitle: _biometricSubtitle(),
+                          onToggle: _toggleBiometric,
+                          autoLockMinutes: _autoLockMinutes,
+                          lockOptions: _lockOptions,
+                          onLockTimeChanged: _updateAutoLockTime,
+                          getLockTimeLabel: _getLockTimeLabel,
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Card 1: Change Password
+                        GlassCard(
+                          borderRadius: 25,
+                          padding: EdgeInsets.zero,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          borderColor: Colors.white.withValues(alpha: 0.25),
+                          shadowColor: Colors.black,
+                          child: _SettingsTile(
+                            icon: Icons.lock_reset_rounded,
+                            title: 'Change Password',
+                            subtitle: 'Update your login password',
+                            onTap: _openChangePassword,
                           ),
                         ),
-                      ),
-                      SizedBox(height: compact ? 10 : 12),
-                      Expanded(
-                        flex: cardsFlex,
-                        child: Column(
-                          children: [
-                            GlassCard(
-                              padding: EdgeInsets.zero,
-                              child: Column(
+                        const SizedBox(height: 10),
+
+                        // Card 2: About
+                        GlassCard(
+                          borderRadius: 25,
+                          padding: EdgeInsets.zero,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          borderColor: Colors.white.withValues(alpha: 0.25),
+                          shadowColor: Colors.black,
+                          child: _SettingsTile(
+                            icon: Icons.info_outline_rounded,
+                            title: 'About',
+                            subtitle: 'App version and details',
+                            onTap: _openAbout,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Logout Button
+                        Center(
+                          child: FractionallySizedBox(
+                            widthFactor: 0.6,
+                            child: GlassCard(
+                              borderRadius: 25,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              color: Colors.white.withValues(alpha: 0.88),
+                              borderColor:
+                                  AppTheme.errorRed.withValues(alpha: 0.05),
+                              shadowColor: Colors.black,
+                              onTap: _handleLogout,
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  _SettingsTile(
-                                    icon: Icons.lock_reset_rounded,
-                                    title: 'Change Password',
-                                    subtitle: 'Update your login password',
-                                    onTap: _openChangePassword,
+                                  Icon(
+                                    Icons.logout_rounded,
+                                    color: AppTheme.errorRed,
+                                    size: 20,
                                   ),
-                                  Divider(
-                                    height: 1,
-                                    thickness: 1,
-                                    color: Colors.grey.shade200.withValues(alpha: 0.55),
-                                    indent: 18,
-                                    endIndent: 18,
-                                  ),
-                                  _SettingsTile(
-                                    icon: Icons.info_outline_rounded,
-                                    title: 'About',
-                                    subtitle: 'App version and details',
-                                    onTap: _openAbout,
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Logout',
+                                    style: TextStyle(
+                                      color: AppTheme.errorRed,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                            SizedBox(height: compact ? 10 : 12),
-                            GlassCard(
-                              padding: EdgeInsets.zero,
-                              child: Column(
-                                children: [
-                                  const _SettingsTile(
-                                    icon: Icons.privacy_tip_rounded,
-                                    title: 'Privacy Policy',
-                                    subtitle: 'Coming soon',
-                                    showArrow: true,
-                                  ),
-                                  Divider(
-                                    height: 1,
-                                    thickness: 1,
-                                    color: Colors.grey.shade200.withValues(alpha: 0.55),
-                                    indent: 18,
-                                    endIndent: 18,
-                                  ),
-                                  const _SettingsTile(
-                                    icon: Icons.description_rounded,
-                                    title: 'Terms of Service',
-                                    subtitle: 'Coming soon',
-                                    showArrow: true,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: compact ? 8 : 10),
-                      Flexible(
-                        flex: footerFlex,
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.policeBlue.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Icon(
-                                  Icons.local_police_rounded,
-                                  color: AppTheme.policeBlue.withValues(alpha: 0.68),
-                                  size: 22,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              const Text(
-                                'Auto-Ledger v1.0.0',
-                                style: TextStyle(
-                                  color: AppTheme.textGray,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                      ),
+                      ],
+                      const SizedBox(height: 16),
                     ],
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
         bottomNavigationBar: LiquidNavBar(
@@ -533,125 +527,214 @@ class _PageHeader extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppTheme.policeBlue.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(
-              color: AppTheme.policeBlue.withValues(alpha: 0.12),
-              width: 1,
-            ),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.verified_rounded,
-                color: AppTheme.policeBlue,
-                size: 16,
-              ),
-              SizedBox(width: 6),
-              Text(
-                'LIVE',
-                style: TextStyle(
-                  color: AppTheme.policeBlue,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
 }
 
-class _SecurityTile extends StatelessWidget {
-  const _SecurityTile({
+class _BiometricCard extends StatelessWidget {
+  const _BiometricCard({
+    required this.isChecking,
     required this.supported,
     required this.enabled,
-    required this.busy,
+    required this.updating,
     required this.subtitle,
-    required this.onChanged,
+    required this.onToggle,
+    required this.autoLockMinutes,
+    required this.lockOptions,
+    required this.onLockTimeChanged,
+    required this.getLockTimeLabel,
   });
 
+  final bool isChecking;
   final bool supported;
   final bool enabled;
-  final bool busy;
+  final bool updating;
   final String subtitle;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool> onToggle;
+  final int autoLockMinutes;
+  final List<int> lockOptions;
+  final ValueChanged<int> onLockTimeChanged;
+  final String Function(int) getLockTimeLabel;
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-      borderRadius: 26,
-      color: Colors.white.withValues(alpha: 0.18),
-      borderColor: Colors.white.withValues(alpha: 0.16),
-      shadowColor: Colors.black,
-      child: Row(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0F2B5C),
+            Color(0xFF1E40AF),
+            Color(0xFF1D3557),
+          ],
+          stops: [0.0, 0.55, 1.0],
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F2B5C).withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: const Icon(
+                  Icons.shield_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'App Security & Lock',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Biometrics and auto lock timer',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Container(
-            width: 46,
-            height: 46,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.16),
+                width: 1,
+              ),
             ),
-            child: Icon(
-              Icons.fingerprint_rounded,
-              color: supported ? Colors.white : Colors.white70,
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                const Text(
-                  'Fingerprint Login',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    height: 1.35,
+                const SizedBox(width: 10),
+                if (updating || isChecking)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                else
+                  Switch.adaptive(
+                    value: enabled,
+                    onChanged: supported ? onToggle : null,
+                    activeColor: Colors.white,
+                    activeTrackColor: Colors.white.withValues(alpha: 0.38),
+                    inactiveThumbColor: Colors.white70,
+                    inactiveTrackColor: Colors.white.withValues(alpha: 0.16),
                   ),
-                ),
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          if (busy)
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.2,
-                color: Colors.white,
+          if (enabled) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  width: 1,
+                ),
               ),
-            )
-          else
-            Switch.adaptive(
-              value: enabled,
-              onChanged: supported ? onChanged : null,
-              activeColor: Colors.white,
-              activeTrackColor: Colors.white.withValues(alpha: 0.32),
-              inactiveThumbColor: Colors.white70,
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.timer_outlined,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Auto Lock',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: autoLockMinutes,
+                      dropdownColor: const Color(0xFF0F2B5C),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Colors.white,
+                      ),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      onChanged: (val) {
+                        if (val != null) {
+                          onLockTimeChanged(val);
+                        }
+                      },
+                      items: lockOptions.map((int mins) {
+                        return DropdownMenuItem<int>(
+                          value: mins,
+                          child: Text(getLockTimeLabel(mins)),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ],
         ],
       ),
     );
@@ -664,14 +747,12 @@ class _SettingsTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.onTap,
-    this.showArrow = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
-  final bool showArrow;
 
   @override
   Widget build(BuildContext context) {
@@ -684,7 +765,7 @@ class _SettingsTile extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: AppTheme.policeBlue.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(25),
             ),
             child: Icon(
               icon,
@@ -719,12 +800,6 @@ class _SettingsTile extends StatelessWidget {
               ],
             ),
           ),
-          if (showArrow)
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: AppTheme.textGray,
-              size: 16,
-            ),
         ],
       ),
     );
@@ -739,6 +814,7 @@ class _SettingsTile extends StatelessWidget {
         onTap: onTap,
         splashColor: AppTheme.policeBlue.withValues(alpha: 0.05),
         highlightColor: Colors.transparent,
+        borderRadius: BorderRadius.circular(25),
         child: tile,
       ),
     );

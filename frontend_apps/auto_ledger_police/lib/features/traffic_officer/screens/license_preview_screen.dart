@@ -111,7 +111,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     if (status == 'SUSPENDED' || status == 'REVOKED') {
       return AppTheme.errorRed;
     }
-    return AppTheme.primaryBlack;
+    return AppTheme.policeBlue;
   }
 
   bool get _hasCriticalStatus {
@@ -125,7 +125,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.38),
+      barrierColor: Colors.black.withValues(alpha: 0.38),
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -137,15 +137,15 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
               child: Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.78),
+                  color: Colors.white.withValues(alpha: 0.88),
                   borderRadius: BorderRadius.circular(34),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.60),
+                    color: AppTheme.policeBlue.withValues(alpha: 0.18),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: AppTheme.policeBlue.withValues(alpha: 0.12),
                       blurRadius: 40,
                       offset: const Offset(0, 18),
                     ),
@@ -158,7 +158,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                       width: 66,
                       height: 66,
                       decoration: BoxDecoration(
-                        color: AppTheme.errorRed.withOpacity(0.12),
+                        color: AppTheme.errorRed.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: const Icon(
@@ -172,7 +172,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                       'Session Expired',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppTheme.primaryBlack,
+                        color: AppTheme.policeBlue,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
@@ -203,7 +203,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryBlack,
+                          backgroundColor: AppTheme.policeBlue,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -244,30 +244,30 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
 
   Widget _glassCard({
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
     Color? color,
     Color? borderColor,
-    double radius = 28,
+    double radius = 25,
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           width: double.infinity,
           padding: padding,
           decoration: BoxDecoration(
-            color: color ?? Colors.white.withOpacity(0.88),
+            color: color ?? Colors.white.withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: borderColor ?? Colors.white.withOpacity(0.38),
+              color: borderColor ?? AppTheme.policeBlue.withValues(alpha: 0.12),
               width: 1.1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: AppTheme.policeBlue.withValues(alpha: 0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -287,19 +287,19 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: color.withOpacity(0.28)),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
@@ -307,7 +307,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                   ? Icons.timer_off_rounded
                   : Icons.timer_outlined,
               color: color,
-              size: 24,
+              size: 22,
             ),
           ),
           const SizedBox(width: 12),
@@ -321,7 +321,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                       : 'Scan session active',
                   style: TextStyle(
                     color: color,
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -332,7 +332,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                       : 'Time remaining: ${_formatCountdown(_remaining)}',
                   style: const TextStyle(
                     color: AppTheme.textGray,
-                    fontSize: 12,
+                    fontSize: 11.5,
                     height: 1.3,
                     fontWeight: FontWeight.w500,
                   ),
@@ -349,45 +349,45 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     final license = widget.license;
 
     return _glassCard(
-      radius: 30,
+      radius: 25,
       child: Column(
         children: [
           _InfoRow(
             title: 'Driver Name',
             value: license.driverName.isEmpty ? '-' : license.driverName,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _InfoRow(
             title: 'License No',
             value: license.licenseNumber.isEmpty ? '-' : license.licenseNumber,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _InfoRow(
             title: 'Status',
             value: license.status.isEmpty ? '-' : license.status,
             valueColor: statusColor,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _InfoRow(
             title: 'Points',
             value: '${license.points}',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _InfoRow(
             title: 'NIC',
             value: license.nicNo?.isEmpty == true ? 'N/A' : license.nicNo ?? 'N/A',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _InfoRow(
             title: 'Address',
             value: license.address?.isEmpty == true ? 'N/A' : license.address ?? 'N/A',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _InfoRow(
             title: 'Blood Group',
             value: license.bloodGroup?.isEmpty == true ? 'N/A' : license.bloodGroup ?? 'N/A',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _InfoRow(
             title: 'Token',
             value: _sessionToken.isEmpty ? 'Missing' : 'Active',
@@ -397,27 +397,59 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     );
   }
 
+  String _getTransmissionType(dynamic category) {
+    try {
+      if (category is Map) {
+        if (category['transmission'] != null) {
+          return category['transmission'].toString();
+        }
+        if (category['transmissionType'] != null) {
+          return category['transmissionType'].toString();
+        }
+        if (category['transmission_type'] != null) {
+          return category['transmission_type'].toString();
+        }
+        if (category['isAutomatic'] != null) {
+          return category['isAutomatic'] == true ? 'Auto' : 'Manual';
+        }
+      }
+
+      final dynamic mirror = category;
+      try {
+        final val = mirror.transmission;
+        if (val != null) return val.toString();
+      } catch (_) {}
+
+      try {
+        final val = mirror.transmissionType;
+        if (val != null) return val.toString();
+      } catch (_) {}
+    } catch (_) {}
+
+    return 'Auto / Manual';
+  }
+
   Widget _vehicleCategoriesSection() {
     final categories = widget.license.vehicleCategories;
 
     if (categories.isEmpty) {
       return _glassCard(
-        radius: 28,
+        radius: 25,
         child: const Column(
           children: [
             Icon(
               Icons.directions_car_outlined,
-              color: AppTheme.primaryBlack,
-              size: 32,
+              color: AppTheme.policeBlue,
+              size: 30,
             ),
-            SizedBox(height: 10),
+            SizedBox(height: 8),
             Text(
               'No vehicle categories found',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.primaryBlack,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
+                color: AppTheme.policeBlue,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -431,51 +463,62 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
         const Text(
           'Vehicle Categories',
           style: TextStyle(
-            color: AppTheme.primaryBlack,
-            fontSize: 18,
+            color: AppTheme.policeBlue,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         ...categories.map(
-          (category) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _glassCard(
-              radius: 28,
-              child: Column(
-                children: [
-                  _InfoRow(
-                    icon: Icons.directions_car_outlined,
-                    title: 'Class',
-                    value: category.vehicleClass.isEmpty
-                        ? 'N/A'
-                        : category.vehicleClass,
-                  ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
-                    icon: Icons.calendar_today_outlined,
-                    title: 'Issue Date',
-                    value: _formatDate(category.issueDate),
-                  ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
-                    icon: Icons.event_available_outlined,
-                    title: 'Expiry Date',
-                    value: _formatDate(category.expiryDate),
-                  ),
-                  if (category.restriction != null &&
-                      category.restriction!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 12),
+          (category) {
+            final transmission = _getTransmissionType(category);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _glassCard(
+                radius: 25,
+                child: Column(
+                  children: [
                     _InfoRow(
-                      icon: Icons.info_outline,
-                      title: 'Restriction',
-                      value: category.restriction!,
+                      icon: Icons.directions_car_outlined,
+                      title: 'Class',
+                      value: category.vehicleClass.isEmpty
+                          ? 'N/A'
+                          : category.vehicleClass,
                     ),
+                    const SizedBox(height: 10),
+                    _InfoRow(
+                      icon: Icons.settings_suggest_outlined,
+                      title: 'Transmission',
+                      value: transmission,
+                      valueColor: AppTheme.policeBlue,
+                    ),
+                    const SizedBox(height: 10),
+                    _InfoRow(
+                      icon: Icons.calendar_today_outlined,
+                      title: 'Issue Date',
+                      value: _formatDate(category.issueDate),
+                    ),
+                    const SizedBox(height: 10),
+                    _InfoRow(
+                      icon: Icons.event_available_outlined,
+                      title: 'Expiry Date',
+                      value: _formatDate(category.expiryDate),
+                    ),
+                    if (category.restriction != null &&
+                        category.restriction!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _InfoRow(
+                        icon: Icons.info_outline,
+                        title: 'Restriction',
+                        value: category.restriction!,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ],
     );
@@ -485,22 +528,30 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     final license = widget.license;
     final hasImage = license.imageUrl != null && license.imageUrl!.trim().isNotEmpty;
 
-    return _glassCard(
-      radius: 32,
-      color: AppTheme.primaryBlack.withOpacity(0.96),
-      borderColor: Colors.white.withOpacity(0.14),
+    return Container(
       padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.policeBlue,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.policeBlue.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           Container(
-            width: 72,
-            height: 72,
+            width: 68,
+            height: 68,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.10),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: Colors.white.withOpacity(0.20),
-                width: 1.5,
+                color: Colors.white.withValues(alpha: 0.30),
+                width: 1.2,
               ),
             ),
             child: ClipRRect(
@@ -530,7 +581,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 19,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -543,9 +594,9 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.45,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -558,12 +609,12 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
 
   Widget _buildPlaceholderImage() {
     return Container(
-      color: Colors.white.withOpacity(0.10),
+      color: Colors.white.withValues(alpha: 0.15),
       child: const Center(
         child: Icon(
           Icons.person_rounded,
-          color: Colors.white54,
-          size: 34,
+          color: Colors.white,
+          size: 32,
         ),
       ),
     );
@@ -578,14 +629,14 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
         const Text(
           'License Details',
           style: TextStyle(
-            color: AppTheme.primaryBlack,
-            fontSize: 18,
+            color: AppTheme.policeBlue,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         _glassCard(
-          radius: 28,
+          radius: 25,
           child: Column(
             children: [
               _InfoRow(
@@ -593,20 +644,20 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                 title: 'Issue Date',
                 value: _formatDate(license.issueDate),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _InfoRow(
                 icon: Icons.event_available_outlined,
                 title: 'Expiry Date',
                 value: _formatDate(license.expiryDate),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _InfoRow(
                 icon: Icons.timer_outlined,
                 title: 'Temporary Expiry',
                 value: _formatDate(license.temporaryLicenseExpiry),
               ),
               if (license.dateOfBirth != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _InfoRow(
                   icon: Icons.cake_outlined,
                   title: 'Date of Birth',
@@ -616,9 +667,8 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 18),
         _vehicleCategoriesSection(),
-        const SizedBox(height: 16),
       ],
     );
   }
@@ -628,107 +678,98 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
     final statusColor = _statusColor();
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
+      backgroundColor: const Color(0xFFF4F8FF),
       appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FBFF),
+        elevation: 0,
+        centerTitle: false,
         title: const Text(
           'License Preview',
-          style: TextStyle(fontWeight: FontWeight.w800),
+          style: TextStyle(
+            color: AppTheme.policeBlue,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding =
-                constraints.maxWidth < 380 ? 16.0 : 20.0;
-
-            return Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFF8FBFF),
-                    Color(0xFFF1F6FF),
-                  ],
-                ),
-              ),
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  left: horizontalPadding,
-                  right: horizontalPadding,
-                  top: 18,
-                  bottom: 24,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFF8FBFF),
+                Color(0xFFF1F6FF),
+              ],
+            ),
+          ),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            children: [
+              _headerCard(),
+              const SizedBox(height: 12),
+              _scanTimerBanner(),
+              const SizedBox(height: 12),
+              _currentValuesCard(statusColor),
+              const SizedBox(height: 12),
+              if (_hasCriticalStatus) ...[
+                _glassCard(
+                  radius: 25,
+                  color: AppTheme.errorRed.withValues(alpha: 0.08),
+                  borderColor: AppTheme.errorRed.withValues(alpha: 0.28),
+                  child: Row(
                     children: [
-                      _headerCard(),
-                      const SizedBox(height: 14),
-                      _scanTimerBanner(),
-                      const SizedBox(height: 14),
-                      _currentValuesCard(statusColor),
-                      const SizedBox(height: 14),
-                      if (_hasCriticalStatus)
-                        _glassCard(
-                          radius: 28,
-                          color: AppTheme.errorRed.withOpacity(0.10),
-                          borderColor: AppTheme.errorRed.withOpacity(0.35),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.warning_amber_rounded,
-                                color: AppTheme.errorRed,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'License is ${widget.license.status.toUpperCase()}. Proceed carefully before issuing a fine.',
-                                  style: const TextStyle(
-                                    color: AppTheme.errorRed,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (_hasCriticalStatus) const SizedBox(height: 14),
-                      _extraDetailsSection(),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton.icon(
-                          onPressed: _remaining == Duration.zero
-                              ? _showExpiredDialog
-                              : _openOffenseSelection,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryBlack,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                          icon: const Icon(Icons.arrow_forward_rounded, size: 20),
-                          label: const Text(
-                            'Continue to Offenses',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: AppTheme.errorRed,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'License is ${widget.license.status.toUpperCase()}. Proceed carefully before issuing a fine.',
+                          style: const TextStyle(
+                            color: AppTheme.errorRed,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            height: 1.35,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+              ],
+              _extraDetailsSection(),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: _remaining == Duration.zero
+                      ? _showExpiredDialog
+                      : _openOffenseSelection,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.policeBlue,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: const Text(
+                    'Continue to Offenses',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                    ),
+                  ),
+                ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -755,18 +796,18 @@ class _InfoRow extends StatelessWidget {
         if (icon != null) ...[
           Icon(
             icon,
-            color: AppTheme.primaryBlack,
-            size: 21,
+            color: AppTheme.policeBlue,
+            size: 19,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
         ],
         Expanded(
           child: Text(
             title,
             style: const TextStyle(
               color: AppTheme.textGray,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -777,9 +818,9 @@ class _InfoRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.end,
             style: TextStyle(
-              color: valueColor ?? AppTheme.primaryBlack,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
+              color: valueColor ?? AppTheme.policeBlue,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),

@@ -18,10 +18,13 @@ class QrScannerScreen extends StatefulWidget {
 class _QrScannerScreenState extends State<QrScannerScreen>
     with WidgetsBindingObserver {
   final _trafficFineService = TrafficFineService();
-  final MobileScannerController _controller = MobileScannerController();
+  final MobileScannerController _controller = MobileScannerController(
+    autoStart: false,
+  );
 
   bool _isLoading = false;
   bool _isScanning = false;
+  bool _hasPermissionError = false;
 
   String _lastSessionId = '';
 
@@ -29,11 +32,21 @@ class _QrScannerScreenState extends State<QrScannerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _initScanner();
+  }
+
+  Future<void> _initScanner() async {
+    if (!mounted) return;
+    try {
+      await _controller.start();
       if (mounted) {
-        _controller.start();
+        setState(() => _hasPermissionError = false);
       }
-    });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _hasPermissionError = true);
+      }
+    }
   }
 
   @override
@@ -46,16 +59,10 @@ class _QrScannerScreenState extends State<QrScannerScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _restartCamera();
+      _initScanner();
+    } else if (state == AppLifecycleState.paused) {
+      _controller.stop();
     }
-  }
-
-  Future<void> _restartCamera() async {
-    if (!mounted) return;
-    try {
-      await _controller.stop();
-      await _controller.start();
-    } catch (_) {}
   }
 
   void _handleScan(BarcodeCapture capture) {
@@ -124,7 +131,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
       });
 
       if (error.message.toLowerCase().contains('expired')) {
-        _restartCamera();
+        _initScanner();
       }
     } catch (_) {
       if (!mounted) return;
@@ -139,7 +146,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
         _isScanning = false;
       });
 
-      _restartCamera();
+      _initScanner();
     }
   }
 
@@ -221,16 +228,63 @@ class _QrScannerScreenState extends State<QrScannerScreen>
                       clipBehavior: Clip.hardEdge,
                       child: Stack(
                         children: [
-                          MobileScanner(
-                            controller: _controller,
-                            onDetect: _handleScan,
-                          ),
-                          CustomPaint(
-                            painter: _QrOverlayPainter(
-                              cutOutSize: squareSize * 0.7,
+                          if (_hasPermissionError)
+                            Container(
+                              color: Colors.black,
+                              padding: const EdgeInsets.all(20),
+                              child: const Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.camera_alt_outlined,
+                                      color: Colors.white54,
+                                      size: 40,
+                                    ),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Camera permission is required.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    SizedBox(height: 6),
+                                    Text(
+                                      'Please allow camera access in App Settings to scan QR codes.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            MobileScanner(
+                              controller: _controller,
+                              onDetect: _handleScan,
+                              errorBuilder: (context, error, child) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted && !_hasPermissionError) {
+                                    setState(() => _hasPermissionError = true);
+                                  }
+                                });
+                                return const SizedBox.shrink();
+                              },
                             ),
-                            size: Size(squareSize, squareSize),
-                          ),
+                          if (!_hasPermissionError)
+                            CustomPaint(
+                              painter: _QrOverlayPainter(
+                                cutOutSize: squareSize * 0.7,
+                              ),
+                              size: Size(squareSize, squareSize),
+                            ),
                           if (_isLoading)
                             Container(
                               color: Colors.black.withValues(alpha: 0.6),
@@ -255,41 +309,43 @@ class _QrScannerScreenState extends State<QrScannerScreen>
                                 ),
                               ),
                             ),
-                          Positioned(
-                            bottom: 20,
-                            left: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              margin: const EdgeInsets.symmetric(horizontal: 24),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    color: Colors.white70,
-                                    size: 16,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Position QR code inside the frame',
-                                    style: TextStyle(
+                          if (!_hasPermissionError)
+                            Positioned(
+                              bottom: 20,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 24),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
                                       color: Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
+                                      size: 16,
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Position QR code inside the frame',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),

@@ -28,7 +28,7 @@ class _LiquidNavBarState extends State<LiquidNavBar>
     _currentValue = widget.selectedIndex.toDouble();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 420),
+      duration: const Duration(milliseconds: 380),
     );
     _animation = AlwaysStoppedAnimation<double>(_currentValue);
   }
@@ -46,7 +46,7 @@ class _LiquidNavBarState extends State<LiquidNavBar>
       ).animate(
         CurvedAnimation(
           parent: _controller,
-          curve: Curves.easeInOutCubic,
+          curve: Curves.fastOutSlowIn,
         ),
       );
 
@@ -80,7 +80,7 @@ class _LiquidNavBarState extends State<LiquidNavBar>
     ];
 
     return Container(
-      padding: const EdgeInsets.only(left: 45, right: 45, bottom: 28),
+      padding: const EdgeInsets.only(left: 36, right: 36, bottom: 24),
       color: Colors.transparent,
       child: SizedBox(
         width: double.infinity,
@@ -109,14 +109,14 @@ class _LiquidNavBarState extends State<LiquidNavBar>
                       child: Container(
                         width: 52,
                         height: 52,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppTheme.policeBlue,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Color(0x33142C5C),
-                              blurRadius: 10,
-                              offset: Offset(0, 6),
+                              color: AppTheme.policeBlue.withValues(alpha: 0.28),
+                              blurRadius: 14,
+                              offset: const Offset(0, 6),
                             ),
                           ],
                         ),
@@ -140,7 +140,7 @@ class _LiquidNavBarState extends State<LiquidNavBar>
                                 Transform.translate(
                                   offset: Offset(0, -24 * activeFactor),
                                   child: Transform.scale(
-                                    scale: 0.98 + (0.06 * activeFactor),
+                                    scale: 0.96 + (0.08 * activeFactor),
                                     child: Icon(
                                       items[index].icon,
                                       color: isActive
@@ -162,8 +162,8 @@ class _LiquidNavBarState extends State<LiquidNavBar>
                                         child: Text(
                                           items[index].label,
                                           style: const TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w700,
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w800,
                                             color: AppTheme.policeBlue,
                                             letterSpacing: 0.3,
                                           ),
@@ -205,7 +205,7 @@ class _LiquidNavPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.85)
+      ..color = Colors.white.withValues(alpha: 0.92)
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -214,7 +214,7 @@ class _LiquidNavPainter extends CustomPainter {
 
     final rrect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      const Radius.circular(40),
+      const Radius.circular(36),
     );
     path.addRRect(rrect);
 
@@ -232,18 +232,12 @@ class _LiquidNavPainter extends CustomPainter {
 
     canvas.drawShadow(
       finalPath,
-      Colors.black.withValues(alpha: 0.06),
-      8.0,
+      AppTheme.policeBlue.withValues(alpha: 0.12),
+      14.0,
       true,
     );
+
     canvas.drawPath(finalPath, paint);
-
-    final borderPaint = Paint()
-      ..color = Colors.grey.shade200.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-
-    canvas.drawPath(finalPath, borderPaint);
   }
 
   @override

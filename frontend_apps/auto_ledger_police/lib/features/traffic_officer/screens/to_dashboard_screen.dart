@@ -29,6 +29,8 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
   bool _isFetching = false;
   String _officerName = 'Officer';
   String _badgeNumber = 'Traffic Officer';
+  String _divisionName = 'Police Operations';
+  bool _isOnDuty = true;
   int _todayFines = 0;
   int _totalFines = 0;
   int _selectedNavIndex = 1;
@@ -64,11 +66,18 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
     }
 
     try {
-      final session = await _tokenStorage.getSession();
+      final sessionFuture = _tokenStorage.getSession();
+      final finesFuture = _fineService.getFineHistory();
 
-      final allFines = await _fineService.getFineHistory();
+      final results = await Future.wait([
+        sessionFuture,
+        finesFuture,
+      ]);
+
+      final session = results[0] as PoliceSession?;
+      final allFines = results[1] as List<dynamic>? ?? [];
+
       final sortedFines = List<dynamic>.from(allFines);
-
       sortedFines.sort((a, b) {
         final DateTime? aDate = a.issuedAt as DateTime?;
         final DateTime? bDate = b.issuedAt as DateTime?;
@@ -92,8 +101,17 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
       if (!mounted) return;
 
       setState(() {
-        _officerName = session?.officerName ?? 'Officer';
-        _badgeNumber = session?.officerBadgeNumber ?? 'Traffic Officer';
+        _officerName = (session?.officerName != null && session!.officerName.trim().isNotEmpty)
+            ? session.officerName
+            : 'Officer';
+        _badgeNumber = (session?.officerBadgeNumber != null && session!.officerBadgeNumber.trim().isNotEmpty)
+            ? session.officerBadgeNumber
+            : 'Traffic Officer';
+        // Dynamic reading from PoliceSession.divisionName
+        _divisionName = (session?.divisionName != null && session!.divisionName.trim().isNotEmpty)
+            ? session.divisionName
+            : 'Police Operations';
+        _isOnDuty = true;
         _totalFines = sortedFines.length;
         _todayFines = todayCount;
       });
@@ -206,54 +224,48 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
                 final horizontalPadding = constraints.maxWidth < 380 ? 16.0 : 20.0;
 
                 return SingleChildScrollView(
-                  padding: EdgeInsets.only(
-                    top: 20,
-                    bottom: 14,
-                    left: horizontalPadding,
-                    right: horizontalPadding,
+                  padding: EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: horizontalPadding,
                   ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight - 34,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _DashboardHeader(),
-                        const SizedBox(height: 14),
-                        _WelcomeCard(
-                          officerName: _officerName,
-                          badgeNumber: _badgeNumber,
-                        ),
-                        const SizedBox(height: 18),
-                        const _SectionTitle(title: 'Today\'s Overview'),
-                        const SizedBox(height: 10),
-                        DashboardStatsCard(
-                          todayFines: _todayFines,
-                          totalFines: _totalFines,
-                          isLoading: _isLoading,
-                        ),
-                        const SizedBox(height: 18),
-                        const _SectionTitle(title: 'Quick Actions'),
-                        const SizedBox(height: 10),
-                        _ToActionCard(
-                          icon: Icons.qr_code_scanner_rounded,
-                          title: 'Scan Driver QR',
-                          subtitle: 'Scan and verify license',
-                          onTap: _openScanner,
-                        ),
-                        const SizedBox(height: 12),
-                        _ToActionCard(
-                          icon: Icons.history_rounded,
-                          title: 'Fine History',
-                          subtitle: 'View issued fines',
-                          onTap: _openHistory,
-                        ),
-                        const SizedBox(height: 18),
-                        const _ShiftStatusCard(),
-                        const SizedBox(height: 10),
-                      ],
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _DashboardHeader(),
+                      const SizedBox(height: 14),
+                      _WelcomeCard(
+                        officerName: _officerName,
+                        badgeNumber: _badgeNumber,
+                        divisionName: _divisionName,
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionTitle(title: 'Today\'s Overview'),
+                      const SizedBox(height: 10),
+                      DashboardStatsCard(
+                        todayFines: _todayFines,
+                        totalFines: _totalFines,
+                        isLoading: _isLoading,
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionTitle(title: 'Quick Actions'),
+                      const SizedBox(height: 10),
+                      _ToActionCard(
+                        icon: Icons.qr_code_scanner_rounded,
+                        title: 'Scan Driver QR',
+                        subtitle: 'Scan and verify license',
+                        onTap: _openScanner,
+                      ),
+                      const SizedBox(height: 12),
+                      _ToActionCard(
+                        icon: Icons.history_rounded,
+                        title: 'Fine History',
+                        subtitle: 'View issued fines',
+                        onTap: _openHistory,
+                      ),
+                      const SizedBox(height: 18),
+                      _ShiftStatusCard(isOnDuty: _isOnDuty),
+                      const SizedBox(height: 10),
+                    ],
                   ),
                 );
               },
@@ -383,94 +395,121 @@ class _WelcomeCard extends StatelessWidget {
   const _WelcomeCard({
     required this.officerName,
     required this.badgeNumber,
+    required this.divisionName,
   });
 
   final String officerName;
   final String badgeNumber;
+  final String divisionName;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.policeBlue, AppTheme.policeBlueDark],
-        ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.policeBlue.withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0F2B5C), // Deep Tactical Blue
+                  Color(0xFF1E40AF), // Premium Royal Blue
+                  Color(0xFF1D3557), // Dark Sapphire Slate
+                ],
+                stops: [0.0, 0.55, 1.0],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F2B5C).withValues(alpha: 0.30),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Flexible(
-                      child: Text(
-                        'Welcome, $officerName',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Welcome, $officerName',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.verified_rounded,
+                            color: Color(0xFF60A5FA), // Light Accent Blue
+                            size: 19,
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.verified_rounded,
-                      color: Colors.white,
-                      size: 18,
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Keep the road safe with fast, secure operations.',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.25,
+                const SizedBox(height: 8),
+                const Text(
+                  'Keep the road safe with fast, secure operations.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFFE0E7FF), // Soft Indigo Ice
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _InfoChip(
+                      icon: Icons.location_on_rounded,
+                      label: divisionName,
+                      foreground: const Color(0xFFF0F9FF),
+                      background: Colors.white.withValues(alpha: 0.12),
+                      border: Colors.white.withValues(alpha: 0.22),
+                    ),
+                    _InfoChip(
+                      icon: Icons.badge_rounded,
+                      label: badgeNumber,
+                      foreground: const Color(0xFFF0F9FF),
+                      background: Colors.white.withValues(alpha: 0.12),
+                      border: Colors.white.withValues(alpha: 0.22),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _InfoChip(
-                icon: Icons.schedule_rounded,
-                label: '08:00 AM - 04:00 PM',
-                foreground: Colors.white,
-                background: Colors.white.withValues(alpha: 0.12),
-                border: Colors.white.withValues(alpha: 0.16),
+          // Subtle Premium Ambient Light Effect
+          Positioned(
+            top: -30,
+            right: -30,
+            child: Container(
+              width: 130,
+              height: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.06),
               ),
-              _InfoChip(
-                icon: Icons.badge_rounded,
-                label: 'Badge: $badgeNumber',
-                foreground: Colors.white,
-                background: Colors.white.withValues(alpha: 0.12),
-                border: Colors.white.withValues(alpha: 0.16),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -496,16 +535,16 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: border, width: 1),
+        border: Border.all(color: border, width: 1.1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: foreground, size: 16),
+          Icon(icon, color: const Color(0xFF93C5FD), size: 16),
           const SizedBox(width: 8),
           Text(
             label,
@@ -513,6 +552,7 @@ class _InfoChip extends StatelessWidget {
               color: foreground,
               fontSize: 12,
               fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -610,10 +650,14 @@ class _ToActionCard extends StatelessWidget {
 }
 
 class _ShiftStatusCard extends StatelessWidget {
-  const _ShiftStatusCard();
+  const _ShiftStatusCard({required this.isOnDuty});
+
+  final bool isOnDuty;
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = isOnDuty ? Colors.green : Colors.orange;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -638,12 +682,12 @@ class _ShiftStatusCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
+              color: statusColor.shade50,
               borderRadius: BorderRadius.circular(25),
             ),
             child: Icon(
               Icons.shield_outlined,
-              color: Colors.green.shade700,
+              color: statusColor.shade700,
               size: 27,
             ),
           ),
@@ -652,9 +696,9 @@ class _ShiftStatusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Shift Status',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.policeBlue,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -665,12 +709,12 @@ class _ShiftStatusCard extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.circle_rounded,
-                      color: Colors.green.shade500,
+                      color: statusColor.shade500,
                       size: 10,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Active • On Duty',
+                      isOnDuty ? 'Active • On Duty' : 'Off Duty',
                       style: const TextStyle(
                         color: AppTheme.textGray,
                         fontSize: 12,
@@ -685,17 +729,17 @@ class _ShiftStatusCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
+              color: statusColor.shade50,
               borderRadius: BorderRadius.circular(25),
               border: Border.all(
-                color: Colors.green.shade200,
+                color: statusColor.shade200,
                 width: 1,
               ),
             ),
             child: Text(
-              'LIVE',
+              isOnDuty ? 'LIVE' : 'OFF',
               style: TextStyle(
-                color: Colors.green.shade700,
+                color: statusColor.shade700,
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,

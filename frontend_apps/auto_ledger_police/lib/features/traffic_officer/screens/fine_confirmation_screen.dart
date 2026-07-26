@@ -67,29 +67,29 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.25),
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 20),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(34),
+            borderRadius: BorderRadius.circular(30),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.78),
-                  borderRadius: BorderRadius.circular(34),
+                  color: Colors.white.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(30),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.60),
+                    color: AppTheme.policeBlue.withValues(alpha: 0.18),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 40,
-                      offset: const Offset(0, 18),
+                      color: AppTheme.policeBlue.withValues(alpha: 0.12),
+                      blurRadius: 36,
+                      offset: const Offset(0, 14),
                     ),
                   ],
                 ),
@@ -97,16 +97,23 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 66,
-                      height: 66,
+                      width: 62,
+                      height: 68,
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlack.withOpacity(0.96),
-                        borderRadius: BorderRadius.circular(24),
+                        color: AppTheme.policeBlue,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.policeBlue.withValues(alpha: 0.25),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: const Icon(
                         Icons.fact_check_outlined,
                         color: Colors.white,
-                        size: 34,
+                        size: 32,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -114,8 +121,8 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                       'Issue Fine?',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppTheme.primaryBlack,
-                        fontSize: 22,
+                        color: AppTheme.policeBlue,
+                        fontSize: 21,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -125,12 +132,12 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppTheme.textGray,
-                        fontSize: 13,
-                        height: 1.45,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
                     Wrap(
                       alignment: WrapAlignment.center,
                       spacing: 8,
@@ -157,12 +164,14 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                           child: OutlinedButton(
                             onPressed: () => Navigator.of(dialogContext).pop(false),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryBlack,
-                              side: const BorderSide(color: AppTheme.borderGray),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
+                              foregroundColor: AppTheme.policeBlue,
+                              side: BorderSide(
+                                color: AppTheme.policeBlue.withValues(alpha: 0.25),
                               ),
-                              minimumSize: const Size.fromHeight(50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              minimumSize: const Size.fromHeight(48),
                             ),
                             child: const Text(
                               'Cancel',
@@ -175,13 +184,13 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.of(dialogContext).pop(true),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryBlack,
+                              backgroundColor: AppTheme.policeBlue,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                              minimumSize: const Size.fromHeight(50),
+                              minimumSize: const Size.fromHeight(48),
                             ),
                             child: const Text(
                               'Issue Fine',
@@ -260,30 +269,30 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
 
   Widget _glassCard({
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
-    double radius = 28,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    double radius = 25,
     Color? color,
     Color? borderColor,
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           width: double.infinity,
           padding: padding,
           decoration: BoxDecoration(
-            color: color ?? Colors.white.withOpacity(0.88),
+            color: color ?? Colors.white.withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: borderColor ?? Colors.white.withOpacity(0.38),
+              color: borderColor ?? AppTheme.policeBlue.withValues(alpha: 0.12),
               width: 1.1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: AppTheme.policeBlue.withValues(alpha: 0.05),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -294,20 +303,28 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
   }
 
   Widget _headerCard() {
-    return _glassCard(
-      radius: 32,
-      color: AppTheme.primaryBlack.withOpacity(0.96),
-      borderColor: Colors.white.withOpacity(0.14),
-      padding: const EdgeInsets.all(22),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.policeBlue,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.policeBlue.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
             Icons.fact_check_outlined,
             color: Colors.white,
-            size: 34,
+            size: 32,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Text(
             widget.license.licenseNumber.isEmpty
                 ? 'Confirm Fine'
@@ -316,11 +333,11 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 23,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             widget.license.driverName.isEmpty
                 ? 'Review selected offenses.'
@@ -329,9 +346,9 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 14,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
+              fontSize: 12.5,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -341,16 +358,23 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
 
   Widget _summaryCard() {
     return _glassCard(
-      radius: 30,
+      radius: 25,
       child: Column(
         children: [
-          _InfoRow(title: 'Offenses', value: '${widget.selectedOffenses.length}'),
-          const SizedBox(height: 12),
-          _InfoRow(title: 'Total Points', value: '$_totalPoints'),
-          const SizedBox(height: 12),
           _InfoRow(
-            title: 'Total Amount',
+            title: 'Offenses Count',
+            value: '${widget.selectedOffenses.length}',
+          ),
+          const SizedBox(height: 10),
+          _InfoRow(
+            title: 'Total Penalty Points',
+            value: '$_totalPoints',
+          ),
+          const SizedBox(height: 10),
+          _InfoRow(
+            title: 'Total Fine Amount',
             value: 'LKR ${_totalAmount.toStringAsFixed(2)}',
+            valueColor: AppTheme.policeBlue,
           ),
         ],
       ),
@@ -359,17 +383,34 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
 
   Widget _notesCard() {
     return _glassCard(
-      radius: 30,
+      radius: 22,
       padding: EdgeInsets.zero,
       child: TextField(
         controller: _commentController,
-        maxLines: 4,
-        textInputAction: TextInputAction.newline,
-        decoration: const InputDecoration(
-          hintText: 'Optional note for this fine',
-          prefixIcon: Icon(Icons.edit_note_rounded),
+        maxLines: 3,
+        textInputAction: TextInputAction.done,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppTheme.policeBlue,
+          fontWeight: FontWeight.w600,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Add an optional officer note here...',
+          hintStyle: const TextStyle(
+            color: AppTheme.textGray,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+          ),
+          prefixIcon: const Icon(
+            Icons.edit_note_rounded,
+            color: AppTheme.policeBlue,
+            size: 22,
+          ),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.all(18),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
       ),
     );
@@ -391,116 +432,104 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
+      backgroundColor: const Color(0xFFF4F8FF),
       appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FBFF),
+        elevation: 0,
+        centerTitle: false,
         title: const Text(
           'Fine Confirmation',
-          style: TextStyle(fontWeight: FontWeight.w800),
+          style: TextStyle(
+            color: AppTheme.policeBlue,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding =
-                constraints.maxWidth < 380 ? 16.0 : 20.0;
-
-            return Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFF8FBFF),
-                    Color(0xFFF1F6FF),
-                  ],
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFF8FBFF),
+                Color(0xFFF1F6FF),
+              ],
+            ),
+          ),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            children: [
+              _headerCard(),
+              const SizedBox(height: 16),
+              const Text(
+                'Review Fine Details',
+                style: TextStyle(
+                  color: AppTheme.policeBlue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  left: horizontalPadding,
-                  right: horizontalPadding,
-                  top: 18,
-                  bottom: 24,
+              const SizedBox(height: 10),
+              _summaryCard(),
+              const SizedBox(height: 16),
+              const Text(
+                'Officer Notes',
+                style: TextStyle(
+                  color: AppTheme.policeBlue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                 ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _headerCard(),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Review Fine Details',
-                        style: TextStyle(
-                          color: AppTheme.primaryBlack,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _summaryCard(),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Officer Notes',
-                        style: TextStyle(
-                          color: AppTheme.primaryBlack,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _notesCard(),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Selected Offenses',
-                        style: TextStyle(
-                          color: AppTheme.primaryBlack,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _selectedOffensesList(),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _issueFine,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryBlack,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
+              ),
+              const SizedBox(height: 10),
+              _notesCard(),
+              const SizedBox(height: 16),
+              const Text(
+                'Selected Offenses',
+                style: TextStyle(
+                  color: AppTheme.policeBlue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _selectedOffensesList(),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _issueFine,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.policeBlue,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
                           ),
-                          icon: _isLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.receipt_long_outlined, size: 20),
-                          label: Text(
-                            _isLoading ? 'Issuing Fine...' : 'Issue Fine',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                    ],
+                        )
+                      : const Icon(Icons.receipt_long_outlined, size: 18),
+                  label: Text(
+                    _isLoading ? 'Issuing Fine...' : 'Issue Fine',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                    ),
                   ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -511,10 +540,12 @@ class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.title,
     required this.value,
+    this.valueColor,
   });
 
   final String title;
   final String value;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -525,8 +556,8 @@ class _InfoRow extends StatelessWidget {
             title,
             style: const TextStyle(
               color: AppTheme.textGray,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -536,10 +567,10 @@ class _InfoRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.end,
-            style: const TextStyle(
-              color: AppTheme.primaryBlack,
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
+            style: TextStyle(
+              color: valueColor ?? AppTheme.policeBlue,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
@@ -556,21 +587,24 @@ class _SelectedOffenseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(22),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.88),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withOpacity(0.40)),
+            color: Colors.white.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: AppTheme.policeBlue.withValues(alpha: 0.12),
+              width: 1.1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: AppTheme.policeBlue.withValues(alpha: 0.05),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -579,34 +613,37 @@ class _SelectedOffenseCard extends StatelessWidget {
             children: [
               Text(
                 offense.name.isEmpty ? 'Traffic Offense' : offense.name,
-                maxLines: 3,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppTheme.primaryBlack,
-                  fontSize: 15,
+                  color: AppTheme.policeBlue,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               if (offense.description.trim().isNotEmpty) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 5),
                 Text(
                   offense.description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppTheme.textGray,
-                    fontSize: 12,
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 11.5,
+                    height: 1.3,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
-                runSpacing: 8,
+                runSpacing: 6,
                 children: [
-                  _Chip(label: '${offense.points} pts', icon: Icons.bolt_rounded),
+                  _Chip(
+                    label: '${offense.points} pts',
+                    icon: Icons.bolt_rounded,
+                  ),
                   _Chip(
                     label: 'LKR ${offense.amount.toStringAsFixed(2)}',
                     icon: Icons.payments_outlined,
@@ -615,6 +652,7 @@ class _SelectedOffenseCard extends StatelessWidget {
                     const _Chip(
                       label: 'Court Case',
                       icon: Icons.gavel_rounded,
+                      color: AppTheme.errorRed,
                     ),
                 ],
               ),
@@ -630,30 +668,38 @@ class _Chip extends StatelessWidget {
   const _Chip({
     required this.label,
     required this.icon,
+    this.color,
   });
 
   final String label;
   final IconData icon;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final chipColor = color ?? AppTheme.policeBlue;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppTheme.lightGray.withOpacity(0.72),
-        borderRadius: BorderRadius.circular(18),
+        color: chipColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: chipColor.withValues(alpha: 0.18),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: AppTheme.primaryBlack),
-          const SizedBox(width: 8),
+          Icon(icon, size: 14, color: chipColor),
+          const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: AppTheme.primaryBlack,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+            style: TextStyle(
+              color: chipColor,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

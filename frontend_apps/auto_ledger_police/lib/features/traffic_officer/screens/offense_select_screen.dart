@@ -117,7 +117,7 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.38),
+      barrierColor: Colors.black.withValues(alpha: 0.38),
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -129,15 +129,15 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
               child: Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.78),
+                  color: Colors.white.withValues(alpha: 0.88),
                   borderRadius: BorderRadius.circular(34),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.60),
+                    color: AppTheme.policeBlue.withValues(alpha: 0.18),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: AppTheme.policeBlue.withValues(alpha: 0.12),
                       blurRadius: 40,
                       offset: const Offset(0, 18),
                     ),
@@ -150,7 +150,7 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
                       width: 66,
                       height: 66,
                       decoration: BoxDecoration(
-                        color: AppTheme.errorRed.withOpacity(0.12),
+                        color: AppTheme.errorRed.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: const Icon(
@@ -164,7 +164,7 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
                       'Session Expired',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppTheme.primaryBlack,
+                        color: AppTheme.policeBlue,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
@@ -195,7 +195,7 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryBlack,
+                          backgroundColor: AppTheme.policeBlue,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -222,13 +222,6 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
     final offenses = await _trafficFineService.getOffenses();
     offenses.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return offenses;
-  }
-
-  Future<void> _refreshOffenses() async {
-    setState(() {
-      _offensesFuture = _loadOffenses();
-    });
-    await _offensesFuture;
   }
 
   void _toggleOffense(OffenseModel offense) {
@@ -291,30 +284,30 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
 
   Widget _glassCard({
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
-    double radius = 28,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    double radius = 25,
     Color? color,
     Color? borderColor,
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           width: double.infinity,
           padding: padding,
           decoration: BoxDecoration(
-            color: color ?? Colors.white.withOpacity(0.88),
+            color: color ?? Colors.white.withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: borderColor ?? Colors.white.withOpacity(0.38),
+              color: borderColor ?? AppTheme.policeBlue.withValues(alpha: 0.12),
               width: 1.1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: AppTheme.policeBlue.withValues(alpha: 0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -330,19 +323,19 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: color.withOpacity(0.28)),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
@@ -350,7 +343,7 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
                   ? Icons.timer_off_rounded
                   : Icons.timer_outlined,
               color: color,
-              size: 24,
+              size: 22,
             ),
           ),
           const SizedBox(width: 12),
@@ -364,7 +357,7 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
                       : 'Scan session active',
                   style: TextStyle(
                     color: color,
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -375,7 +368,7 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
                       : 'Time remaining: ${_formatCountdown(_remaining)}',
                   style: const TextStyle(
                     color: AppTheme.textGray,
-                    fontSize: 12,
+                    fontSize: 11.5,
                     height: 1.3,
                     fontWeight: FontWeight.w500,
                   ),
@@ -389,20 +382,28 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
   }
 
   Widget _headerCard() {
-    return _glassCard(
-      radius: 32,
-      color: AppTheme.primaryBlack.withOpacity(0.96),
-      borderColor: Colors.white.withOpacity(0.14),
-      padding: const EdgeInsets.all(22),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.policeBlue,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.policeBlue.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
             Icons.receipt_long_outlined,
             color: Colors.white,
-            size: 34,
+            size: 32,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Text(
             widget.license.licenseNumber.isEmpty
                 ? 'Select Traffic Offenses'
@@ -411,17 +412,17 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 23,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           const Text(
             'Choose one or more offenses before issuing the fine.',
             style: TextStyle(
               color: Colors.white70,
-              fontSize: 14,
-              height: 1.45,
+              fontSize: 12.5,
+              height: 1.35,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -432,7 +433,7 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
 
   Widget _summaryCard(List<OffenseModel> selected) {
     return _glassCard(
-      radius: 30,
+      radius: 25,
       child: Row(
         children: [
           _SummaryItem(
@@ -454,143 +455,130 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
     );
   }
 
+  List<Widget> _buildOffenseCards(List<OffenseModel> offenses) {
+    return offenses.map((offense) {
+      final offenseId = offense.id.trim().isNotEmpty
+          ? offense.id.trim()
+          : offense.code.trim();
+      final isSelected = _selectedOffenseIds.contains(offenseId);
+      return _OffenseCard(
+        offense: offense,
+        isSelected: isSelected,
+        onTap: () => _toggleOffense(offense),
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
+      backgroundColor: const Color(0xFFF4F8FF),
       appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FBFF),
+        elevation: 0,
+        centerTitle: false,
         title: const Text(
           'Select Offenses',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            onPressed: _refreshOffenses,
-            icon: const Icon(Icons.refresh_rounded),
+          style: TextStyle(
+            color: AppTheme.policeBlue,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
           ),
-        ],
+        ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding =
-                constraints.maxWidth < 380 ? 16.0 : 20.0;
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFF8FBFF),
+                Color(0xFFF1F6FF),
+              ],
+            ),
+          ),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            children: [
+              _headerCard(),
+              const SizedBox(height: 12),
+              _scanTimerBanner(),
+              const SizedBox(height: 12),
+              FutureBuilder<List<OffenseModel>>(
+                future: _offensesFuture,
+                builder: (context, snapshot) {
+                  final isLoading =
+                      snapshot.connectionState == ConnectionState.waiting;
+                  final offenses = snapshot.data ?? <OffenseModel>[];
+                  final selected = _selectedOffenses(offenses);
 
-            return RefreshIndicator(
-              color: AppTheme.primaryBlack,
-              onRefresh: _refreshOffenses,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.only(
-                  left: horizontalPadding,
-                  right: horizontalPadding,
-                  top: 18,
-                  bottom: 24,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: FutureBuilder<List<OffenseModel>>(
-                    future: _offensesFuture,
-                    builder: (context, snapshot) {
-                      final isLoading =
-                          snapshot.connectionState == ConnectionState.waiting;
-                      final offenses = snapshot.data ?? <OffenseModel>[];
-                      final selected = _selectedOffenses(offenses);
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _headerCard(),
-                          const SizedBox(height: 14),
-                          _scanTimerBanner(),
-                          const SizedBox(height: 14),
-                          _summaryCard(selected),
-                          const SizedBox(height: 22),
-                          const Text(
-                            'Available Offenses',
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _summaryCard(selected),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Available Offenses',
+                        style: TextStyle(
+                          color: AppTheme.policeBlue,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (isLoading)
+                        const _LoadingCard()
+                      else if (snapshot.hasError)
+                        _glassCard(
+                          radius: 25,
+                          color: Colors.white.withValues(alpha: 0.88),
+                          borderColor: AppTheme.errorRed.withValues(alpha: 0.35),
+                          child: _ErrorCard(
+                            message: snapshot.error is ApiException
+                                ? (snapshot.error as ApiException).message
+                                : 'Unable to load offenses.',
+                          ),
+                        )
+                      else if (offenses.isEmpty)
+                        _glassCard(
+                          radius: 25,
+                          child: const _EmptyCard(),
+                        )
+                      else
+                        ..._buildOffenseCards(offenses),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: _remaining == Duration.zero
+                              ? _showExpiredDialog
+                              : () => _openConfirmation(offenses),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.policeBlue,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                          label: const Text(
+                            'Continue',
                             style: TextStyle(
-                              color: AppTheme.primaryBlack,
-                              fontSize: 18,
                               fontWeight: FontWeight.w800,
+                              fontSize: 14.5,
                             ),
                           ),
-                          const SizedBox(height: 14),
-                          if (isLoading)
-                            _glassCard(
-                              radius: 28,
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: AppTheme.primaryBlack,
-                                ),
-                              ),
-                            )
-                          else if (snapshot.hasError)
-                            _glassCard(
-                              radius: 28,
-                              color: Colors.white.withOpacity(0.92),
-                              borderColor: AppTheme.errorRed.withOpacity(0.35),
-                              child: _ErrorCard(
-                                onRetry: _refreshOffenses,
-                                message: snapshot.error is ApiException
-                                    ? (snapshot.error as ApiException).message
-                                    : 'Unable to load offenses.',
-                              ),
-                            )
-                          else if (offenses.isEmpty)
-                            _glassCard(
-                              radius: 28,
-                              child: const _EmptyCard(),
-                            )
-                          else
-                            ...offenses.map(
-                              (offense) => Padding(
-                                padding: const EdgeInsets.only(bottom: 14),
-                                child: _OffenseCard(
-                                  offense: offense,
-                                  isSelected: _selectedOffenseIds.contains(
-                                    offense.id.trim().isNotEmpty
-                                        ? offense.id.trim()
-                                        : offense.code.trim(),
-                                  ),
-                                  onTap: () => _toggleOffense(offense),
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 54,
-                            child: ElevatedButton.icon(
-                              onPressed: _remaining == Duration.zero
-                                  ? _showExpiredDialog
-                                  : () => _openConfirmation(offenses),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryBlack,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                              ),
-                              icon: const Icon(Icons.arrow_forward_rounded, size: 20),
-                              label: const Text(
-                                'Continue',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                        ],
-                      );
-                    },
-                  ),
-                ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -616,12 +604,12 @@ class _SummaryItem extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppTheme.primaryBlack,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
+              color: AppTheme.policeBlue,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             title,
             maxLines: 1,
@@ -629,7 +617,7 @@ class _SummaryItem extends StatelessWidget {
             style: const TextStyle(
               color: AppTheme.textGray,
               fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -654,113 +642,120 @@ class _OffenseCard extends StatelessWidget {
     final title = offense.name.isEmpty ? 'Traffic Offense' : offense.name;
     final code = offense.code.isEmpty ? offense.id : offense.code;
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(28),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(28),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.88),
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
                   color: isSelected
-                      ? AppTheme.primaryBlack.withOpacity(0.95)
-                      : Colors.white.withOpacity(0.40),
-                  width: isSelected ? 1.6 : 1.1,
+                      ? AppTheme.policeBlue.withValues(alpha: 0.06)
+                      : Colors.white.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppTheme.policeBlue
+                        : AppTheme.policeBlue.withValues(alpha: 0.12),
+                    width: isSelected ? 1.8 : 1.1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.policeBlue.withValues(alpha: 0.05),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppTheme.primaryBlack
-                          : AppTheme.lightGray.withOpacity(0.78),
-                      borderRadius: BorderRadius.circular(20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.policeBlue
+                            : AppTheme.policeBlue.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        isSelected
+                            ? Icons.check_circle_rounded
+                            : Icons.warning_amber_rounded,
+                        color: isSelected ? Colors.white : AppTheme.policeBlue,
+                        size: 24,
+                      ),
                     ),
-                    child: Icon(
-                      isSelected
-                          ? Icons.check_circle_outline_rounded
-                          : Icons.warning_amber_rounded,
-                      color: isSelected ? Colors.white : AppTheme.primaryBlack,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.primaryBlack,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          code.isEmpty ? 'No code' : code,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.textGray,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if (offense.description.trim().isNotEmpty) ...[
-                          const SizedBox(height: 6),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            offense.description,
+                            title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppTheme.textGray,
-                              fontSize: 12,
-                              height: 1.35,
-                              fontWeight: FontWeight.w500,
+                              color: AppTheme.policeBlue,
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                        ],
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _MiniBadge(text: '${offense.points} pts'),
-                            _MiniBadge(
-                              text: 'LKR ${offense.amount.toStringAsFixed(2)}',
+                          const SizedBox(height: 4),
+                          Text(
+                            code.isEmpty ? 'No code' : 'Code: $code',
+                            style: const TextStyle(
+                              color: AppTheme.textGray,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
                             ),
-                            if (offense.isCourtCase)
-                              const _MiniBadge(text: 'Court Case'),
+                          ),
+                          if (offense.description.trim().isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              offense.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppTheme.textGray,
+                                fontSize: 11.5,
+                                height: 1.3,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
                           ],
-                        ),
-                      ],
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _MiniBadge(text: '${offense.points} pts'),
+                              _MiniBadge(
+                                text: 'LKR ${offense.amount.toStringAsFixed(2)}',
+                              ),
+                              if (offense.isCourtCase)
+                                const _MiniBadge(
+                                  text: 'Court Case',
+                                  color: AppTheme.errorRed,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -771,24 +766,34 @@ class _OffenseCard extends StatelessWidget {
 }
 
 class _MiniBadge extends StatelessWidget {
-  const _MiniBadge({required this.text});
+  const _MiniBadge({
+    required this.text,
+    this.color,
+  });
 
   final String text;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final badgeColor = color ?? AppTheme.policeBlue;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppTheme.lightGray.withOpacity(0.72),
-        borderRadius: BorderRadius.circular(14),
+        color: badgeColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: badgeColor.withValues(alpha: 0.18),
+          width: 0.8,
+        ),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: AppTheme.primaryBlack,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
+        style: TextStyle(
+          color: badgeColor,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -804,13 +809,15 @@ class _LoadingCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.88),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withOpacity(0.40)),
+        color: Colors.white.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: AppTheme.policeBlue.withValues(alpha: 0.12),
+        ),
       ),
       child: const Center(
         child: CircularProgressIndicator(
-          color: AppTheme.primaryBlack,
+          color: AppTheme.policeBlue,
         ),
       ),
     );
@@ -819,11 +826,9 @@ class _LoadingCard extends StatelessWidget {
 
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({
-    required this.onRetry,
     required this.message,
   });
 
-  final VoidCallback onRetry;
   final String message;
 
   @override
@@ -841,24 +846,8 @@ class _ErrorCard extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppTheme.errorRed,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 14),
-        OutlinedButton.icon(
-          onPressed: onRetry,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.errorRed,
-            side: const BorderSide(color: AppTheme.errorRed),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(25),
-            ),
-          ),
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text(
-            'Retry',
-            style: TextStyle(fontWeight: FontWeight.w800),
           ),
         ),
       ],
@@ -875,17 +864,17 @@ class _EmptyCard extends StatelessWidget {
       children: [
         Icon(
           Icons.warning_amber_rounded,
-          color: AppTheme.primaryBlack,
-          size: 34,
+          color: AppTheme.policeBlue,
+          size: 32,
         ),
-        SizedBox(height: 12),
+        SizedBox(height: 10),
         Text(
           'No offenses found',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: AppTheme.primaryBlack,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            color: AppTheme.policeBlue,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
