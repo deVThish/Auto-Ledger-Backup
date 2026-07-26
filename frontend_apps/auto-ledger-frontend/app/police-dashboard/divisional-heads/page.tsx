@@ -57,7 +57,7 @@ export default function ManageHeads() {
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 5000);
   };
 
   const loadData = async () => {
@@ -83,7 +83,6 @@ export default function ManageHeads() {
   const handleHeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Generate username from email (before @) and a default password
     const username = headForm.email.split("@")[0] || "head";
     const passwordStr = "Head@123";
 
@@ -98,7 +97,7 @@ export default function ManageHeads() {
 
       showToast(
         "success",
-        "Divisional Head registered & activated successfully!",
+        "New Divisional Head registered and activated! Active Head replaced, unresolved tasks, active shifts and officers transferred automatically.",
       );
       setHeadForm({
         name: "",
@@ -118,17 +117,26 @@ export default function ManageHeads() {
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     try {
       if (currentStatus) {
+        if (
+          !window.confirm(
+            "Are you sure you want to disable this Divisional Head?",
+          )
+        )
+          return;
         await api.patch(`/officers/head/${id}/disable`);
-        showToast("success", "Divisional Head disabled successfully");
+        showToast("success", "Divisional Head disabled successfully.");
       } else {
         if (
           !window.confirm(
-            "Activating this head will automatically disable the currently active head for this division. Do you want to continue?",
+            "Activating this Head will automatically disable the currently active Head in this division. All traffic officers, unresolved fines, and active ongoing shifts will be transferred automatically, while future shifts will be canceled. Continue?",
           )
         )
           return;
         await api.patch(`/officers/head/${id}/activate`);
-        showToast("success", "Divisional Head activated & officers reassigned");
+        showToast(
+          "success",
+          "Divisional Head activated! All officers, unresolved tasks, and active shifts transferred to new DH.",
+        );
       }
       await loadData();
     } catch (err: unknown) {
@@ -144,10 +152,10 @@ export default function ManageHeads() {
     <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 relative">
       {toast && (
         <div
-          className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl ${
+          className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl max-w-md ${
             toast.type === "error"
-              ? "bg-red-950/80 border-red-500/50 text-red-200"
-              : "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"
+              ? "bg-red-950/90 border-red-500/50 text-red-200"
+              : "bg-emerald-950/90 border-emerald-500/50 text-emerald-200"
           }`}
         >
           {toast.type === "error" ? (
@@ -193,6 +201,7 @@ export default function ManageHeads() {
                 setHeadForm({ ...headForm, name: e.target.value })
               }
               type="text"
+              placeholder="e.g. SSP Anura Jayasinghe"
               className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white"
             />
           </div>
@@ -214,28 +223,25 @@ export default function ManageHeads() {
                 -- Select a Division --
               </option>
               {divisions.map((div) => {
-                const hasActiveHead =
-                  div.divisionalHeads && div.divisionalHeads.length > 0;
+                const activeHead =
+                  div.divisionalHeads && div.divisionalHeads.length > 0
+                    ? div.divisionalHeads[0].name
+                    : null;
                 return (
                   <option
                     key={div.division_Id}
                     value={div.division_Name}
-                    disabled={hasActiveHead}
-                    className={
-                      hasActiveHead
-                        ? "text-slate-600 bg-[#030508]"
-                        : "text-white"
-                    }
+                    className="text-white bg-[#030508]"
                   >
                     {div.division_Name} ({div.division_Id}){" "}
-                    {hasActiveHead ? " - [ Active Head Exists ]" : ""}
+                    {activeHead
+                      ? ` - [ Current DH: ${activeHead} ]`
+                      : " - [ Vacant ]"}
                   </option>
                 );
               })}
             </select>
           </div>
-
-          {/* Username and Password fields removed */}
 
           <div className="space-y-2 md:col-span-2">
             <label className="text-[11px] font-bold text-slate-400 uppercase">
@@ -248,6 +254,7 @@ export default function ManageHeads() {
                 setHeadForm({ ...headForm, email: e.target.value })
               }
               type="email"
+              placeholder="dh.colombo@police.lk"
               className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white"
             />
           </div>
@@ -291,12 +298,12 @@ export default function ManageHeads() {
                 </td>
                 <td className="p-4">
                   {head.is_Active ? (
-                    <span className="text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded font-bold">
-                      Active
+                    <span className="text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md font-bold">
+                      Active DH
                     </span>
                   ) : (
-                    <span className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded font-bold">
-                      Disabled
+                    <span className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md font-bold">
+                      Inactive / Inactive History
                     </span>
                   )}
                 </td>
@@ -313,7 +320,11 @@ export default function ManageHeads() {
                         ? "text-red-400 hover:bg-red-500/20 hover:text-red-300"
                         : "text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
                     }`}
-                    title={head.is_Active ? "Disable Head" : "Activate Head"}
+                    title={
+                      head.is_Active
+                        ? "Disable Head"
+                        : "Activate Head & Transfer Resources"
+                    }
                   >
                     <Power size={18} />
                   </button>
