@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
@@ -17,7 +17,7 @@ class QrScannerScreen extends StatefulWidget {
 
 class _QrScannerScreenState extends State<QrScannerScreen>
     with WidgetsBindingObserver {
-  final _trafficFineService = TrafficFineService();
+  final TrafficFineService _trafficFineService = TrafficFineService();
   final MobileScannerController _controller = MobileScannerController(
     autoStart: false,
   );
@@ -25,8 +25,9 @@ class _QrScannerScreenState extends State<QrScannerScreen>
   bool _isLoading = false;
   bool _isScanning = false;
   bool _hasPermissionError = false;
-
-  String _lastSessionId = '';
+  bool _permissionBlocked = false;
+  bool _isStartingScanner = false;
+  bool _isScannerActive = false;
 
   @override
   void initState() {
@@ -35,17 +36,71 @@ class _QrScannerScreenState extends State<QrScannerScreen>
     _initScanner();
   }
 
+  bool _isPermissionIssue(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('permission') || message.contains('camera');
+  }
+
   Future<void> _initScanner() async {
-    if (!mounted) return;
+    if (!mounted ||
+        _permissionBlocked ||
+        _isStartingScanner ||
+        _isScannerActive) {
+      return;
+    }
+
+    _isStartingScanner = true;
+
     try {
       await _controller.start();
-      if (mounted) {
-        setState(() => _hasPermissionError = false);
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _hasPermissionError = true);
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _hasPermissionError = false;
+        _isScannerActive = true;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      final permissionIssue = _isPermissionIssue(error);
+      setState(() {
+        _hasPermissionError = true;
+        _permissionBlocked = permissionIssue;
+        _isScannerActive = false;
+      });
+
+      try {
+        await _controller.stop();
+      } catch (_) {}
+    } finally {
+      _isStartingScanner = false;
+    }
+  }
+
+  Future<void> _stopScanner() async {
+    if (!_isScannerActive) return;
+
+    try {
+      await _controller.stop();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    setState(() {
+      _isScannerActive = false;
+    });
+  }
+
+  Future<void> _resumeScanner() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+      _isScanning = false;
+    });
+
+    if (!_permissionBlocked) {
+      await _initScanner();
     }
   }
 
@@ -58,10 +113,14 @@ class _QrScannerScreenState extends State<QrScannerScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _initScanner();
-    } else if (state == AppLifecycleState.paused) {
-      _controller.stop();
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _stopScanner();
+    } else if (state == AppLifecycleState.resumed) {
+      if (!_permissionBlocked) {
+        _initScanner();
+      }
     }
   }
 
@@ -73,23 +132,13 @@ class _QrScannerScreenState extends State<QrScannerScreen>
     if (sessionId == null || sessionId.trim().isEmpty) {
       AppErrorHandler.showPopup(
         context,
-        message: 'Invalid QR code. Please try again.',
-      );
-      return;
-    }
-
-    final cleanedSessionId = sessionId.trim();
-
-    if (_lastSessionId.isNotEmpty && cleanedSessionId == _lastSessionId) {
-      AppErrorHandler.showPopup(
-        context,
-        message: 'This QR session is already active. Please scan a new QR.',
+        message: 'Please scan a valid QR code.',
       );
       return;
     }
 
     _isScanning = true;
-    _verifySession(cleanedSessionId);
+    _verifySession(sessionId.trim());
   }
 
   Future<void> _verifySession(String sessionId) async {
@@ -98,7 +147,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
     setState(() => _isLoading = true);
 
     try {
-      await _controller.stop();
+      await _stopScanner();
 
       final license = await _trafficFineService.scanQr(
         sessionId: sessionId,
@@ -107,32 +156,32 @@ class _QrScannerScreenState extends State<QrScannerScreen>
 
       if (!mounted) return;
 
-      _lastSessionId = sessionId;
+      final expiresAt = license.scanExpiresAt;
+      if (expiresAt != null && expiresAt.isBefore(DateTime.now())) {
+        AppErrorHandler.showPopup(
+          context,
+          message: 'This QR code has expired. Please scan a valid QR code.',
+        );
+        await _resumeScanner();
+        return;
+      }
 
       await _openPreviewWithLicense(license, sessionId);
 
       if (!mounted) return;
 
-      setState(() {
-        _isLoading = false;
-        _isScanning = false;
-      });
+      await _resumeScanner();
     } on ApiException catch (error) {
       if (!mounted) return;
 
       AppErrorHandler.showPopup(
         context,
-        message: error.message,
+        message: error.message.toLowerCase().contains('expired')
+            ? 'This QR code has expired. Please scan a valid QR code.'
+            : error.message,
       );
 
-      setState(() {
-        _isLoading = false;
-        _isScanning = false;
-      });
-
-      if (error.message.toLowerCase().contains('expired')) {
-        _initScanner();
-      }
+      await _resumeScanner();
     } catch (_) {
       if (!mounted) return;
 
@@ -141,20 +190,14 @@ class _QrScannerScreenState extends State<QrScannerScreen>
         message: 'Unable to verify QR session. Please try again.',
       );
 
-      setState(() {
-        _isLoading = false;
-        _isScanning = false;
-      });
-
-      _initScanner();
+      await _resumeScanner();
     }
   }
 
   Future<void> _openPreviewWithLicense(
     LicenseModel license,
-    String sessionId, {
-    bool reuseSession = false,
-  }) async {
+    String sessionId,
+  ) async {
     if (!mounted) return;
 
     await Navigator.of(context).push(
@@ -165,15 +208,6 @@ class _QrScannerScreenState extends State<QrScannerScreen>
         ),
       ),
     );
-
-    if (!mounted) return;
-
-    if (reuseSession) {
-      setState(() {
-        _isLoading = false;
-        _isScanning = false;
-      });
-    }
   }
 
   void _toggleFlash() {
@@ -271,9 +305,14 @@ class _QrScannerScreenState extends State<QrScannerScreen>
                               onDetect: _handleScan,
                               errorBuilder: (context, error, child) {
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (mounted && !_hasPermissionError) {
-                                    setState(() => _hasPermissionError = true);
-                                  }
+                                  if (!mounted) return;
+                                  final permissionIssue =
+                                      _isPermissionIssue(error);
+                                  setState(() {
+                                    _hasPermissionError = permissionIssue;
+                                    _permissionBlocked = permissionIssue;
+                                    _isScannerActive = false;
+                                  });
                                 });
                                 return const SizedBox.shrink();
                               },
@@ -407,7 +446,11 @@ class _QrOverlayPainter extends CustomPainter {
     final bottom = top + cutOutSize;
     const cornerLength = 28.0;
 
-    canvas.drawLine(Offset(left, top + cornerLength), Offset(left, top), paint);
+    canvas.drawLine(
+      Offset(left, top + cornerLength),
+      Offset(left, top),
+      paint,
+    );
     canvas.drawLine(
       Offset(left, top),
       Offset(left + cornerLength, top),

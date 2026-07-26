@@ -77,22 +77,61 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
       final session = results[0] as PoliceSession?;
       final allFines = results[1] as List<dynamic>? ?? [];
 
-      final sortedFines = List<dynamic>.from(allFines);
-      sortedFines.sort((a, b) {
-        final DateTime? aDate = a.issuedAt as DateTime?;
-        final DateTime? bDate = b.issuedAt as DateTime?;
+      DateTime? extractFineDate(dynamic fine) {
+        final candidates = <dynamic>[
+          () {
+            try {
+              return fine.issuedAt;
+            } catch (_) {
+              return null;
+            }
+          },
+          () {
+            try {
+              return fine.createdAt;
+            } catch (_) {
+              return null;
+            }
+          },
+          () {
+            try {
+              return fine.date;
+            } catch (_) {
+              return null;
+            }
+          },
+        ];
 
-        if (aDate == null && bDate == null) return 0;
-        if (aDate == null) return 1;
-        if (bDate == null) return -1;
-        return bDate.compareTo(aDate);
-      });
+        for (final candidate in candidates) {
+          final value = candidate();
+          if (value is DateTime) {
+            return value.toLocal();
+          }
+          if (value is String) {
+            final parsed = DateTime.tryParse(value);
+            if (parsed != null) return parsed.toLocal();
+          }
+        }
+
+        return null;
+      }
+
+      final sortedFines = allFines.whereType<dynamic>().toList()
+        ..sort((a, b) {
+          final DateTime? aDate = extractFineDate(a);
+          final DateTime? bDate = extractFineDate(b);
+
+          if (aDate == null && bDate == null) return 0;
+          if (aDate == null) return 1;
+          if (bDate == null) return -1;
+          return bDate.compareTo(aDate);
+        });
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
 
       final todayCount = sortedFines.where((fine) {
-        final issuedAt = fine.issuedAt;
+        final issuedAt = extractFineDate(fine);
         if (issuedAt == null) return false;
         final fineDate = DateTime(issuedAt.year, issuedAt.month, issuedAt.day);
         return fineDate == today;
@@ -107,7 +146,6 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
         _badgeNumber = (session?.officerBadgeNumber != null && session!.officerBadgeNumber.trim().isNotEmpty)
             ? session.officerBadgeNumber
             : 'Traffic Officer';
-        // Dynamic reading from PoliceSession.divisionName
         _divisionName = (session?.divisionName != null && session!.divisionName.trim().isNotEmpty)
             ? session.divisionName
             : 'Police Operations';
@@ -416,9 +454,9 @@ class _WelcomeCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF0F2B5C), // Deep Tactical Blue
-                  Color(0xFF1E40AF), // Premium Royal Blue
-                  Color(0xFF1D3557), // Dark Sapphire Slate
+                  Color(0xFF0F2B5C),
+                  Color(0xFF1E40AF),
+                  Color(0xFF1D3557),
                 ],
                 stops: [0.0, 0.55, 1.0],
               ),
@@ -454,7 +492,7 @@ class _WelcomeCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           const Icon(
                             Icons.verified_rounded,
-                            color: Color(0xFF60A5FA), // Light Accent Blue
+                            color: Color(0xFF60A5FA),
                             size: 19,
                           ),
                         ],
@@ -468,7 +506,7 @@ class _WelcomeCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Color(0xFFE0E7FF), // Soft Indigo Ice
+                    color: Color(0xFFE0E7FF),
                     fontSize: 12.5,
                     fontWeight: FontWeight.w400,
                     height: 1.3,
@@ -498,7 +536,6 @@ class _WelcomeCard extends StatelessWidget {
               ],
             ),
           ),
-          // Subtle Premium Ambient Light Effect
           Positioned(
             top: -30,
             right: -30,

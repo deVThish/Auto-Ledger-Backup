@@ -65,6 +65,13 @@ class TrafficFineService {
     }
 
     final expiresAt = _readDate(payload['expiresAt']);
+    if (expiresAt != null && expiresAt.isBefore(DateTime.now())) {
+      throw const ApiException(
+        statusCode: 400,
+        message: 'This QR verification window has expired. Scan the QR code again.',
+      );
+    }
+
     final sessionIdFromResponse = payload['sessionId']?.toString() ?? sessionId;
 
     final license = LicenseModel.fromJson(licenseData);

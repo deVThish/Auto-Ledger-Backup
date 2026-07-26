@@ -155,7 +155,7 @@ class AuthService {
       if (e.statusCode == 401 || e.statusCode == 404) {
         throw ApiException(
           statusCode: 401,
-          message: 'Invalid credentials. Please check your ID/Badge and Password.',
+          message: 'Please check your ID/Badge and Password.',
         );
       }
       rethrow;

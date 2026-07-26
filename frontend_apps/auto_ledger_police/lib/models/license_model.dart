@@ -7,6 +7,7 @@ class VehicleCategory {
     required this.issueDate,
     required this.expiryDate,
     this.restriction,
+    this.transmission,
   });
 
   final String id;
@@ -14,6 +15,15 @@ class VehicleCategory {
   final DateTime issueDate;
   final DateTime expiryDate;
   final String? restriction;
+  final String? transmission;
+
+  String get transmissionLabel {
+    final value = transmission?.trim();
+    if (value == null || value.isEmpty) {
+      return 'Auto / Manual';
+    }
+    return value;
+  }
 }
 
 class LicenseModel {
@@ -230,8 +240,37 @@ class LicenseModel {
               issueDate: _parseDate(json['issue_Date'] ?? json['issueDate']),
               expiryDate: _parseDate(json['expiry_Date'] ?? json['expiryDate']),
               restriction: json['restriction']?.toString(),
+              transmission: _readTransmission(json),
             ))
         .toList();
+  }
+
+  static String? _readTransmission(Map<String, dynamic> json) {
+    final isAutomatic = json['isAutomatic'];
+    if (isAutomatic is bool) {
+      return isAutomatic ? 'Auto' : 'Manual';
+    }
+
+    final candidates = [
+      json['transmission'],
+      json['transmissionType'],
+      json['transmission_type'],
+      json['gearBox'],
+      json['gearbox'],
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate == null) continue;
+      final value = candidate.toString().trim();
+      if (value.isEmpty) continue;
+
+      final normalized = value.toLowerCase();
+      if (normalized == 'true') return 'Auto';
+      if (normalized == 'false') return 'Manual';
+      return value;
+    }
+
+    return null;
   }
 
   static DateTime _parseDate(dynamic value) {

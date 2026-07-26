@@ -202,7 +202,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Sri Lanka Police Logo - White Background
                             Container(
                               width: 90,
                               height: 90,
@@ -276,7 +275,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 36),
 
-                            // ===== LIGHT WHITE LIQUID GLASS CONTAINER =====
                             ClipRRect(
                               borderRadius: BorderRadius.circular(25),
                               child: BackdropFilter(
@@ -300,8 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   child: Column(
                                     children: [
-                                      // ID Field
-                                      TextFormField(
+                                              TextFormField(
                                         controller: _loginIdController,
                                         textInputAction: TextInputAction.next,
                                         keyboardType: TextInputType.text,
@@ -378,8 +375,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         },
                                       ),
                                       const SizedBox(height: 18),
-                                      // Password Field
-                                      TextFormField(
+                                              TextFormField(
                                         controller: _passwordController,
                                         obscureText: _isPasswordHidden,
                                         textInputAction: TextInputAction.done,
@@ -520,8 +516,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 22),
-                                      // ===== BLUE LIQUID GLASS BUTTON =====
-                                      ClipRRect(
+                                                ClipRRect(
                                         borderRadius: BorderRadius.circular(25),
                                         child: BackdropFilter(
                                           filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),

@@ -261,6 +261,15 @@ class _OffenseSelectScreenState extends State<OffenseSelectScreen> {
       return;
     }
 
+    final criticalStatus = widget.license.status.toUpperCase();
+    if (criticalStatus == 'SUSPENDED' || criticalStatus == 'REVOKED') {
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Suspended and revoked licenses cannot proceed to fines.',
+      );
+      return;
+    }
+
     final selectedOffenses = _selectedOffenses(offenses);
 
     if (selectedOffenses.isEmpty) {

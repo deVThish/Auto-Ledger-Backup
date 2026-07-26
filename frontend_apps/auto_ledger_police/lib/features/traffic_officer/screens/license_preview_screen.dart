@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../models/fine_model.dart';
 import '../../../models/license_model.dart';
 import 'offense_select_screen.dart';
-import 'qr_scanner_screen.dart';
 
 class LicensePreviewScreen extends StatefulWidget {
   const LicensePreviewScreen({
@@ -179,7 +180,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'This QR verification window has expired. Scan the QR code again.',
+                      'This QR verification window has expired.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppTheme.textGray,
@@ -195,10 +196,8 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.of(dialogContext).pop();
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (_) => const QrScannerScreen(),
-                            ),
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            AppRoutes.trafficOfficerDashboard,
                             (route) => false,
                           );
                         },
@@ -211,7 +210,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                           ),
                         ),
                         child: const Text(
-                          'Scan Again',
+                          'Go to Dashboard',
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -229,6 +228,14 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
   void _openOffenseSelection() {
     if (_remaining == Duration.zero) {
       _showExpiredDialog();
+      return;
+    }
+
+    if (_hasCriticalStatus) {
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Suspended and revoked licenses cannot proceed to fines.',
+      );
       return;
     }
 
@@ -328,7 +335,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                 const SizedBox(height: 2),
                 Text(
                   _remaining == Duration.zero
-                      ? 'Please scan the QR code again.'
+                      ? 'Please return to the dashboard.'
                       : 'Time remaining: ${_formatCountdown(_remaining)}',
                   style: const TextStyle(
                     color: AppTheme.textGray,
@@ -727,7 +734,7 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'License is ${widget.license.status.toUpperCase()}. Proceed carefully before issuing a fine.',
+                            'License is ${widget.license.status.toUpperCase()}. Fine issuance is blocked.',
                           style: const TextStyle(
                             color: AppTheme.errorRed,
                             fontWeight: FontWeight.w700,
@@ -747,8 +754,8 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
-                  onPressed: _remaining == Duration.zero
-                      ? _showExpiredDialog
+                  onPressed: (_remaining == Duration.zero || _hasCriticalStatus)
+                      ? null
                       : _openOffenseSelection,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.policeBlue,
@@ -759,8 +766,8 @@ class _LicensePreviewScreenState extends State<LicensePreviewScreen> {
                     ),
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                  label: const Text(
-                    'Continue to Offenses',
+                  label: Text(
+                      _hasCriticalStatus ? 'Fine Issuance Blocked' : 'Continue to Offenses',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14.5,

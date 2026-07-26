@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_routes.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
 import '../../../models/license_model.dart';
 import '../../../models/offense_model.dart';
 import '../services/traffic_fine_service.dart';
-import 'qr_scanner_screen.dart';
-import 'to_dashboard_screen.dart';
 
 class FineConfirmationScreen extends StatefulWidget {
   const FineConfirmationScreen({
@@ -31,6 +30,10 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
   final _commentController = TextEditingController();
 
   bool _isLoading = false;
+  Timer? _timer;
+  late final DateTime _expiresAt;
+  Duration _remaining = Duration.zero;
+  bool _expiredDialogShown = false;
 
   String get _sessionId {
     final token = widget.qrToken.trim();
@@ -39,9 +42,62 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+
+    final expiresAt = widget.license.scanExpiresAt;
+
+    if (expiresAt == null) {
+      _expiresAt = DateTime.now().add(const Duration(minutes: 5));
+      _remaining = const Duration(minutes: 5);
+    } else {
+      _expiresAt = expiresAt;
+      final remaining = _expiresAt.difference(DateTime.now());
+      _remaining = remaining.isNegative ? Duration.zero : remaining;
+    }
+
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateRemaining(),
+    );
+
+    _updateRemaining();
+  }
+
+  @override
   void dispose() {
+    _timer?.cancel();
     _commentController.dispose();
     super.dispose();
+  }
+
+  void _updateRemaining() {
+    if (!mounted) return;
+
+    final remaining = _expiresAt.difference(DateTime.now());
+    final safeRemaining = remaining.isNegative ? Duration.zero : remaining;
+
+    setState(() {
+      _remaining = safeRemaining;
+    });
+
+    if (safeRemaining == Duration.zero && !_expiredDialogShown) {
+      _expiredDialogShown = true;
+      _timer?.cancel();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showExpiredDialog();
+        }
+      });
+    }
+  }
+
+  String _formatCountdown(Duration duration) {
+    final seconds = duration.inSeconds.clamp(0, 99999);
+    final minutes = seconds ~/ 60;
+    final remSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remSeconds.toString().padLeft(2, '0')}';
   }
 
   String _offenseKey(OffenseModel offense) {
@@ -60,6 +116,111 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
     return widget.selectedOffenses.fold<int>(
       0,
       (sum, offense) => sum + offense.points,
+    );
+  }
+
+  Future<void> _showExpiredDialog() async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: AppTheme.errorRed.withValues(alpha: 0.18),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.errorRed.withValues(alpha: 0.12),
+                      blurRadius: 36,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 62,
+                      height: 68,
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorRed.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: const Icon(
+                        Icons.timer_off_rounded,
+                        color: AppTheme.errorRed,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Session Expired',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.policeBlue,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'This QR verification window has expired.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.textGray,
+                        fontSize: 12.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop();
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            AppRoutes.trafficOfficerDashboard,
+                            (route) => false,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.policeBlue,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: const Text(
+                          'Go to Dashboard',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -224,9 +385,28 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
     final confirmed = await _confirmIssueFine();
     if (!confirmed) return;
 
+    final expired = widget.license.scanExpiresAt != null &&
+        widget.license.scanExpiresAt!.isBefore(DateTime.now());
+    if (expired || _remaining == Duration.zero) {
+      await _showExpiredDialog();
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
+      final status = widget.license.status.toUpperCase();
+      if (status == 'SUSPENDED' || status == 'REVOKED') {
+        AppErrorHandler.showPopup(
+          context,
+          message: 'Suspended and revoked licenses cannot proceed to fines.',
+        );
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+
       await _trafficFineService.issueFine(
         sessionId: _sessionId,
         licenseId: widget.license.id.trim().isEmpty
@@ -243,10 +423,9 @@ class _FineConfirmationScreenState extends State<FineConfirmationScreen> {
 
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const ToDashboardScreen(),
-        ),
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.trafficOfficerDashboard,
+        (route) => false,
       );
     } on ApiException catch (error) {
       if (!mounted) return;

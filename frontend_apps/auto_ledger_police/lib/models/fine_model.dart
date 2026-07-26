@@ -61,12 +61,6 @@ class FineModel {
 
     final payment = json['payment'] as Map<String, dynamic>?;
 
-    debugPrint('===== FINE MODEL PARSE =====');
-    debugPrint('fineId: ${_readString(json, const ['fine_Id', 'id', 'fineId', 'fine_id'])}');
-    debugPrint('comment: ${_readString(json, const ['comment', 'officerNote', 'note'])}');
-    debugPrint('payment: $payment');
-    debugPrint('=============================');
-
     return FineModel(
       id: _readString(
         json,
