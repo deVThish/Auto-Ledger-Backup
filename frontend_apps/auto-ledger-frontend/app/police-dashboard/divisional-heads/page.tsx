@@ -8,10 +8,6 @@ import {
   AlertCircle,
   CheckCircle2,
   X,
-  Lock,
-  User,
-  Eye,
-  EyeOff,
   Power,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -51,16 +47,13 @@ export default function ManageHeads() {
   const [heads, setHeads] = useState<DivisionalHead[]>([]);
   const [headForm, setHeadForm] = useState({
     name: "",
-    username: "",
     divisionName: "",
     email: "",
-    passwordStr: "",
   });
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -89,13 +82,18 @@ export default function ManageHeads() {
 
   const handleHeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Generate username from email (before @) and a default password
+    const username = headForm.email.split("@")[0] || "head";
+    const passwordStr = "Head@123";
+
     try {
       await api.post("/officers/head", {
         divisionName: headForm.divisionName,
-        username: headForm.username,
+        username: username,
         email: headForm.email,
         name: headForm.name,
-        passwordStr: headForm.passwordStr,
+        passwordStr: passwordStr,
       });
 
       showToast(
@@ -104,10 +102,8 @@ export default function ManageHeads() {
       );
       setHeadForm({
         name: "",
-        username: "",
         divisionName: "",
         email: "",
-        passwordStr: "",
       });
       await loadData();
     } catch (err: unknown) {
@@ -148,7 +144,11 @@ export default function ManageHeads() {
     <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 relative">
       {toast && (
         <div
-          className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl ${toast.type === "error" ? "bg-red-950/80 border-red-500/50 text-red-200" : "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"}`}
+          className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-xl ${
+            toast.type === "error"
+              ? "bg-red-950/80 border-red-500/50 text-red-200"
+              : "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"
+          }`}
         >
           {toast.type === "error" ? (
             <AlertCircle
@@ -235,47 +235,7 @@ export default function ManageHeads() {
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center">
-              <User size={12} className="mr-1 text-blue-400" /> System Username
-              *
-            </label>
-            <input
-              required
-              value={headForm.username}
-              onChange={(e) =>
-                setHeadForm({ ...headForm, username: e.target.value })
-              }
-              type="text"
-              className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 text-sm focus:border-amber-500 outline-none text-white font-mono"
-              placeholder="e.g. jdoe_head"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center">
-              <Lock size={12} className="mr-1 text-blue-400" /> Login Password *
-            </label>
-            <div className="relative">
-              <input
-                required
-                value={headForm.passwordStr}
-                onChange={(e) =>
-                  setHeadForm({ ...headForm, passwordStr: e.target.value })
-                }
-                type={showPassword ? "text" : "password"}
-                className="w-full bg-[#050d1a] border border-[#1a2f5c] rounded-xl p-3 pr-10 text-sm focus:border-amber-500 outline-none text-white font-mono"
-                placeholder="Enter secure password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-amber-400"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
+          {/* Username and Password fields removed */}
 
           <div className="space-y-2 md:col-span-2">
             <label className="text-[11px] font-bold text-slate-400 uppercase">
@@ -348,7 +308,11 @@ export default function ManageHeads() {
                         head.is_Active,
                       )
                     }
-                    className={`p-2 rounded-lg transition-colors ${head.is_Active ? "text-red-400 hover:bg-red-500/20 hover:text-red-300" : "text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"}`}
+                    className={`p-2 rounded-lg transition-colors ${
+                      head.is_Active
+                        ? "text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                        : "text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
+                    }`}
                     title={head.is_Active ? "Disable Head" : "Activate Head"}
                   >
                     <Power size={18} />
