@@ -5,7 +5,7 @@ deploy:
   stage: deploy
   image: alpine:latest
   only:
-    - development
+    - main
 
   before_script:
     - apk update && apk add openssh-client
@@ -18,8 +18,7 @@ deploy:
     - ssh $EC2_USER@$EC2_IP "
       cd ~/auto-ledger-new &&
       git fetch origin &&
-      git reset --hard origin/development &&
+      git reset --hard origin/main &&
       docker compose build --no-cache backend &&
       docker compose up -d backend
       "
-
