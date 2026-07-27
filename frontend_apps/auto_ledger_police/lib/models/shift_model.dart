@@ -5,6 +5,7 @@ class ShiftModel {
     required this.startTime,
     required this.endTime,
     required this.isActive,
+    required this.location,
   });
 
   final String id;
@@ -12,6 +13,7 @@ class ShiftModel {
   final DateTime? startTime;
   final DateTime? endTime;
   final bool isActive;
+  final String location;
 
   factory ShiftModel.fromJson(Map<String, dynamic> json) {
     return ShiftModel(
@@ -33,6 +35,7 @@ class ShiftModel {
       ),
       isActive: json['is_Active'] == true ||
           json['isActive'] == true,
+      location: json['location']?.toString() ?? '',
     );
   }
 }

@@ -936,7 +936,7 @@ class _HeaderCard extends StatelessWidget {
             Color(0xFF0F213C),
           ],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.15),
           width: 1.2,
@@ -1032,7 +1032,7 @@ class _ProfileHeader extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(
           color: const Color(0xFFE2E8F0),
           width: 1.2,

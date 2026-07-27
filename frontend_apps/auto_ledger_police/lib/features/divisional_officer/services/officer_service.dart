@@ -33,6 +33,7 @@ class OfficerService {
       if (data != null) {
         return OfficerModel.fromJson(data);
       }
+
       return OfficerModel.fromJson(response as Map<String, dynamic>);
     } catch (e) {
       rethrow;
@@ -47,6 +48,7 @@ class OfficerService {
 
       final rawList = _extractList(response);
       final officers = rawList.map(OfficerModel.fromJson).toList();
+
       return officers;
     } catch (e) {
       rethrow;
@@ -61,6 +63,7 @@ class OfficerService {
 
       final rawList = _extractList(response);
       final shifts = rawList.map(ShiftModel.fromJson).toList();
+
       return shifts;
     } catch (e) {
       rethrow;
@@ -75,10 +78,10 @@ class OfficerService {
   }) async {
     final payload = {
       'officerId': officerId,
-      'date': startTime.toUtc().toIso8601String(),
+      'date': DateTime.now().toUtc().toIso8601String(),
       'startTime': startTime.toUtc().toIso8601String(),
       'endTime': endTime.toUtc().toIso8601String(),
-      'location': location,
+      'location': location.trim(),
     };
 
     try {
@@ -91,6 +94,7 @@ class OfficerService {
       if (data != null) {
         return ShiftModel.fromJson(data);
       }
+
       return ShiftModel.fromJson(response as Map<String, dynamic>);
     } catch (e) {
       rethrow;
@@ -105,10 +109,10 @@ class OfficerService {
   }) async {
     final payload = <String, dynamic>{
       'endTime': endTime.toUtc().toIso8601String(),
-      'location': location,
+      'location': location.trim(),
     };
+
     if (startTime != null) {
-      payload['date'] = startTime.toUtc().toIso8601String();
       payload['startTime'] = startTime.toUtc().toIso8601String();
     }
 
@@ -122,6 +126,7 @@ class OfficerService {
       if (data != null) {
         return ShiftModel.fromJson(data);
       }
+
       return ShiftModel.fromJson(response as Map<String, dynamic>);
     } catch (e) {
       rethrow;
@@ -150,6 +155,7 @@ class OfficerService {
 
       final rawList = _extractList(response);
       final heads = rawList.map(DivisionalHeadModel.fromJson).toList();
+
       return heads;
     } catch (e) {
       return [];
@@ -160,24 +166,29 @@ class OfficerService {
     if (response is List) {
       return response.whereType<Map<String, dynamic>>().toList();
     }
+
     if (response is Map<String, dynamic>) {
       final keys = <String>[
         'data',
         'items',
         'results',
         'officers',
+        'shifts',
         'list',
         'divisionalHeads',
         'divisional_heads',
       ];
+
       for (final key in keys) {
         final candidate = response[key];
         final extracted = _extractList(candidate);
+
         if (extracted.isNotEmpty) {
           return extracted;
         }
       }
     }
+
     return <Map<String, dynamic>>[];
   }
 
@@ -190,14 +201,18 @@ class OfficerService {
         'officer',
         'shift',
       ];
+
       for (final key in dataKeys) {
         final candidate = response[key];
+
         if (candidate is Map<String, dynamic>) {
           return candidate;
         }
       }
+
       return response;
     }
+
     return null;
   }
 }
@@ -223,8 +238,11 @@ class DivisionalHeadModel {
 
   factory DivisionalHeadModel.fromJson(Map<String, dynamic> json) {
     final division = json['division'] as Map<String, dynamic>? ?? {};
+
     return DivisionalHeadModel(
-      id: json['divisional_Head_Id']?.toString() ?? json['id']?.toString() ?? '',
+      id: json['divisional_Head_Id']?.toString() ??
+          json['id']?.toString() ??
+          '',
       name: json['name']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
       email: json['email']?.toString() ?? '',

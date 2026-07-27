@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
@@ -14,6 +15,7 @@ class AssignShiftScreen extends StatefulWidget {
     this.initialOfficer,
     this.initialShift,
   });
+
   final OfficerModel? initialOfficer;
   final ShiftModel? initialShift;
 
@@ -24,6 +26,9 @@ class AssignShiftScreen extends StatefulWidget {
 class _AssignShiftScreenState extends State<AssignShiftScreen> {
   final _officerService = OfficerService();
   late Future<List<OfficerModel>> _officersFuture;
+  final TextEditingController _locationController = TextEditingController();
+  final Map<String, List<ShiftModel>> _shiftCache = {};
+
   List<OfficerModel> _cachedOfficers = [];
   OfficerModel? _selectedOfficer;
   DateTime? _startDateTime;
@@ -31,20 +36,35 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
   String? _trackedShiftId;
   DateTime? _originalStartDateTime;
   bool _isLoading = false;
+  int _selectionToken = 0;
 
   @override
   void initState() {
     super.initState();
+
     _selectedOfficer = widget.initialOfficer;
+
     if (widget.initialShift != null) {
-      _startDateTime = widget.initialShift!.startTime;
-      _endDateTime = widget.initialShift!.endTime;
-      _originalStartDateTime = widget.initialShift!.startTime;
-      _trackedShiftId = widget.initialShift!.id;
+      _fillFromShift(widget.initialShift!);
     } else {
       _fillShiftTimes(widget.initialOfficer);
     }
+
     _officersFuture = _loadOfficers();
+
+    if (widget.initialShift == null && widget.initialOfficer != null) {
+      final token = ++_selectionToken;
+      Future.microtask(() {
+        _loadSelectedOfficerShift(widget.initialOfficer!, token);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _selectionToken++;
+    _locationController.dispose();
+    super.dispose();
   }
 
   Future<List<OfficerModel>> _loadOfficers() async {
@@ -62,15 +82,118 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
     _startDateTime = shift?.startTime;
     _endDateTime = shift?.endTime;
     _originalStartDateTime = shift?.startTime;
-    _trackedShiftId = (shift != null && shift.id.isNotEmpty) ? shift.id : null;
+    _trackedShiftId = shift != null && shift.id.isNotEmpty ? shift.id : null;
+    _locationController.text = shift?.location.trim() ?? '';
+  }
+
+  void _fillFromShift(ShiftModel shift) {
+    _startDateTime = shift.startTime;
+    _endDateTime = shift.endTime;
+    _originalStartDateTime = shift.startTime;
+    _trackedShiftId = shift.id.isNotEmpty ? shift.id : null;
+    _locationController.text = shift.location.trim();
+  }
+
+  void _clearShiftValues() {
+    _startDateTime = null;
+    _endDateTime = null;
+    _originalStartDateTime = null;
+    _trackedShiftId = null;
+    _locationController.clear();
   }
 
   void _handleOfficerChanged(OfficerModel? officer) {
+    final token = ++_selectionToken;
+
     setState(() {
       _selectedOfficer = officer;
       _trackedShiftId = null;
-      _fillShiftTimes(officer);
+
+      if (officer == null) {
+        _clearShiftValues();
+      } else {
+        _fillShiftTimes(officer);
+      }
     });
+
+    if (officer != null) {
+      _loadSelectedOfficerShift(officer, token);
+    }
+  }
+
+  Future<void> _loadSelectedOfficerShift(
+    OfficerModel officer,
+    int token,
+  ) async {
+    try {
+      final cached = _shiftCache[officer.id];
+      final shifts =
+          cached ?? await _officerService.getOfficerShifts(officer.id);
+
+      _shiftCache[officer.id] = shifts;
+
+      if (!mounted ||
+          token != _selectionToken ||
+          _selectedOfficer?.id != officer.id) {
+        return;
+      }
+
+      final shift = _findAutoFillShift(shifts);
+
+      if (shift != null) {
+        setState(() {
+          _fillFromShift(shift);
+        });
+      } else if (officer.activeShift == null) {
+        setState(() {
+          _clearShiftValues();
+        });
+      }
+    } catch (_) {
+      if (!mounted ||
+          token != _selectionToken ||
+          _selectedOfficer?.id != officer.id) {
+        return;
+      }
+
+      if (officer.activeShift == null) {
+        setState(() {
+          _clearShiftValues();
+        });
+      }
+    }
+  }
+
+  ShiftModel? _findAutoFillShift(List<ShiftModel> shifts) {
+    final now = DateTime.now();
+
+    for (final shift in shifts) {
+      if (!shift.isActive) continue;
+
+      final start = shift.startTime;
+      final end = shift.endTime;
+
+      if (start != null &&
+          end != null &&
+          !start.isAfter(now) &&
+          end.isAfter(now)) {
+        return shift;
+      }
+    }
+
+    final futureShifts = shifts
+        .where(
+          (shift) =>
+              shift.isActive &&
+              shift.startTime != null &&
+              shift.startTime!.isAfter(now),
+        )
+        .toList()
+      ..sort((a, b) => a.startTime!.compareTo(b.startTime!));
+
+    if (futureShifts.isNotEmpty) return futureShifts.first;
+
+    return null;
   }
 
   DateTime _dateOnly(DateTime value) {
@@ -80,9 +203,11 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
   Future<void> _selectDateTime({required bool isStart}) async {
     final now = DateTime.now();
     final today = _dateOnly(now);
+
     final baseValue = isStart
         ? (_startDateTime ?? now)
         : (_endDateTime ?? _startDateTime ?? now);
+
     final safeInitialDate = _dateOnly(baseValue).isBefore(today)
         ? today
         : _dateOnly(baseValue);
@@ -93,6 +218,7 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
       firstDate: today,
       lastDate: DateTime(now.year + 2, 12, 31),
     );
+
     if (selectedDate == null || !mounted) return;
 
     final initialTimeSource = isStart
@@ -103,6 +229,7 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(initialTimeSource),
     );
+
     if (selectedTime == null || !mounted) return;
 
     final selectedDateTime = DateTime(
@@ -124,16 +251,21 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
 
   String _formatDateTime(DateTime? dateTime) {
     if (dateTime == null) return 'Select date and time';
+
     final local = dateTime.toLocal();
+
     final date =
         '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+
     final hour = local.hour > 12
         ? local.hour - 12
         : local.hour == 0
             ? 12
             : local.hour;
+
     final minute = local.minute.toString().padLeft(2, '0');
     final period = local.hour >= 12 ? 'PM' : 'AM';
+
     return '$date  $hour:$minute $period';
   }
 
@@ -144,6 +276,7 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
   bool get _startTimeUserChanged {
     if (_originalStartDateTime == null) return false;
     if (_startDateTime == null) return true;
+
     return _startDateTime!
             .difference(_originalStartDateTime!)
             .abs()
@@ -151,30 +284,42 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
         60;
   }
 
+  String _alertText(String message) {
+    return message.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  void _showTopAlert(String message, {bool isError = true}) {
+    if (!mounted) return;
+
+    AppErrorHandler.showPopup(
+      context,
+      message: _alertText(message),
+      isError: isError,
+    );
+  }
+
   Future<void> _handleAssignShift() async {
     if (_isLoading) return;
 
     if (_selectedOfficer == null) {
-      AppErrorHandler.showPopup(
-        context,
-        message: 'Please select a traffic officer.',
-      );
+      _showTopAlert('Please select a traffic officer.');
+      return;
+    }
+
+    final location = _locationController.text.trim();
+
+    if (location.isEmpty) {
+      _showTopAlert('Please enter shift location.');
       return;
     }
 
     if (_startDateTime == null) {
-      AppErrorHandler.showPopup(
-        context,
-        message: 'Please select shift start time.',
-      );
+      _showTopAlert('Please select shift start time.');
       return;
     }
 
     if (_endDateTime == null) {
-      AppErrorHandler.showPopup(
-        context,
-        message: 'Please select shift end time.',
-      );
+      _showTopAlert('Please select shift end time.');
       return;
     }
 
@@ -182,26 +327,17 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
     final isNewShift = _trackedShiftId == null;
 
     if (isNewShift && !_startDateTime!.isAfter(now)) {
-      AppErrorHandler.showPopup(
-        context,
-        message: 'Start time cannot be in the past. Please select a future time.',
-      );
+      _showTopAlert('Start time cannot be in the past.');
       return;
     }
 
     if (!isNewShift && _startTimeUserChanged && !_startDateTime!.isAfter(now)) {
-      AppErrorHandler.showPopup(
-        context,
-        message: 'Updated start time must be in the future.',
-      );
+      _showTopAlert('Updated start time must be in the future.');
       return;
     }
 
     if (!_endDateTime!.isAfter(_startDateTime!)) {
-      AppErrorHandler.showPopup(
-        context,
-        message: 'End time must be after start time.',
-      );
+      _showTopAlert('End time must be after start time.');
       return;
     }
 
@@ -213,14 +349,15 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
           officerId: _selectedOfficer!.id,
           startTime: _startDateTime!,
           endTime: _endDateTime!,
+          location: location,
         );
 
-        final freshOfficers =
-            await _officerService.getDistrictTrafficOfficers();
+        final freshOfficers = await _officerService.getDistrictTrafficOfficers();
+
         if (!mounted) return;
 
         final updatedOfficer = freshOfficers.firstWhere(
-          (o) => o.id == _selectedOfficer!.id,
+          (officer) => officer.id == _selectedOfficer!.id,
           orElse: () => _selectedOfficer!,
         );
 
@@ -232,32 +369,31 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
           _startDateTime = newShift.startTime;
           _endDateTime = newShift.endTime;
           _originalStartDateTime = newShift.startTime;
+          _shiftCache.remove(_selectedOfficer!.id);
         });
 
-        AppErrorHandler.showPopup(
-          context,
-          message: 'Shift assigned successfully.',
+        _showTopAlert(
+          'Shift assigned successfully.',
           isError: false,
         );
 
-        if (mounted) {
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) Navigator.of(context).pop(true);
-          });
-        }
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) Navigator.of(context).pop(true);
+        });
       } else {
         final updatedShift = await _officerService.updateShift(
           shiftId: _trackedShiftId!,
           startTime: _startTimeUserChanged ? _startDateTime : null,
           endTime: _endDateTime!,
+          location: location,
         );
 
-        final freshOfficers =
-            await _officerService.getDistrictTrafficOfficers();
+        final freshOfficers = await _officerService.getDistrictTrafficOfficers();
+
         if (!mounted) return;
 
         final updatedOfficer = freshOfficers.firstWhere(
-          (o) => o.id == _selectedOfficer!.id,
+          (officer) => officer.id == _selectedOfficer!.id,
           orElse: () => _selectedOfficer!,
         );
 
@@ -269,32 +405,26 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
           _endDateTime = updatedShift.endTime ?? _endDateTime;
           _originalStartDateTime =
               updatedShift.startTime ?? _originalStartDateTime;
+          _shiftCache.remove(_selectedOfficer!.id);
         });
 
-        AppErrorHandler.showPopup(
-          context,
-          message: 'Shift updated successfully.',
+        _showTopAlert(
+          'Shift updated successfully.',
           isError: false,
         );
 
-        if (mounted) {
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) Navigator.of(context).pop(true);
-          });
-        }
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) Navigator.of(context).pop(true);
+        });
       }
     } on ApiException catch (error) {
       if (!mounted) return;
-      AppErrorHandler.showPopup(
-        context,
-        message: error.message,
-      );
+
+      _showTopAlert(error.message);
     } catch (_) {
       if (!mounted) return;
-      AppErrorHandler.showPopup(
-        context,
-        message: 'Unable to save shift. Please try again.',
-      );
+
+      _showTopAlert('Unable to save shift. Please try again.');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -304,36 +434,42 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
 
   Future<void> _refreshOfficers() async {
     final officers = await _loadOfficers();
+
     if (!mounted) return;
 
     final updated = _selectedOfficer == null
         ? null
         : officers.firstWhere(
-            (o) => o.id == _selectedOfficer!.id,
+            (officer) => officer.id == _selectedOfficer!.id,
             orElse: () => _selectedOfficer!,
           );
+
+    final token = ++_selectionToken;
 
     setState(() {
       _selectedOfficer = updated;
       _officersFuture = Future.value(officers);
-      final activeShift = updated?.activeShift;
-      if (activeShift != null) {
-        _startDateTime = activeShift.startTime;
-        _endDateTime = activeShift.endTime;
-        _originalStartDateTime = activeShift.startTime;
-        _trackedShiftId = activeShift.id;
+
+      if (updated == null) {
+        _clearShiftValues();
+      } else {
+        _fillShiftTimes(updated);
       }
     });
+
+    if (updated != null) {
+      await _loadSelectedOfficerShift(updated, token);
+    }
   }
 
   OfficerModel? _resolveSelectedOfficer(List<OfficerModel> officers) {
     final selected = _selectedOfficer;
     if (selected == null) return null;
+
     for (final officer in officers) {
-      if (officer.id == selected.id) {
-        return officer;
-      }
+      if (officer.id == selected.id) return officer;
     }
+
     return selected;
   }
 
@@ -373,15 +509,21 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                   builder: (context, constraints) {
                     final horizontalPadding =
                         constraints.maxWidth < 380 ? 20.0 : 24.0;
+
                     return Theme(
                       data: Theme.of(context).copyWith(
                         inputDecorationTheme: InputDecorationTheme(
                           labelStyle: const TextStyle(
                             color: Color(0xFF0B1A30),
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          floatingLabelStyle: const TextStyle(
+                            color: Color(0xFF0B1A30),
+                            fontWeight: FontWeight.w500,
                           ),
                           hintStyle: TextStyle(
-                            color: const Color(0xFF0B1A30).withValues(alpha: 0.35),
+                            color:
+                                const Color(0xFF0B1A30).withValues(alpha: 0.35),
                             fontWeight: FontWeight.w400,
                           ),
                           suffixIconColor: const Color(0xFF0B1A30),
@@ -415,126 +557,122 @@ class _AssignShiftScreenState extends State<AssignShiftScreen> {
                           ),
                         ),
                       ),
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(
-                          parent: BouncingScrollPhysics(),
-                        ),
+                      child: ListView(
+                        physics: const BouncingScrollPhysics(),
                         padding: EdgeInsets.symmetric(
                           horizontal: horizontalPadding,
                         ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: constraints.maxHeight,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 16),
-                              const _HeaderCard(),
-                              const SizedBox(height: 24),
-                              FutureBuilder<List<OfficerModel>>(
-                                future: _officersFuture,
-                                builder: (context, snapshot) {
-                                  final snapshotData = snapshot.data;
-                                  final officers =
-                                      snapshotData ?? _cachedOfficers;
-                                  final isFirstLoad =
-                                      snapshot.connectionState ==
-                                              ConnectionState.waiting &&
-                                          _cachedOfficers.isEmpty &&
-                                          snapshotData == null;
+                        children: [
+                          const SizedBox(height: 16),
+                          const _HeaderCard(),
+                          const SizedBox(height: 24),
+                          FutureBuilder<List<OfficerModel>>(
+                            future: _officersFuture,
+                            builder: (context, snapshot) {
+                              final snapshotData = snapshot.data;
+                              final officers = snapshotData ?? _cachedOfficers;
 
-                                  if (snapshot.hasError && officers.isEmpty) {
-                                    return _ErrorView(
-                                      message: snapshot.error is ApiException
-                                          ? (snapshot.error as ApiException)
-                                              .message
-                                          : 'Unable to load traffic officers.',
-                                      onRetry: _refreshOfficers,
-                                    );
-                                  }
+                              final isFirstLoad =
+                                  snapshot.connectionState ==
+                                          ConnectionState.waiting &&
+                                      _cachedOfficers.isEmpty &&
+                                      snapshotData == null;
 
-                                  if (isFirstLoad) {
-                                    return const Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(vertical: 80),
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          color: Color(0xFF0B1A30),
-                                          strokeWidth: 3,
-                                        ),
-                                      ),
-                                    );
-                                  }
+                              if (snapshot.hasError && officers.isEmpty) {
+                                return _ErrorView(
+                                  message: snapshot.error is ApiException
+                                      ? (snapshot.error as ApiException).message
+                                      : 'Unable to load traffic officers.',
+                                  onRetry: () {
+                                    _refreshOfficers();
+                                  },
+                                );
+                              }
 
-                                  if (officers.isEmpty) {
-                                    return const _EmptyView();
-                                  }
-
-                                  final selected =
-                                      _resolveSelectedOfficer(officers);
-                                  return Container(
-                                    padding: const EdgeInsets.all(22),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(28),
-                                      border: Border.all(
-                                        color: const Color(0xFFE2E8F0),
-                                        width: 1.2,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF0B1A30)
-                                              .withValues(alpha: 0.04),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
+                              if (isFirstLoad) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 80),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFF0B1A30),
+                                      strokeWidth: 3,
                                     ),
-                                    child: Column(
-                                      children: [
-                                        _OfficerDropdown(
-                                          officers: officers,
-                                          selectedOfficer: selected,
-                                          onChanged: _handleOfficerChanged,
-                                        ),
-                                        const SizedBox(height: 18),
-                                        if (selected?.hasActiveShift == true)
-                                          _ExistingShiftNotice(
-                                              officer: selected!),
-                                        if (selected?.hasActiveShift == true)
-                                          const SizedBox(height: 18),
-                                        _DateTimeSelector(
-                                          title: 'Start Time',
-                                          value:
-                                              _formatDateTime(_startDateTime),
-                                          icon: Icons.play_circle_outline_rounded,
-                                          onTap: () =>
-                                              _selectDateTime(isStart: true),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        _DateTimeSelector(
-                                          title: 'End Time',
-                                          value: _formatDateTime(_endDateTime),
-                                          icon: Icons.stop_circle_outlined,
-                                          onTap: () =>
-                                              _selectDateTime(isStart: false),
-                                        ),
-                                        const SizedBox(height: 26),
-                                        AppButton(
-                                          text: _submitText,
-                                          isLoading: _isLoading,
-                                          onPressed: _handleAssignShift,
-                                        ),
-                                      ],
+                                  ),
+                                );
+                              }
+
+                              if (officers.isEmpty) {
+                                return const _EmptyView();
+                              }
+
+                              final selected = _resolveSelectedOfficer(officers);
+
+                              return Container(
+                                padding: const EdgeInsets.all(22),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(30),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                    width: 1.2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF0B1A30)
+                                          .withValues(alpha: 0.04),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 6),
                                     ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 32),
-                            ],
+                                  ],
+                                ),
+                                child: Column(
+                                  children: [
+                                    _OfficerDropdown(
+                                      officers: officers,
+                                      selectedOfficer: selected,
+                                      onChanged: _handleOfficerChanged,
+                                    ),
+                                    const SizedBox(height: 18),
+                                    _LocationInput(
+                                      controller: _locationController,
+                                    ),
+                                    const SizedBox(height: 18),
+                                    if (selected?.hasActiveShift == true)
+                                      _ExistingShiftNotice(
+                                        officer: selected!,
+                                      ),
+                                    if (selected?.hasActiveShift == true)
+                                      const SizedBox(height: 18),
+                                    _DateTimeSelector(
+                                      title: 'Start Time',
+                                      value: _formatDateTime(_startDateTime),
+                                      icon: Icons.play_circle_outline_rounded,
+                                      onTap: () => _selectDateTime(
+                                        isStart: true,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _DateTimeSelector(
+                                      title: 'End Time',
+                                      value: _formatDateTime(_endDateTime),
+                                      icon: Icons.stop_circle_outlined,
+                                      onTap: () => _selectDateTime(
+                                        isStart: false,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 26),
+                                    AppButton(
+                                      text: _submitText,
+                                      isLoading: _isLoading,
+                                      onPressed: _handleAssignShift,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
-                        ),
+                          const SizedBox(height: 32),
+                        ],
                       ),
                     );
                   },
@@ -566,7 +704,7 @@ class _HeaderCard extends StatelessWidget {
             Color(0xFF0F213C),
           ],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.15),
           width: 1.2,
@@ -645,14 +783,16 @@ class _OfficerDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = selectedOfficer == null
-        ? null
-        : officers
-                .where((officer) => officer.id == selectedOfficer!.id)
-                .isEmpty
-            ? null
-            : officers
-                .firstWhere((officer) => officer.id == selectedOfficer!.id);
+    OfficerModel? selected;
+
+    if (selectedOfficer != null) {
+      for (final officer in officers) {
+        if (officer.id == selectedOfficer!.id) {
+          selected = officer;
+          break;
+        }
+      }
+    }
 
     return DropdownButtonFormField<OfficerModel>(
       value: selected,
@@ -684,6 +824,7 @@ class _OfficerDropdown extends StatelessWidget {
 
 class _OfficerDropdownText extends StatelessWidget {
   const _OfficerDropdownText({required this.officer});
+
   final OfficerModel officer;
 
   @override
@@ -691,6 +832,7 @@ class _OfficerDropdownText extends StatelessWidget {
     final name = officer.name.isEmpty ? 'Unnamed Officer' : officer.name;
     final badgeNumber =
         officer.badgeNumber.isEmpty ? 'No badge' : officer.badgeNumber;
+
     return Text(
       '$name - $badgeNumber',
       maxLines: 1,
@@ -704,8 +846,42 @@ class _OfficerDropdownText extends StatelessWidget {
   }
 }
 
+class _LocationInput extends StatelessWidget {
+  const _LocationInput({
+    required this.controller,
+  });
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      textInputAction: TextInputAction.next,
+      maxLines: 1,
+      decoration: const InputDecoration(
+        labelText: 'Location',
+        hintText: 'Duty Location',
+        labelStyle: TextStyle(
+          color: Color(0xFF0B1A30),
+          fontWeight: FontWeight.w400,
+        ),
+        floatingLabelStyle: TextStyle(
+          color: Color(0xFF0B1A30),
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIcon: Icon(
+          Icons.place_outlined,
+          color: Color(0xFF0B1A30),
+        ),
+      ),
+    );
+  }
+}
+
 class _ExistingShiftNotice extends StatelessWidget {
   const _ExistingShiftNotice({required this.officer});
+
   final OfficerModel officer;
 
   @override
@@ -715,7 +891,7 @@ class _ExistingShiftNotice extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(25),
         border: Border.all(
           color: const Color(0xFF0B1A30).withValues(alpha: 0.08),
         ),
@@ -772,7 +948,10 @@ class _DateTimeSelector extends StatelessWidget {
         borderRadius: BorderRadius.circular(25),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(25),
@@ -833,6 +1012,7 @@ class _ErrorView extends StatelessWidget {
     required this.message,
     required this.onRetry,
   });
+
   final String message;
   final VoidCallback onRetry;
 

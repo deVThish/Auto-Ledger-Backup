@@ -1,6 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -34,16 +34,17 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
           .toList();
       _cachedLicenses = licenses;
       return licenses;
-    } catch (e) {
+    } catch (_) {
       return [];
     }
   }
 
   Future<void> _refreshLicenses() async {
+    final future = _loadRevokedLicenses();
     setState(() {
-      _revokedLicensesFuture = _loadRevokedLicenses();
+      _revokedLicensesFuture = future;
     });
-    await _revokedLicensesFuture;
+    await future;
   }
 
   Future<void> _resolveLicense({
@@ -69,133 +70,126 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
         return Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 22),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9).withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0B1A30).withValues(alpha: 0.12),
-                      blurRadius: 32,
-                      offset: const Offset(0, 16),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? const Color(0xFF059669).withValues(alpha: 0.1)
-                            : AppTheme.errorRed.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        isActive
-                            ? Icons.check_circle_outline_rounded
-                            : Icons.cancel_outlined,
-                        color: isActive
-                            ? const Color(0xFF059669)
-                            : AppTheme.errorRed,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      isActive ? 'Activate License?' : 'Keep Revoked?',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF0B1A30),
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      isActive
-                          ? 'This will reactivate the license and reset all points to 0.'
-                          : 'This will keep the license revoked permanently.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(dialogContext, false),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF0B1A30),
-                              side: const BorderSide(color: Color(0xFFCBD5E1)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(dialogContext, true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isActive
-                                  ? const Color(0xFF059669)
-                                  : AppTheme.errorRed,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: Text(
-                              isActive ? 'Activate' : 'Keep Revoked',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.7),
+                width: 1.2,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0B1A30).withValues(alpha: 0.15),
+                  blurRadius: 28,
+                  offset: const Offset(0, 14),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF059669).withValues(alpha: 0.1)
+                        : AppTheme.errorRed.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    isActive
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.cancel_outlined,
+                    color: isActive
+                        ? const Color(0xFF059669)
+                        : AppTheme.errorRed,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isActive ? 'Activate License?' : 'Keep Revoked?',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF0B1A30),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isActive
+                      ? 'This will reactivate the license and reset all points to 0.'
+                      : 'This will keep the license revoked permanently.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0B1A30),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isActive
+                              ? const Color(0xFF059669)
+                              : AppTheme.errorRed,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          isActive ? 'Activate' : 'Keep Revoked',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         );
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || _isResolving) return;
 
     setState(() => _isResolving = true);
 
     try {
-      final url = '${ApiConstants.resolveRevokedLicense}/${license.id}/resolve-revoked';
+      final url =
+          '${ApiConstants.resolveRevokedLicense}/${license.id}/resolve-revoked';
 
       await _apiClient.patch(
         url,
@@ -203,6 +197,7 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
       );
 
       if (!mounted) return;
+
       AppErrorHandler.showPopup(
         context,
         message: isActive
@@ -272,87 +267,116 @@ class _RevokedLicensesScreenState extends State<RevokedLicensesScreen> {
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 24.0;
-                    return SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(
-                        parent: BouncingScrollPhysics(),
-                      ),
-                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                        child: FutureBuilder<List<LicenseModel>>(
-                          future: _revokedLicensesFuture,
-                          builder: (context, snapshot) {
-                            final snapshotData = snapshot.data;
-                            final licenses = snapshotData ?? _cachedLicenses;
-                            final isFirstLoad = snapshot.connectionState ==
+                    final horizontalPadding =
+                        constraints.maxWidth < 380 ? 20.0 : 24.0;
+
+                    return FutureBuilder<List<LicenseModel>>(
+                      future: _revokedLicensesFuture,
+                      builder: (context, snapshot) {
+                        final snapshotData = snapshot.data;
+                        final licenses = snapshotData ?? _cachedLicenses;
+                        final isFirstLoad =
+                            snapshot.connectionState ==
                                     ConnectionState.waiting &&
                                 _cachedLicenses.isEmpty &&
                                 snapshotData == null;
 
-                            if (snapshot.hasError && licenses.isEmpty) {
-                              return Column(
-                                children: [
-                                  const SizedBox(height: 16),
-                                  const _HeaderCard(),
-                                  const SizedBox(height: 24),
-                                  _ErrorCard(
-                                    onRetry: _refreshLicenses,
-                                    message: snapshot.error is ApiException
-                                        ? (snapshot.error as ApiException).message
-                                        : 'Unable to load revoked licenses.',
-                                  ),
-                                ],
-                              );
-                            }
+                        if (snapshot.hasError && licenses.isEmpty) {
+                          return ListView(
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: horizontalPadding,
+                            ),
+                            children: [
+                              const SizedBox(height: 16),
+                              const _HeaderCard(),
+                              const SizedBox(height: 24),
+                              _ErrorCard(
+                                onRetry: _refreshLicenses,
+                                message: snapshot.error is ApiException
+                                    ? (snapshot.error as ApiException).message
+                                    : 'Unable to load revoked licenses.',
+                              ),
+                              const SizedBox(height: 32),
+                            ],
+                          );
+                        }
 
-                            if (isFirstLoad) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 80),
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: Color(0xFF0B1A30),
-                                    strokeWidth: 3,
-                                  ),
+                        if (isFirstLoad) {
+                          return ListView(
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: horizontalPadding,
+                            ),
+                            children: const [
+                              SizedBox(height: 160),
+                              Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF0B1A30),
+                                  strokeWidth: 3,
                                 ),
+                              ),
+                            ],
+                          );
+                        }
+
+                        final itemCount =
+                            licenses.isEmpty ? 6 : licenses.length + 5;
+
+                        return ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                          ),
+                          itemCount: itemCount,
+                          itemBuilder: (context, index) {
+                            if (index == 0) return const SizedBox(height: 16);
+                            if (index == 1) return const _HeaderCard();
+                            if (index == 2) return const SizedBox(height: 24);
+                            if (index == 3) {
+                              return _HeaderStats(licenses: licenses);
+                            }
+                            if (index == 4) return const SizedBox(height: 14);
+
+                            if (licenses.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.only(bottom: 32),
+                                child: _EmptyCard(),
                               );
                             }
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 16),
-                                const _HeaderCard(),
-                                const SizedBox(height: 24),
-                                _HeaderStats(licenses: licenses),
-                                const SizedBox(height: 14),
-                                if (licenses.isEmpty)
-                                  const _EmptyCard()
-                                else
-                                  ...licenses.map(
-                                    (license) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 14),
-                                      child: _RevokedLicenseCard(
-                                        license: license,
-                                        issuedDate: _formatDate(license.issueDate),
-                                        isResolving: _isResolving,
-                                        onActivate: () => _resolveLicense(
-                                          license: license,
-                                          verdict: 'ACTIVE',
-                                        ),
-                                        onRevoke: () => _resolveLicense(
-                                          license: license,
-                                          verdict: 'REVOKED',
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                const SizedBox(height: 32),
-                              ],
+                            final licenseIndex = index - 5;
+                            final license = licenses[licenseIndex];
+                            final isLast =
+                                licenseIndex == licenses.length - 1;
+
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: isLast ? 32 : 14,
+                              ),
+                              child: _RevokedLicenseCard(
+                                license: license,
+                                issuedDate: _formatDate(license.issueDate),
+                                isResolving: _isResolving,
+                                onActivate: () => _resolveLicense(
+                                  license: license,
+                                  verdict: 'ACTIVE',
+                                ),
+                                onRevoke: () => _resolveLicense(
+                                  license: license,
+                                  verdict: 'REVOKED',
+                                ),
+                              ),
                             );
                           },
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -383,7 +407,7 @@ class _HeaderCard extends StatelessWidget {
             Color(0xFF0F213C),
           ],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.15),
           width: 1.2,
@@ -451,6 +475,7 @@ class _HeaderCard extends StatelessWidget {
 
 class _HeaderStats extends StatelessWidget {
   const _HeaderStats({required this.licenses});
+
   final List<LicenseModel> licenses;
 
   @override
@@ -507,9 +532,8 @@ class _RevokedLicenseCard extends StatelessWidget {
     final licenseNumber = license.licenseNumber.isEmpty
         ? 'Unknown License'
         : license.licenseNumber;
-    final driverName = license.driverName.isEmpty
-        ? 'Unknown Driver'
-        : license.driverName;
+    final driverName =
+        license.driverName.isEmpty ? 'Unknown Driver' : license.driverName;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -639,7 +663,8 @@ class _RevokedLicenseCard extends StatelessWidget {
                           ? const Color(0xFFCBD5E1)
                           : const Color(0xFF059669),
                     ),
-                    backgroundColor: const Color(0xFF059669).withValues(alpha: 0.04),
+                    backgroundColor:
+                        const Color(0xFF059669).withValues(alpha: 0.04),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
@@ -743,6 +768,7 @@ class _ErrorCard extends StatelessWidget {
     required this.onRetry,
     required this.message,
   });
+
   final VoidCallback onRetry;
   final String message;
 
