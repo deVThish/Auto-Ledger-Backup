@@ -280,7 +280,12 @@ export class FinesService {
 
     if (isCourtCase) {
       fineStatus = 'COURT_CASE';
-      newStatus = 'SUSPENDED';
+
+      // 100 points exceeding condition overrides court case suspension logic
+      if (newStatus !== 'REVOKED') {
+        newStatus = 'SUSPENDED';
+      }
+
       if (!isPointSuspension) {
         suspendedUntil = null;
       }
@@ -612,6 +617,10 @@ export class FinesService {
     }
 
     if (verdict === 'ACTIVE') {
+      const now = new Date();
+      const isStillSuspended =
+        fine.license.suspended_Until && fine.license.suspended_Until > now;
+
       const otherSeriousFines = await this.prisma.fine.count({
         where: {
           license_Id: fine.license_Id,
@@ -645,31 +654,42 @@ export class FinesService {
         });
 
         if (pendingFines.length > 0) {
-          const latestPending = pendingFines[0];
-          await tx.temporary_License.create({
-            data: {
-              license_Id: fine.license_Id,
-              expiry_Date:
-                latestPending.due_Date ||
-                new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-              issued_By: latestPending.traffic_Officer_Id,
-              head_Id: latestPending.head_Id,
-            },
-          });
+          if (!isStillSuspended) {
+            const latestPending = pendingFines[0];
+            await tx.temporary_License.create({
+              data: {
+                license_Id: fine.license_Id,
+                expiry_Date:
+                  latestPending.due_Date ||
+                  new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+                issued_By: latestPending.traffic_Officer_Id,
+                head_Id: latestPending.head_Id,
+              },
+            });
 
-          await tx.driving_License.update({
-            where: { license_Id: fine.license_Id },
-            data: {
-              status: 'TEMPORARY',
-              suspended_Until: null,
-            },
-          });
+            await tx.driving_License.update({
+              where: { license_Id: fine.license_Id },
+              data: {
+                status: 'TEMPORARY',
+                suspended_Until: null,
+              },
+            });
+          } else {
+            await tx.driving_License.update({
+              where: { license_Id: fine.license_Id },
+              data: {
+                status: 'SUSPENDED',
+              },
+            });
+          }
         } else {
           await tx.driving_License.update({
             where: { license_Id: fine.license_Id },
             data: {
-              status: 'ACTIVE',
-              suspended_Until: null,
+              status: isStillSuspended ? 'SUSPENDED' : 'ACTIVE',
+              suspended_Until: isStillSuspended
+                ? fine.license.suspended_Until
+                : null,
             },
           });
         }
