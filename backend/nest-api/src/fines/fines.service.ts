@@ -617,6 +617,8 @@ export class FinesService {
     }
 
     if (verdict === 'ACTIVE') {
+      const isRevokedByPoints =
+        fine.license.has_100_Revoke || fine.license.points >= 100;
       const now = new Date();
       const isStillSuspended =
         fine.license.suspended_Until && fine.license.suspended_Until > now;
@@ -645,57 +647,68 @@ export class FinesService {
           where: { license_Id: fine.license_Id },
         });
 
-        const pendingFines = await tx.fine.findMany({
-          where: {
-            license_Id: fine.license_Id,
-            status: 'PENDING',
-          },
-          orderBy: { issue_At: 'desc' },
-        });
+        if (isRevokedByPoints) {
+          await tx.driving_License.update({
+            where: { license_Id: fine.license_Id },
+            data: { status: 'REVOKED' },
+          });
+        } else {
+          const pendingFines = await tx.fine.findMany({
+            where: {
+              license_Id: fine.license_Id,
+              status: 'PENDING',
+            },
+            orderBy: { issue_At: 'desc' },
+          });
 
-        if (pendingFines.length > 0) {
-          if (!isStillSuspended) {
-            const latestPending = pendingFines[0];
-            await tx.temporary_License.create({
-              data: {
-                license_Id: fine.license_Id,
-                expiry_Date:
-                  latestPending.due_Date ||
-                  new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-                issued_By: latestPending.traffic_Officer_Id,
-                head_Id: latestPending.head_Id,
-              },
-            });
+          if (pendingFines.length > 0) {
+            if (!isStillSuspended) {
+              const latestPending = pendingFines[0];
+              await tx.temporary_License.create({
+                data: {
+                  license_Id: fine.license_Id,
+                  expiry_Date:
+                    latestPending.due_Date ||
+                    new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+                  issued_By: latestPending.traffic_Officer_Id,
+                  head_Id: latestPending.head_Id,
+                },
+              });
 
-            await tx.driving_License.update({
-              where: { license_Id: fine.license_Id },
-              data: {
-                status: 'TEMPORARY',
-                suspended_Until: null,
-              },
-            });
+              await tx.driving_License.update({
+                where: { license_Id: fine.license_Id },
+                data: {
+                  status: 'TEMPORARY',
+                  suspended_Until: null,
+                },
+              });
+            } else {
+              await tx.driving_License.update({
+                where: { license_Id: fine.license_Id },
+                data: {
+                  status: 'SUSPENDED',
+                },
+              });
+            }
           } else {
             await tx.driving_License.update({
               where: { license_Id: fine.license_Id },
               data: {
-                status: 'SUSPENDED',
+                status: isStillSuspended ? 'SUSPENDED' : 'ACTIVE',
+                suspended_Until: isStillSuspended
+                  ? fine.license.suspended_Until
+                  : null,
               },
             });
           }
-        } else {
-          await tx.driving_License.update({
-            where: { license_Id: fine.license_Id },
-            data: {
-              status: isStillSuspended ? 'SUSPENDED' : 'ACTIVE',
-              suspended_Until: isStillSuspended
-                ? fine.license.suspended_Until
-                : null,
-            },
-          });
         }
       });
 
-      return { message: 'License updated successfully.' };
+      return {
+        message: isRevokedByPoints
+          ? 'Court case resolved, but license remains REVOKED due to exceeding 100 points.'
+          : 'License updated successfully.',
+      };
     } else {
       await this.prisma.$transaction(async (tx) => {
         await tx.fine.update({
