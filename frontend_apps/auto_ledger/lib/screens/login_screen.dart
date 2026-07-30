@@ -1447,171 +1447,175 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const _LoginBackground(),
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: GlassContainer(
-                width: double.infinity,
-                padding: const EdgeInsets.all(28.0),
-                borderRadius: 24.0,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.directions_car,
-                        size: 60, color: Colors.white),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Auto-Ledger',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    TextField(
-                      controller: _nicController,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w500),
-                      decoration: InputDecoration(
-                        labelText: 'NIC Number',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon:
-                            const Icon(Icons.badge, color: Colors.white70),
-                        filled: true,
-                        fillColor: Colors.white.withAlpha(20),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide:
-                              BorderSide(color: Colors.white.withAlpha(40)),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
-                              color: Colors.cyanAccent, width: 1.5),
-                          borderRadius: BorderRadius.circular(16),
+    return RepaintBoundary(
+      child: Scaffold(
+        body: Stack(
+          children: [
+            const _LoginBackground(),
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: GlassContainer(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(28.0),
+                  borderRadius: 24.0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.directions_car,
+                          size: 60, color: Colors.white),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Auto-Ledger',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 1.2,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w500),
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon:
-                            const Icon(Icons.lock, color: Colors.white70),
-                        filled: true,
-                        fillColor: Colors.white.withAlpha(20),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.white70,
+                      const SizedBox(height: 40),
+                      TextField(
+                        controller: _nicController,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          labelText: 'NIC Number',
+                          labelStyle: const TextStyle(color: Colors.white70),
+                          prefixIcon:
+                              const Icon(Icons.badge, color: Colors.white70),
+                          filled: true,
+                          fillColor: Colors.white.withAlpha(20),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide:
+                                BorderSide(color: Colors.white.withAlpha(40)),
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide:
-                              BorderSide(color: Colors.white.withAlpha(40)),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
-                              color: Colors.cyanAccent, width: 1.5),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _showForgotPasswordInitialDialog,
-                        child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                              color: Colors.cyanAccent,
-                              fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_isLoading)
-                      const CircularProgressIndicator(color: Colors.cyanAccent)
-                    else
-                      SizedBox(
-                        width: double.infinity,
-                        height: 55,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF0F2027),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          onPressed: _handleLogin,
-                          child: const Text(
-                            'LOGIN',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                                color: Colors.cyanAccent, width: 1.5),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                      ),
-                    const SizedBox(height: 24),
-                    if (_isBiometricEnabled && _isBiometricAvailable) ...[
-                      IconButton(
-                        icon: const Icon(Icons.fingerprint,
-                            color: Colors.white, size: 45),
-                        onPressed: _isLoading ? null : _handleBiometricLogin,
                       ),
                       const SizedBox(height: 16),
-                    ],
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const RegisterScreen()),
-                        );
-                      },
-                      child: RichText(
-                        text: const TextSpan(
-                          text: 'New Driver? ',
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
-                          children: [
-                            TextSpan(
-                              text: 'Register Here',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                  fontSize: 13),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          labelStyle: const TextStyle(color: Colors.white70),
+                          prefixIcon:
+                              const Icon(Icons.lock, color: Colors.white70),
+                          filled: true,
+                          fillColor: Colors.white.withAlpha(20),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: Colors.white70,
                             ),
-                          ],
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide:
+                                BorderSide(color: Colors.white.withAlpha(40)),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                                color: Colors.cyanAccent, width: 1.5),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _showForgotPasswordInitialDialog,
+                          child: const Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                                color: Colors.cyanAccent,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_isLoading)
+                        const CircularProgressIndicator(
+                            color: Colors.cyanAccent)
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          height: 55,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF0F2027),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            onPressed: _handleLogin,
+                            child: const Text(
+                              'LOGIN',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                      if (_isBiometricEnabled && _isBiometricAvailable) ...[
+                        IconButton(
+                          icon: const Icon(Icons.fingerprint,
+                              color: Colors.white, size: 45),
+                          onPressed: _isLoading ? null : _handleBiometricLogin,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const RegisterScreen()),
+                          );
+                        },
+                        child: RichText(
+                          text: const TextSpan(
+                            text: 'New Driver? ',
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 13),
+                            children: [
+                              TextSpan(
+                                text: 'Register Here',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                    fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

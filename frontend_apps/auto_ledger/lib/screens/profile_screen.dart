@@ -1118,204 +1118,211 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        _buildGlassBackground(),
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          extendBodyBehindAppBar: true,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: const Color(0xFF0B0F19).withAlpha(120),
-            flexibleSpace: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                        bottom: BorderSide(
-                            color: Colors.white.withAlpha(40), width: 1.0)),
+    return RepaintBoundary(
+      child: Stack(
+        children: [
+          _buildGlassBackground(),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            extendBodyBehindAppBar: true,
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: const Color(0xFF0B0F19).withAlpha(120),
+              flexibleSpace: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                          bottom: BorderSide(
+                              color: Colors.white.withAlpha(40), width: 1.0)),
+                    ),
                   ),
                 ),
               ),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              centerTitle: true,
+              title: const Text('My Profile',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      letterSpacing: 0.5)),
             ),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            centerTitle: true,
-            title: const Text('My Profile',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    letterSpacing: 0.5)),
-          ),
-          body: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Colors.white))
-              : _errorMessage.isNotEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline,
-                              color: Colors.red.shade400, size: 50),
-                          const SizedBox(height: 16),
-                          Text(_errorMessage,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white.withAlpha(30),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12))),
-                              onPressed: () {
-                                widget.onLogActivity(
-                                    'Retried loading profile', Icons.refresh);
-                                _fetchUserProfile();
-                              },
-                              child: const Text('Retry',
-                                  style: TextStyle(color: Colors.white)))
-                        ],
-                      ),
-                    )
-                  : SafeArea(
-                      child: RefreshIndicator(
-                        onRefresh: _fetchUserProfile,
-                        color: Colors.cyanAccent,
-                        backgroundColor: Colors.white.withAlpha(20),
-                        child: ScrollConfiguration(
-                          behavior: ScrollConfiguration.of(context).copyWith(
-                            physics: const BouncingScrollPhysics(
-                              parent: AlwaysScrollableScrollPhysics(),
+            body: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white))
+                : _errorMessage.isNotEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline,
+                                color: Colors.red.shade400, size: 50),
+                            const SizedBox(height: 16),
+                            Text(_errorMessage,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white.withAlpha(30),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12))),
+                                onPressed: () {
+                                  widget.onLogActivity(
+                                      'Retried loading profile', Icons.refresh);
+                                  _fetchUserProfile();
+                                },
+                                child: const Text('Retry',
+                                    style: TextStyle(color: Colors.white)))
+                          ],
+                        ),
+                      )
+                    : SafeArea(
+                        child: RefreshIndicator(
+                          onRefresh: _fetchUserProfile,
+                          color: Colors.cyanAccent,
+                          backgroundColor: Colors.white.withAlpha(20),
+                          child: ScrollConfiguration(
+                            behavior: ScrollConfiguration.of(context).copyWith(
+                              physics: const BouncingScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics(),
+                              ),
                             ),
-                          ),
-                          child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(
-                              parent: AlwaysScrollableScrollPhysics(),
-                            ),
-                            padding: const EdgeInsets.only(
-                              top: 16,
-                              left: 20,
-                              right: 20,
-                              bottom: 120,
-                            ),
-                            child: Column(
-                              children: [
-                                _buildProfileHeader(),
-                                const SizedBox(height: 20),
-                                _buildPointsWidget(),
-                                const SizedBox(height: 20),
-                                _buildGlassCard(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(Icons.location_on_rounded,
-                                              color:
-                                                  Colors.white.withAlpha(200),
-                                              size: 20),
-                                          const SizedBox(width: 8),
-                                          const Text('Registered Address',
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 14)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(_address,
-                                          style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                              height: 1.4)),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                _buildBiometricToggle(),
-                                const SizedBox(height: 20),
-                                _buildGlassCard(
-                                  padding: const EdgeInsets.all(4),
-                                  child: ListTile(
-                                    onTap: _showChangePasswordDialog,
-                                    leading: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                          color: Colors.white.withAlpha(15),
-                                          shape: BoxShape.circle),
-                                      child: const Icon(Icons.password_rounded,
-                                          color: Colors.white),
-                                    ),
-                                    title: const Text('Change Password',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.white,
-                                            fontSize: 15)),
-                                    trailing: const Icon(
-                                        Icons.arrow_forward_ios_rounded,
-                                        color: Colors.white70,
-                                        size: 16),
-                                  ),
-                                ),
-                                const SizedBox(height: 30),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(
-                                        sigmaX: 30, sigmaY: 30),
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      height: 60,
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              Colors.red.shade50.withAlpha(15),
-                                          foregroundColor: Colors.red.shade300,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              side: BorderSide(
-                                                  color: Colors.redAccent
-                                                      .withAlpha(50),
-                                                  width: 1.0)),
-                                        ),
-                                        onPressed: () {
-                                          HapticFeedback.lightImpact();
-                                          widget.onLogActivity(
-                                              'Initiated Logout', Icons.logout);
-                                          _logout();
-                                        },
-                                        child: const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics(),
+                              ),
+                              padding: const EdgeInsets.only(
+                                top: 16,
+                                left: 20,
+                                right: 20,
+                                bottom: 120,
+                              ),
+                              child: Column(
+                                children: [
+                                  _buildProfileHeader(),
+                                  const SizedBox(height: 20),
+                                  _buildPointsWidget(),
+                                  const SizedBox(height: 20),
+                                  _buildGlassCard(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
                                           children: [
-                                            Icon(Icons.logout_rounded,
-                                                size: 22),
-                                            SizedBox(width: 10),
-                                            Text('Log Out',
+                                            Icon(Icons.location_on_rounded,
+                                                color:
+                                                    Colors.white.withAlpha(200),
+                                                size: 20),
+                                            const SizedBox(width: 8),
+                                            const Text('Registered Address',
                                                 style: TextStyle(
+                                                    color: Colors.white,
                                                     fontWeight: FontWeight.w900,
-                                                    fontSize: 16)),
+                                                    fontSize: 14)),
                                           ],
                                         ),
+                                        const SizedBox(height: 10),
+                                        Text(_address,
+                                            style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                                height: 1.4)),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildBiometricToggle(),
+                                  const SizedBox(height: 20),
+                                  _buildGlassCard(
+                                    padding: const EdgeInsets.all(4),
+                                    child: ListTile(
+                                      onTap: _showChangePasswordDialog,
+                                      leading: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                            color: Colors.white.withAlpha(15),
+                                            shape: BoxShape.circle),
+                                        child: const Icon(
+                                            Icons.password_rounded,
+                                            color: Colors.white),
+                                      ),
+                                      title: const Text('Change Password',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              color: Colors.white,
+                                              fontSize: 15)),
+                                      trailing: const Icon(
+                                          Icons.arrow_forward_ios_rounded,
+                                          color: Colors.white70,
+                                          size: 16),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 30),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(
+                                          sigmaX: 30, sigmaY: 30),
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        height: 60,
+                                        child: ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red.shade50
+                                                .withAlpha(15),
+                                            foregroundColor:
+                                                Colors.red.shade300,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                side: BorderSide(
+                                                    color: Colors.redAccent
+                                                        .withAlpha(50),
+                                                    width: 1.0)),
+                                          ),
+                                          onPressed: () {
+                                            HapticFeedback.lightImpact();
+                                            widget.onLogActivity(
+                                                'Initiated Logout',
+                                                Icons.logout);
+                                            _logout();
+                                          },
+                                          child: const Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.logout_rounded,
+                                                  size: 22),
+                                              SizedBox(width: 10),
+                                              Text('Log Out',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                      fontSize: 16)),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
