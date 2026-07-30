@@ -23,7 +23,7 @@ class FinesScreen extends StatefulWidget {
 }
 
 class _FinesScreenState extends State<FinesScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final Set<String> _selectedFines = {};
 
@@ -34,14 +34,38 @@ class _FinesScreenState extends State<FinesScreen>
   String _errorMessage = '';
 
   Timer? _paymentTimer;
+  bool _isClosing = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController =
         TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
     _tabController.addListener(_handleTabChange);
     _fetchFines();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _paymentTimer?.cancel();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (!_isClosing && mounted) {
+        setState(() => _isClosing = true);
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (_isClosing && mounted) {
+        setState(() => _isClosing = false);
+      }
+    }
   }
 
   void _handleTabChange() {
@@ -418,13 +442,6 @@ class _FinesScreenState extends State<FinesScreen>
     Future.delayed(const Duration(seconds: 3), () => entry.remove());
   }
 
-  @override
-  void dispose() {
-    _paymentTimer?.cancel();
-    _tabController.dispose();
-    super.dispose();
-  }
-
   String _formatDate(String isoString) {
     try {
       final date = DateTime.parse(isoString);
@@ -777,6 +794,9 @@ class _FinesScreenState extends State<FinesScreen>
   }
 
   Widget _buildGlassBackground() {
+    if (_isClosing) {
+      return Container(color: const Color(0xFF0B0F19));
+    }
     return RepaintBoundary(
       child: Stack(
         children: [
@@ -814,6 +834,13 @@ class _FinesScreenState extends State<FinesScreen>
                   child: Container(color: Colors.transparent))),
         ],
       ),
+    );
+  }
+
+  Widget _buildSimpleUi() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0F19),
+      body: Container(),
     );
   }
 
@@ -1444,94 +1471,114 @@ class _FinesScreenState extends State<FinesScreen>
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: Stack(
-        children: [
-          _buildGlassBackground(),
-          Scaffold(
-            backgroundColor: Colors.transparent,
-            extendBodyBehindAppBar: true,
-            appBar: AppBar(
-              automaticallyImplyLeading: false,
-              backgroundColor: const Color(0xFF0B0F19).withAlpha(120),
-              flexibleSpace: ClipRect(
-                  child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                      child: Container(color: Colors.transparent))),
-              title: const Text('Traffic Fines',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
-              bottom: TabBar(
-                controller: _tabController,
-                labelColor: Colors.cyanAccent,
-                unselectedLabelColor: Colors.white70,
-                indicatorColor: Colors.cyanAccent,
-                indicatorWeight: 3,
-                tabs: const [
-                  Tab(text: 'PENDING'),
-                  Tab(text: 'PAID'),
-                  Tab(text: 'POINTS'),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (!didPop) {
+          if (_isClosing) {
+            Navigator.of(context).pop();
+            return;
+          }
+          setState(() => _isClosing = true);
+          await Future.delayed(const Duration(milliseconds: 50));
+          Navigator.of(context).pop();
+        }
+      },
+      child: _isClosing
+          ? _buildSimpleUi()
+          : RepaintBoundary(
+              child: Stack(
+                children: [
+                  _buildGlassBackground(),
+                  Scaffold(
+                    backgroundColor: Colors.transparent,
+                    extendBodyBehindAppBar: true,
+                    appBar: AppBar(
+                      automaticallyImplyLeading: false,
+                      backgroundColor: const Color(0xFF0B0F19).withAlpha(120),
+                      flexibleSpace: ClipRect(
+                          child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                              child: Container(color: Colors.transparent))),
+                      title: const Text('Traffic Fines',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                      bottom: TabBar(
+                        controller: _tabController,
+                        labelColor: Colors.cyanAccent,
+                        unselectedLabelColor: Colors.white70,
+                        indicatorColor: Colors.cyanAccent,
+                        indicatorWeight: 3,
+                        tabs: const [
+                          Tab(text: 'PENDING'),
+                          Tab(text: 'PAID'),
+                          Tab(text: 'POINTS'),
+                        ],
+                      ),
+                    ),
+                    body: _isLoading
+                        ? const Center(
+                            child:
+                                CircularProgressIndicator(color: Colors.white))
+                        : _errorMessage.isNotEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline,
+                                        color: Colors.white, size: 50),
+                                    const SizedBox(height: 16),
+                                    Text(_errorMessage,
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 16)),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                Colors.white.withAlpha(40)),
+                                        onPressed: () {
+                                          widget.onLogActivity(
+                                              'Retried loading fines',
+                                              Icons.refresh);
+                                          _fetchFines();
+                                        },
+                                        child: const Text('Retry',
+                                            style: TextStyle(
+                                                color: Colors.white))),
+                                  ],
+                                ),
+                              )
+                            : Stack(
+                                children: [
+                                  TabBarView(
+                                    controller: _tabController,
+                                    children: [
+                                      _PendingFinesList(
+                                        pendingFines: _pendingFines,
+                                        onRefresh: _fetchFines,
+                                        buildCard: _buildFineCard,
+                                        onLogActivity: widget.onLogActivity,
+                                      ),
+                                      _PaidFinesList(
+                                        paidFines: _paidFines,
+                                        onRefresh: _fetchFines,
+                                        buildCard: _buildFineCard,
+                                        onLogActivity: widget.onLogActivity,
+                                      ),
+                                      _buildPointsHistoryTab(),
+                                    ],
+                                  ),
+                                  Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: _buildBulkPaymentBar(),
+                                  ),
+                                ],
+                              ),
+                  ),
                 ],
               ),
             ),
-            body: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.white))
-                : _errorMessage.isNotEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline,
-                                color: Colors.white, size: 50),
-                            const SizedBox(height: 16),
-                            Text(_errorMessage,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 16)),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        Colors.white.withAlpha(40)),
-                                onPressed: () {
-                                  widget.onLogActivity(
-                                      'Retried loading fines', Icons.refresh);
-                                  _fetchFines();
-                                },
-                                child: const Text('Retry',
-                                    style: TextStyle(color: Colors.white))),
-                          ],
-                        ),
-                      )
-                    : Stack(
-                        children: [
-                          TabBarView(
-                            controller: _tabController,
-                            children: [
-                              _PendingFinesList(
-                                pendingFines: _pendingFines,
-                                onRefresh: _fetchFines,
-                                buildCard: _buildFineCard,
-                                onLogActivity: widget.onLogActivity,
-                              ),
-                              _PaidFinesList(
-                                paidFines: _paidFines,
-                                onRefresh: _fetchFines,
-                                buildCard: _buildFineCard,
-                                onLogActivity: widget.onLogActivity,
-                              ),
-                              _buildPointsHistoryTab(),
-                            ],
-                          ),
-                          Align(
-                            alignment: Alignment.bottomCenter,
-                            child: _buildBulkPaymentBar(),
-                          ),
-                        ],
-                      ),
-          ),
-        ],
-      ),
     );
   }
 }

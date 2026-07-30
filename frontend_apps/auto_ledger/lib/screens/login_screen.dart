@@ -752,6 +752,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                                             return;
                                                           }
                                                           if (mounted) {
+                                                            _prevBiometricEnabled =
+                                                                false;
                                                             setState(() {
                                                               _isBiometricEnabled =
                                                                   false;

@@ -65,7 +65,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {}
+    if (state == AppLifecycleState.resumed) {
+      _checkBiometricStatus();
+      _checkBiometricAvailability();
+    }
   }
 
   void _showGlassToast(String message, {bool isError = false}) {
@@ -155,16 +158,20 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _checkBiometricStatus() async {
     final isEnabled = await SettingsUtil.isBiometricEnabled();
-    setState(() {
-      _isBiometricEnabled = isEnabled;
-    });
+    if (mounted) {
+      setState(() {
+        _isBiometricEnabled = isEnabled;
+      });
+    }
   }
 
   Future<void> _checkBiometricAvailability() async {
     final available = await _biometricService.checkBiometricsAvailable();
-    setState(() {
-      _isBiometricAvailable = available;
-    });
+    if (mounted) {
+      setState(() {
+        _isBiometricAvailable = available;
+      });
+    }
   }
 
   Future<void> _fetchUserProfile() async {
@@ -305,7 +312,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withAlpha(160),
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return BackdropFilter(
@@ -406,8 +413,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     borderRadius: BorderRadius.circular(16)),
                               ),
                               onPressed: () {
-                                Navigator.pop(context);
-                                setState(() => _isBiometricEnabled = false);
+                                Navigator.of(dialogContext).pop();
                               },
                               child: const Text('Cancel',
                                   style: TextStyle(
@@ -470,9 +476,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                                             await _biometricService
                                                 .authenticate();
 
+                                        setModalState(() {
+                                          isVerifying = false;
+                                          isNativeAuth = false;
+                                        });
+
                                         if (!nativeAuthenticated) {
                                           if (mounted) {
-                                            Navigator.pop(context);
+                                            Navigator.of(dialogContext).pop();
                                           }
                                           _showGlassToast(
                                               'Biometric authentication failed. Please try again.',
@@ -480,13 +491,20 @@ class _ProfileScreenState extends State<ProfileScreen>
                                           return;
                                         }
 
+                                        await SettingsUtil.setBiometricEnabled(
+                                            true);
+                                        await SecureStorage.saveNic(_nic);
+
                                         if (mounted) {
-                                          Navigator.pop(context);
-                                          SettingsUtil.setBiometricEnabled(
-                                              true);
-                                          setState(
-                                              () => _isBiometricEnabled = true);
-                                          SecureStorage.saveNic(_nic);
+                                          Navigator.of(dialogContext).pop();
+                                          WidgetsBinding.instance
+                                              .addPostFrameCallback((_) {
+                                            if (mounted) {
+                                              setState(() {
+                                                _isBiometricEnabled = true;
+                                              });
+                                            }
+                                          });
                                           _showGlassToast(
                                               'Biometrics Enabled Successfully!');
                                           widget.onLogActivity(
@@ -1058,7 +1076,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                 _showBiometricPasswordDialog();
               } else {
                 SettingsUtil.setBiometricEnabled(false);
-                setState(() => _isBiometricEnabled = false);
+                if (mounted) {
+                  setState(() => _isBiometricEnabled = false);
+                }
                 SecureStorage.deleteNic();
                 _showGlassToast('Biometric login disabled.', isError: true);
                 widget.onLogActivity(

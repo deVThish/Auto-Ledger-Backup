@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   String? _activeQrSessionId;
   DateTime? _activeQrExpiry;
+  bool _isClosing = false;
 
   @override
   void initState() {
@@ -48,7 +49,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {}
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (!_isClosing && mounted) {
+        setState(() => _isClosing = true);
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (_isClosing && mounted) {
+        setState(() => _isClosing = false);
+      }
+    }
   }
 
   void _addRecentActivity(String title, IconData icon) {
@@ -645,6 +655,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildSimpleUi() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0F19),
+      body: Container(),
     );
   }
 
@@ -1371,6 +1388,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildGlassBackground() {
+    if (_isClosing) {
+      return Container(color: const Color(0xFF0B0F19));
+    }
     return RepaintBoundary(
       child: Stack(
         children: [
@@ -1409,130 +1429,154 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: Stack(
-        children: [
-          _buildGlassBackground(),
-          Scaffold(
-            backgroundColor: Colors.transparent,
-            extendBody: true,
-            extendBodyBehindAppBar: true,
-            appBar: _currentIndex == 0
-                ? AppBar(
-                    automaticallyImplyLeading: false,
-                    backgroundColor: const Color(0xFF0B0F19).withAlpha(120),
-                    flexibleSpace: ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (!didPop) {
+          if (_isClosing) {
+            Navigator.of(context).pop();
+            return;
+          }
+          setState(() => _isClosing = true);
+          await Future.delayed(const Duration(milliseconds: 50));
+          Navigator.of(context).pop();
+        }
+      },
+      child: _isClosing
+          ? _buildSimpleUi()
+          : RepaintBoundary(
+              child: Stack(
+                children: [
+                  _buildGlassBackground(),
+                  Scaffold(
+                    backgroundColor: Colors.transparent,
+                    extendBody: true,
+                    extendBodyBehindAppBar: true,
+                    appBar: _currentIndex == 0
+                        ? AppBar(
+                            automaticallyImplyLeading: false,
+                            backgroundColor:
+                                const Color(0xFF0B0F19).withAlpha(120),
+                            flexibleSpace: ClipRect(
+                              child: BackdropFilter(
+                                filter:
+                                    ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                        bottom: BorderSide(
+                                            color: Colors.white.withAlpha(40),
+                                            width: 1.0)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            foregroundColor: Colors.white,
+                            title: const Text('Auto-Ledger Dashboard',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 18)),
+                            elevation: 0,
+                            actions: [
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    right: 12.0, top: 6.0, bottom: 6.0),
+                                child: Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent.withAlpha(30),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.redAccent.withAlpha(80),
+                                        width: 1.0),
+                                  ),
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(Icons.logout_rounded,
+                                        color: Colors.redAccent, size: 20),
+                                    onPressed: () {
+                                      _addRecentActivity(
+                                          'Initiated Logout', Icons.logout);
+                                      _logout();
+                                    },
+                                    tooltip: 'Logout',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : null,
+                    body: _currentIndex == 0
+                        ? _buildDashboard()
+                        : _currentIndex == 1
+                            ? FinesScreen(
+                                initialTab: _finesInitialTab,
+                                onLogActivity: _addRecentActivity,
+                                onSelectionModeChanged: (isSelected) =>
+                                    setState(
+                                        () => _isSelectionMode = isSelected),
+                              )
+                            : ProfileScreen(
+                                onLogActivity: _addRecentActivity,
+                                onPointsClicked: () {
+                                  setState(() {
+                                    _finesInitialTab = 2;
+                                    _currentIndex = 1;
+                                  });
+                                },
+                              ),
+                    bottomNavigationBar: AnimatedSlide(
+                      offset:
+                          _isSelectionMode ? const Offset(0, 2) : Offset.zero,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      child: SafeArea(
                         child: Container(
+                          margin: const EdgeInsets.only(
+                              bottom: 16, left: 30, right: 30),
+                          height: 65,
                           decoration: BoxDecoration(
-                            border: Border(
-                                bottom: BorderSide(
-                                    color: Colors.white.withAlpha(40),
-                                    width: 1.0)),
+                            borderRadius: BorderRadius.circular(35),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black.withAlpha(40),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10))
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(35),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0B0F19).withAlpha(160),
+                                  borderRadius: BorderRadius.circular(35),
+                                  border: Border.all(
+                                      color: Colors.white.withAlpha(40),
+                                      width: 1.0),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    _buildNavItem(
+                                        0, 'License', Icons.credit_card),
+                                    _buildNavItem(
+                                        1, 'Fines', Icons.receipt_long),
+                                    _buildNavItem(2, 'Profile', Icons.person),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    foregroundColor: Colors.white,
-                    title: const Text('Auto-Ledger Dashboard',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 18)),
-                    elevation: 0,
-                    actions: [
-                      Padding(
-                        padding: const EdgeInsets.only(
-                            right: 12.0, top: 6.0, bottom: 6.0),
-                        child: Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent.withAlpha(30),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: Colors.redAccent.withAlpha(80),
-                                width: 1.0),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.logout_rounded,
-                                color: Colors.redAccent, size: 20),
-                            onPressed: () {
-                              _addRecentActivity(
-                                  'Initiated Logout', Icons.logout);
-                              _logout();
-                            },
-                            tooltip: 'Logout',
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : null,
-            body: _currentIndex == 0
-                ? _buildDashboard()
-                : _currentIndex == 1
-                    ? FinesScreen(
-                        initialTab: _finesInitialTab,
-                        onLogActivity: _addRecentActivity,
-                        onSelectionModeChanged: (isSelected) =>
-                            setState(() => _isSelectionMode = isSelected),
-                      )
-                    : ProfileScreen(
-                        onLogActivity: _addRecentActivity,
-                        onPointsClicked: () {
-                          setState(() {
-                            _finesInitialTab = 2;
-                            _currentIndex = 1;
-                          });
-                        },
-                      ),
-            bottomNavigationBar: AnimatedSlide(
-              offset: _isSelectionMode ? const Offset(0, 2) : Offset.zero,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              child: SafeArea(
-                child: Container(
-                  margin:
-                      const EdgeInsets.only(bottom: 16, left: 30, right: 30),
-                  height: 65,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(35),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withAlpha(40),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10))
-                    ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(35),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0B0F19).withAlpha(160),
-                          borderRadius: BorderRadius.circular(35),
-                          border: Border.all(
-                              color: Colors.white.withAlpha(40), width: 1.0),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildNavItem(0, 'License', Icons.credit_card),
-                            _buildNavItem(1, 'Fines', Icons.receipt_long),
-                            _buildNavItem(2, 'Profile', Icons.person),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                ],
               ),
             ),
-          ),
-        ],
-      ),
     );
   }
 }
