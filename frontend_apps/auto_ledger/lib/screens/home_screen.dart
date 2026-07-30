@@ -64,6 +64,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _fetchLicenseData() async {
     try {
+      final oldStatus = _licenseData?['status'];
+
       final response = await ApiService.dio.get('/license/my-license');
       if (!mounted) return;
 
@@ -72,6 +74,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _isLoading = false;
         _errorMessage = '';
       });
+
+      if (oldStatus == 'REVOKED' && _licenseData?['status'] == 'ACTIVE') {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('seen_big_dialog_WARNING');
+        await prefs.remove('seen_big_dialog_SEVERE');
+        await prefs.remove('seen_big_dialog_CRITICAL');
+        _addRecentActivity(
+            'License Reactivated - Warnings Reset', Icons.autorenew);
+      }
 
       if (!_hasShownPointsWarning) {
         final points = _licenseData?['points'] ?? 0;
