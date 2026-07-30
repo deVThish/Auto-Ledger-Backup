@@ -157,18 +157,35 @@ class _QRDialogState extends State<QRDialog> {
           child: Stack(
             children: [
               Positioned(
-                top: 4,
-                left: 4,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back,
-                      color: Colors.white70, size: 28),
-                  onPressed: () {
+                top: 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () {
                     HapticFeedback.lightImpact();
                     widget.onBack();
                   },
-                  padding: const EdgeInsets.all(8),
-                  constraints: const BoxConstraints(),
-                  splashRadius: 24,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(25),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.white.withAlpha(40), width: 1.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(20),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
                 ),
               ),
               SingleChildScrollView(

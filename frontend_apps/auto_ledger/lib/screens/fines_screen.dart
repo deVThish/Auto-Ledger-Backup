@@ -120,9 +120,9 @@ class _FinesScreenState extends State<FinesScreen>
           'comment': f['comment'] ?? '',
           'dueDate': f['due_Date'],
           'payment': f['payment'],
+          'scanLocation': f['scanLocation'],
         };
 
-        // Paid if status is PAID, OR if status is COURT_CASE and payment exists
         if (status == 'PAID' || (status == 'COURT_CASE' && hasPayment)) {
           parsedPaid.add(mappedFine);
         } else {
@@ -826,7 +826,6 @@ class _FinesScreenState extends State<FinesScreen>
         ? const Color(0xFF1A2980).withAlpha(150)
         : Colors.white.withAlpha(60);
 
-    // Determine display status
     String displayStatus = fine['status'];
     if (hasPayment && fine['status'] == 'COURT_CASE') {
       displayStatus = 'PAID - PENDING DH';
@@ -966,6 +965,28 @@ class _FinesScreenState extends State<FinesScreen>
                                 isOverdue ? Colors.red.shade300 : Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (fine['scanLocation'] != null &&
+                      fine['scanLocation'].toString().isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_rounded,
+                            size: 14, color: Colors.white70),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            fine['scanLocation'].toString(),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
