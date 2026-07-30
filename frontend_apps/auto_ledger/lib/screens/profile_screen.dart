@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -495,21 +497,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                                             true);
                                         await SecureStorage.saveNic(_nic);
 
-                                        if (mounted) {
+                                        if (dialogContext.mounted) {
                                           Navigator.of(dialogContext).pop();
-                                          WidgetsBinding.instance
-                                              .addPostFrameCallback((_) {
-                                            if (mounted) {
-                                              setState(() {
-                                                _isBiometricEnabled = true;
-                                              });
-                                            }
-                                          });
+                                        }
+
+                                        if (mounted) {
                                           _showGlassToast(
                                               'Biometrics Enabled Successfully!');
                                           widget.onLogActivity(
                                               'Enabled Biometric Login',
                                               Icons.fingerprint_rounded);
+                                          await _checkBiometricStatus();
                                         }
                                       } on DioException catch (e) {
                                         setModalState(() {
