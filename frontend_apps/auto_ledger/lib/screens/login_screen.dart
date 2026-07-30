@@ -661,21 +661,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                                   if (!this.context.mounted) {
                                                     return;
                                                   }
-                                                  final overlay = Navigator.of(
-                                                          this.context,
-                                                          rootNavigator: true)
-                                                      .overlay;
-                                                  Navigator.pushReplacement(
-                                                    this.context,
-                                                    MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            const HomeScreen()),
-                                                  );
-                                                  if (overlay != null) {
-                                                    _showGlassySuccessToast(
-                                                        overlay,
-                                                        'Device verified successfully!');
+                                                  await SettingsUtil
+                                                      .setBiometricEnabled(
+                                                          false);
+                                                  if (mounted) {
+                                                    setState(() {
+                                                      _isBiometricEnabled =
+                                                          false;
+                                                    });
                                                   }
+                                                  _showToast(
+                                                      'Device verified successfully! Please login again.',
+                                                      isError: false);
                                                 } else {
                                                   setModalState(() => errorMsg =
                                                       result['message'] ??
