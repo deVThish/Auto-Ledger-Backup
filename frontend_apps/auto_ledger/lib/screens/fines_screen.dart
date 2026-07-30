@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,6 +32,8 @@ class _FinesScreenState extends State<FinesScreen>
 
   bool _isLoading = true;
   String _errorMessage = '';
+
+  Timer? _paymentTimer;
 
   @override
   void initState() {
@@ -258,10 +261,15 @@ class _FinesScreenState extends State<FinesScreen>
         },
       );
 
-      Future.delayed(const Duration(milliseconds: 2000), () {
+      _paymentTimer?.cancel();
+      _paymentTimer = Timer(const Duration(milliseconds: 2000), () {
         if (mounted) {
-          Navigator.pop(context);
-          _fetchFines();
+          if (Navigator.canPop(context)) {
+            Navigator.of(context).pop();
+          }
+          if (mounted) {
+            _fetchFines();
+          }
         }
       });
     } catch (e) {
@@ -412,6 +420,7 @@ class _FinesScreenState extends State<FinesScreen>
 
   @override
   void dispose() {
+    _paymentTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }

@@ -654,13 +654,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                                   return;
 
                                                 if (result['success'] == true) {
-                                                  if (dialogContext.mounted) {
-                                                    Navigator.pop(
-                                                        dialogContext);
-                                                  }
-                                                  if (!this.context.mounted) {
-                                                    return;
-                                                  }
                                                   await SettingsUtil
                                                       .setBiometricEnabled(
                                                           false);
@@ -669,6 +662,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                                       _isBiometricEnabled =
                                                           false;
                                                     });
+                                                  }
+                                                  if (dialogContext.mounted) {
+                                                    Navigator.pop(
+                                                        dialogContext);
+                                                  }
+                                                  if (!this.context.mounted) {
+                                                    return;
                                                   }
                                                   _showToast(
                                                       'Device verified successfully! Please login again.',
