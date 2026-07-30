@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously, curly_braces_in_flow_control_structures
 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
@@ -185,14 +186,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       ),
     );
 
-    Navigator.of(context, rootNavigator: true).overlay?.insert(_overlayEntry!);
-
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_overlayEntry != null && _overlayEntry!.mounted) {
-        _overlayEntry!.remove();
-        _overlayEntry = null;
-      }
-    });
+    final overlay = Navigator.of(context, rootNavigator: true).overlay;
+    if (overlay != null) {
+      overlay.insert(_overlayEntry!);
+      Future.delayed(const Duration(seconds: 3), () {
+        if (_overlayEntry != null && _overlayEntry!.mounted) {
+          _overlayEntry!.remove();
+          _overlayEntry = null;
+        }
+      });
+    }
   }
 
   void _showGlassySuccessToast(OverlayState overlay, String message) {
@@ -657,22 +660,32 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                                   await SettingsUtil
                                                       .setBiometricEnabled(
                                                           false);
+
+                                                  if (dialogContext.mounted) {
+                                                    Navigator.pop(
+                                                        dialogContext);
+                                                  }
+
+                                                  if (!this.context.mounted) {
+                                                    return;
+                                                  }
+
+                                                  await Future.delayed(
+                                                      const Duration(
+                                                          milliseconds: 200));
+
                                                   if (mounted) {
                                                     setState(() {
                                                       _isBiometricEnabled =
                                                           false;
                                                     });
                                                   }
-                                                  if (dialogContext.mounted) {
-                                                    Navigator.pop(
-                                                        dialogContext);
+
+                                                  if (mounted) {
+                                                    _showToast(
+                                                        'Device verified successfully! Please login again.',
+                                                        isError: false);
                                                   }
-                                                  if (!this.context.mounted) {
-                                                    return;
-                                                  }
-                                                  _showToast(
-                                                      'Device verified successfully! Please login again.',
-                                                      isError: false);
                                                 } else {
                                                   setModalState(() => errorMsg =
                                                       result['message'] ??
