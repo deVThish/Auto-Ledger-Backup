@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import '../services/api_service.dart';
+import '../services/biometric_service.dart';
 import '../utils/secure_storage.dart';
 import '../utils/settings_util.dart';
 import 'login_screen.dart';
@@ -21,7 +22,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with WidgetsBindingObserver {
   bool _isLoading = true;
   String _errorMessage = '';
 
@@ -33,27 +35,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool _isBiometricEnabled = false;
   bool _isChangingPassword = false;
+  bool _isBiometricAvailable = false;
 
   final _oldPwController = TextEditingController();
   final _newPwController = TextEditingController();
   final _confirmPwController = TextEditingController();
+  final BiometricService _biometricService = BiometricService();
 
   OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkBiometricStatus();
+    _checkBiometricAvailability();
     _fetchUserProfile();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _overlayEntry?.remove();
     _oldPwController.dispose();
     _newPwController.dispose();
     _confirmPwController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {}
   }
 
   void _showGlassToast(String message, {bool isError = false}) {
@@ -145,6 +157,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isEnabled = await SettingsUtil.isBiometricEnabled();
     setState(() {
       _isBiometricEnabled = isEnabled;
+    });
+  }
+
+  Future<void> _checkBiometricAvailability() async {
+    final available = await _biometricService.checkBiometricsAvailable();
+    setState(() {
+      _isBiometricAvailable = available;
     });
   }
 
@@ -278,6 +297,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final TextEditingController pwController = TextEditingController();
     bool isObscured = true;
     bool isVerifying = false;
+    bool isNativeAuth = false;
 
     widget.onLogActivity('Attempted to Toggle Biometrics', Icons.fingerprint);
 
@@ -410,7 +430,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         color: Colors.white.withAlpha(80),
                                         width: 1)),
                               ),
-                              onPressed: isVerifying
+                              onPressed: isVerifying || isNativeAuth
                                   ? null
                                   : () async {
                                       final enteredPassword =
@@ -441,8 +461,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               'newPassword': enteredPassword,
                                             });
 
+                                        setModalState(() {
+                                          isVerifying = false;
+                                          isNativeAuth = true;
+                                        });
+
+                                        final nativeAuthenticated =
+                                            await _biometricService
+                                                .authenticate();
+
+                                        if (!nativeAuthenticated) {
+                                          if (mounted) {
+                                            Navigator.pop(context);
+                                          }
+                                          _showGlassToast(
+                                              'Biometric authentication failed. Please try again.',
+                                              isError: true);
+                                          return;
+                                        }
+
                                         if (mounted) {
-                                          // ignore: use_build_context_synchronously
                                           Navigator.pop(context);
                                           SettingsUtil.setBiometricEnabled(
                                               true);
@@ -456,22 +494,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               Icons.fingerprint_rounded);
                                         }
                                       } on DioException catch (e) {
-                                        setModalState(
-                                            () => isVerifying = false);
+                                        setModalState(() {
+                                          isVerifying = false;
+                                          isNativeAuth = false;
+                                        });
                                         final errorMsg = e
                                                 .response?.data['message'] ??
-                                            'Invalid password. Please try again.';
+                                            'Wrong old password. Please try again.';
                                         _showGlassToast(errorMsg,
                                             isError: true);
                                       } catch (e) {
-                                        setModalState(
-                                            () => isVerifying = false);
+                                        setModalState(() {
+                                          isVerifying = false;
+                                          isNativeAuth = false;
+                                        });
                                         _showGlassToast(
                                             'An error occurred. Please try again.',
                                             isError: true);
                                       }
                                     },
-                              child: isVerifying
+                              child: isVerifying || isNativeAuth
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
@@ -980,6 +1022,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildBiometricToggle() {
+    if (!_isBiometricAvailable) {
+      return const SizedBox.shrink();
+    }
+
     return _buildGlassCard(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

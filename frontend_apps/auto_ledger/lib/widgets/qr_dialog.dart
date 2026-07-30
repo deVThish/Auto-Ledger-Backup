@@ -10,6 +10,7 @@ class QRDialog extends StatefulWidget {
   final DateTime initialExpiresAt;
   final VoidCallback onClose;
   final VoidCallback onExpired;
+  final VoidCallback onBack;
 
   const QRDialog({
     super.key,
@@ -17,6 +18,7 @@ class QRDialog extends StatefulWidget {
     required this.initialExpiresAt,
     required this.onClose,
     required this.onExpired,
+    required this.onBack,
   });
 
   @override
@@ -152,136 +154,156 @@ class _QRDialogState extends State<QRDialog> {
                   offset: const Offset(0, 10))
             ],
           ),
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Text(
-                  'Show this to the Officer',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 4,
+                left: 4,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back,
+                      color: Colors.white70, size: 28),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    widget.onBack();
+                  },
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                  splashRadius: 24,
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(140),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: Colors.white.withAlpha(80), width: 1.5),
-                  ),
-                  child: QrImageView(
-                    data: widget.sessionId,
-                    version: QrVersions.auto,
-                    size: 200.0,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (_isScanned && !_isExpired) ...[
-                  Text(
-                    'Valid for: $_formattedTime',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: _remainingSeconds < 30
-                          ? Colors.redAccent
-                          : Colors.white,
+              ),
+              SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Show this to the Officer',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                ] else if (!_isScanned && !_isExpired) ...[
-                  const Text(
-                    'Waiting for officer to scan...',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.cyanAccent,
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(140),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: Colors.white.withAlpha(80), width: 1.5),
+                      ),
+                      child: QrImageView(
+                        data: widget.sessionId,
+                        version: QrVersions.auto,
+                        size: 200.0,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'QR code will remain valid until scanned.',
-                    style: TextStyle(color: Colors.white60, fontSize: 13),
-                  ),
-                ],
-                if (!_isExpired) ...[
-                  if (_isScanned) ...[
-                    Text(
-                      'QR code will expire at ${_formatTime(displayExpiresAt)}',
-                      style:
-                          const TextStyle(color: Colors.white60, fontSize: 13),
-                    ),
-                  ],
-                  const SizedBox(height: 2),
-                ],
-                if (_isScanned && !_isExpired) ...[
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.check_circle,
-                          color: Colors.greenAccent, size: 16),
-                      SizedBox(width: 6),
+                    const SizedBox(height: 12),
+                    if (_isScanned && !_isExpired) ...[
                       Text(
-                        'QR Code Scanned!',
+                        'Valid for: $_formattedTime',
                         style: TextStyle(
-                          color: Colors.greenAccent,
-                          fontSize: 14,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: _remainingSeconds < 30
+                              ? Colors.redAccent
+                              : Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                    ] else if (!_isScanned && !_isExpired) ...[
+                      const Text(
+                        'Waiting for officer to scan...',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.cyanAccent,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'QR code will remain valid until scanned.',
+                        style: TextStyle(color: Colors.white60, fontSize: 13),
+                      ),
+                    ],
+                    if (!_isExpired) ...[
+                      if (_isScanned) ...[
+                        Text(
+                          'QR code will expire at ${_formatTime(displayExpiresAt)}',
+                          style: const TextStyle(
+                              color: Colors.white60, fontSize: 13),
+                        ),
+                      ],
+                      const SizedBox(height: 2),
+                    ],
+                    if (_isScanned && !_isExpired) ...[
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.greenAccent, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            'QR Code Scanned!',
+                            style: TextStyle(
+                              color: Colors.greenAccent,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (_isExpired) ...[
+                      const Icon(Icons.timer_off,
+                          color: Colors.redAccent, size: 32),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'QR Code Expired',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Please generate a new QR code.',
+                        style: TextStyle(color: Colors.white60, fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
-                  ),
-                ],
-                if (_isExpired) ...[
-                  const Icon(Icons.timer_off,
-                      color: Colors.redAccent, size: 32),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'QR Code Expired',
-                    style: TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'Please generate a new QR code.',
-                    style: TextStyle(color: Colors.white60, fontSize: 13),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white.withAlpha(25),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(color: Colors.white.withAlpha(40)),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withAlpha(25),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(color: Colors.white.withAlpha(40)),
+                          ),
+                        ),
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          widget.onClose();
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          'Close',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      widget.onClose();
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      'Close',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
