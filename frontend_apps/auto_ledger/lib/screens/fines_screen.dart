@@ -97,6 +97,9 @@ class _FinesScreenState extends State<FinesScreen>
             ? '${officer['name']} (${officer['badge_No']})'
             : 'Unknown Officer';
 
+        final status = f['status'];
+        final hasPayment = f['payment'] != null;
+
         final mappedFine = {
           'id': f['fine_Id'],
           'date': f['issue_At'],
@@ -112,14 +115,15 @@ class _FinesScreenState extends State<FinesScreen>
                     'amount': 0
                   }
                 ],
-          'status': f['status'],
+          'status': status,
           'officer': officerName,
           'comment': f['comment'] ?? '',
           'dueDate': f['due_Date'],
           'payment': f['payment'],
         };
 
-        if (f['status'] == 'PAID') {
+        // Paid if status is PAID, OR if status is COURT_CASE and payment exists
+        if (status == 'PAID' || (status == 'COURT_CASE' && hasPayment)) {
           parsedPaid.add(mappedFine);
         } else {
           parsedPending.add(mappedFine);
@@ -822,6 +826,12 @@ class _FinesScreenState extends State<FinesScreen>
         ? const Color(0xFF1A2980).withAlpha(150)
         : Colors.white.withAlpha(60);
 
+    // Determine display status
+    String displayStatus = fine['status'];
+    if (hasPayment && fine['status'] == 'COURT_CASE') {
+      displayStatus = 'PAID - PENDING DH';
+    }
+
     return GestureDetector(
       onTap: (isPending && !isPendingDH)
           ? () => _toggleSelection(fine['id'])
@@ -880,14 +890,14 @@ class _FinesScreenState extends State<FinesScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: isPendingDH
+                          color: displayStatus == 'PAID - PENDING DH'
                               ? Colors.blue.withAlpha(30)
                               : (isPending
                                   ? Colors.red.withAlpha(30)
                                   : Colors.green.withAlpha(30)),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: isPendingDH
+                              color: displayStatus == 'PAID - PENDING DH'
                                   ? Colors.blue.withAlpha(80)
                                   : (isPending
                                       ? (isOverdue
@@ -899,11 +909,9 @@ class _FinesScreenState extends State<FinesScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              isPendingDH
-                                  ? 'PAID - PENDING DH'
-                                  : fine['status'],
+                              displayStatus,
                               style: TextStyle(
-                                color: isPendingDH
+                                color: displayStatus == 'PAID - PENDING DH'
                                     ? Colors.blue.shade300
                                     : (isPending
                                         ? (isOverdue
@@ -1298,8 +1306,9 @@ class _FinesScreenState extends State<FinesScreen>
       color: Colors.cyanAccent,
       backgroundColor: Colors.white.withAlpha(30),
       child: ListView.builder(
+        cacheExtent: 500,
         padding: const EdgeInsets.only(
-            top: kToolbarHeight + kTextTabBarHeight + 40,
+            top: kToolbarHeight + kTextTabBarHeight + 56,
             left: 16,
             right: 16,
             bottom: 100),
@@ -1467,71 +1476,18 @@ class _FinesScreenState extends State<FinesScreen>
                         TabBarView(
                           controller: _tabController,
                           children: [
-                            // Pending Fines
-                            _pendingFines.isEmpty
-                                ? const Center(
-                                    child: Text("No pending fines available.",
-                                        style: TextStyle(
-                                            color: Colors.white70,
-                                            fontWeight: FontWeight.w500)))
-                                : RefreshIndicator(
-                                    onRefresh: () async {
-                                      widget.onLogActivity(
-                                          'Retried loading fines',
-                                          Icons.refresh);
-                                      await _fetchFines();
-                                    },
-                                    color: Colors.cyanAccent,
-                                    backgroundColor: Colors.white.withAlpha(30),
-                                    child: ListView.builder(
-                                      padding: const EdgeInsets.only(
-                                          top: kToolbarHeight +
-                                              kTextTabBarHeight +
-                                              40,
-                                          left: 16,
-                                          right: 16,
-                                          bottom: 100),
-                                      itemCount: _pendingFines.length,
-                                      physics:
-                                          const AlwaysScrollableScrollPhysics(),
-                                      itemBuilder: (context, index) =>
-                                          _buildFineCard(
-                                              _pendingFines[index], true),
-                                    ),
-                                  ),
-                            // Paid Fines
-                            _paidFines.isEmpty
-                                ? const Center(
-                                    child: Text("No paid fines history.",
-                                        style: TextStyle(
-                                            color: Colors.white70,
-                                            fontWeight: FontWeight.w500)))
-                                : RefreshIndicator(
-                                    onRefresh: () async {
-                                      widget.onLogActivity(
-                                          'Retried loading fines',
-                                          Icons.refresh);
-                                      await _fetchFines();
-                                    },
-                                    color: Colors.cyanAccent,
-                                    backgroundColor: Colors.white.withAlpha(30),
-                                    child: ListView.builder(
-                                      padding: const EdgeInsets.only(
-                                          top: kToolbarHeight +
-                                              kTextTabBarHeight +
-                                              40,
-                                          left: 16,
-                                          right: 16,
-                                          bottom: 100),
-                                      itemCount: _paidFines.length,
-                                      physics:
-                                          const AlwaysScrollableScrollPhysics(),
-                                      itemBuilder: (context, index) =>
-                                          _buildFineCard(
-                                              _paidFines[index], false),
-                                    ),
-                                  ),
-                            // Points History
+                            _PendingFinesList(
+                              pendingFines: _pendingFines,
+                              onRefresh: _fetchFines,
+                              buildCard: _buildFineCard,
+                              onLogActivity: widget.onLogActivity,
+                            ),
+                            _PaidFinesList(
+                              paidFines: _paidFines,
+                              onRefresh: _fetchFines,
+                              buildCard: _buildFineCard,
+                              onLogActivity: widget.onLogActivity,
+                            ),
                             _buildPointsHistoryTab(),
                           ],
                         ),
@@ -1602,6 +1558,116 @@ class _ExpiryDateFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: string,
       selection: TextSelection.collapsed(offset: string.length),
+    );
+  }
+}
+
+class _PendingFinesList extends StatefulWidget {
+  final List<Map<String, dynamic>> pendingFines;
+  final Future<void> Function() onRefresh;
+  final Widget Function(Map<String, dynamic>, bool) buildCard;
+  final void Function(String, IconData) onLogActivity;
+
+  const _PendingFinesList({
+    required this.pendingFines,
+    required this.onRefresh,
+    required this.buildCard,
+    required this.onLogActivity,
+  });
+
+  @override
+  State<_PendingFinesList> createState() => _PendingFinesListState();
+}
+
+class _PendingFinesListState extends State<_PendingFinesList>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (widget.pendingFines.isEmpty) {
+      return const Center(
+        child: Text("No pending fines available.",
+            style:
+                TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: widget.onRefresh,
+      color: Colors.cyanAccent,
+      backgroundColor: Colors.white.withAlpha(30),
+      child: ListView.builder(
+        cacheExtent: 500,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: false,
+        padding: const EdgeInsets.only(
+            top: kToolbarHeight + kTextTabBarHeight + 56,
+            left: 16,
+            right: 16,
+            bottom: 100),
+        itemCount: widget.pendingFines.length,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemBuilder: (context, index) => RepaintBoundary(
+          child: widget.buildCard(widget.pendingFines[index], true),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaidFinesList extends StatefulWidget {
+  final List<Map<String, dynamic>> paidFines;
+  final Future<void> Function() onRefresh;
+  final Widget Function(Map<String, dynamic>, bool) buildCard;
+  final void Function(String, IconData) onLogActivity;
+
+  const _PaidFinesList({
+    required this.paidFines,
+    required this.onRefresh,
+    required this.buildCard,
+    required this.onLogActivity,
+  });
+
+  @override
+  State<_PaidFinesList> createState() => _PaidFinesListState();
+}
+
+class _PaidFinesListState extends State<_PaidFinesList>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (widget.paidFines.isEmpty) {
+      return const Center(
+        child: Text("No paid fines history.",
+            style:
+                TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: widget.onRefresh,
+      color: Colors.cyanAccent,
+      backgroundColor: Colors.white.withAlpha(30),
+      child: ListView.builder(
+        cacheExtent: 500,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: false,
+        padding: const EdgeInsets.only(
+            top: kToolbarHeight + kTextTabBarHeight + 56,
+            left: 16,
+            right: 16,
+            bottom: 100),
+        itemCount: widget.paidFines.length,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemBuilder: (context, index) => RepaintBoundary(
+          child: widget.buildCard(widget.paidFines[index], false),
+        ),
+      ),
     );
   }
 }
