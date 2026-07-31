@@ -31,19 +31,12 @@ class TrafficFineService {
 
   Future<LicenseModel> scanQr({
     required String sessionId,
-    required String location,
   }) async {
     final url = '${ApiConstants.qrScan}$sessionId';
 
-    final requestBody = <String, dynamic>{
-      'location': location.trim().isEmpty
-          ? 'Current Location'
-          : location.trim(),
-    };
-
     final response = await _apiClient.post(
       url,
-      body: requestBody,
+      body: const <String, dynamic>{},
     );
 
     final payload = _unwrapMap(response);
@@ -76,14 +69,12 @@ class TrafficFineService {
 
     final license = LicenseModel.fromJson(licenseData);
 
-    final updatedLicense = license.copyWith(
+    return license.copyWith(
       scanToken: sessionIdFromResponse.trim(),
       scanExpiresAt: expiresAt,
       driverName: driverData['name']?.toString() ?? license.driverName,
       nicNo: driverData['nic']?.toString() ?? license.nicNo,
     );
-
-    return updatedLicense;
   }
 
   Future<FineIssueResultModel> issueFine({
@@ -130,7 +121,7 @@ class TrafficFineService {
       license: license,
     );
 
-    final fineResult = FineIssueResultModel(
+    return FineIssueResultModel(
       fineId: _readString(
         payload,
         const ['fine_Id', 'fineId', 'fine_id', 'id'],
@@ -166,8 +157,6 @@ class TrafficFineService {
       ),
       fineDetails: fineDetails,
     );
-
-    return fineResult;
   }
 
   Future<List<FineModel>> getFineHistory() async {

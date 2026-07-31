@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'offense_model.dart';
 
 class FineModel {
@@ -12,6 +11,7 @@ class FineModel {
     required this.offenses,
     required this.officerName,
     required this.officerBadgeNumber,
+    this.scanLocation = '',
     this.comment,
     this.paymentAmount,
     this.paymentStatus,
@@ -26,6 +26,7 @@ class FineModel {
   final List<OffenseModel> offenses;
   final String officerName;
   final String officerBadgeNumber;
+  final String scanLocation;
   final String? comment;
   final double? paymentAmount;
   final String? paymentStatus;
@@ -115,6 +116,7 @@ class FineModel {
               json,
               const ['officerBadgeNumber', 'badgeNumber', 'badgeNo'],
             ),
+      scanLocation: _readScanLocation(json),
       comment: _readString(json, const ['comment', 'officerNote', 'note']),
       paymentAmount: payment != null
           ? _readDouble(payment['amount'] ?? payment['total'])
@@ -123,6 +125,53 @@ class FineModel {
           ? _readString(payment, const ['status', 'paymentStatus'])
           : null,
     );
+  }
+
+  static String _readScanLocation(Map<String, dynamic> json) {
+    final direct = _readString(
+      json,
+      const [
+        'scanLocation',
+        'scan_location',
+        'qrScanLocation',
+        'qr_scan_location',
+        'location',
+      ],
+    );
+
+    if (direct.isNotEmpty) return direct;
+
+    final qrScanHistory = json['qrScanHistory'] ??
+        json['qr_scan_history'] ??
+        json['scanHistory'] ??
+        json['scan'];
+
+    if (qrScanHistory is Map<String, dynamic>) {
+      return _readString(
+        qrScanHistory,
+        const [
+          'scanLocation',
+          'scan_location',
+          'location',
+        ],
+      );
+    }
+
+    if (qrScanHistory is List && qrScanHistory.isNotEmpty) {
+      final first = qrScanHistory.first;
+      if (first is Map<String, dynamic>) {
+        return _readString(
+          first,
+          const [
+            'scanLocation',
+            'scan_location',
+            'location',
+          ],
+        );
+      }
+    }
+
+    return '';
   }
 
   static List<OffenseModel> _readSingleOffense(Map<String, dynamic> json) {

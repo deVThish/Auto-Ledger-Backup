@@ -56,23 +56,7 @@ class AuthService {
       response as Map<String, dynamic>,
     );
 
-    await _tokenStorage.saveSession(
-      accessToken: authResponse.accessToken,
-      officerId: authResponse.officer.id,
-      officerName: authResponse.officer.name,
-      officerBadgeNumber: authResponse.officer.badgeNumber,
-      role: authResponse.officer.role,
-      districtId: authResponse.officer.divisionId,
-      email: authResponse.officer.email,
-      divisionName: authResponse.officer.divisionName,
-      divisionalHeadName: authResponse.officer.divisionalHeadName,
-    );
-
-    final existingDeviceId = await _tokenStorage.getDeviceId();
-    if (existingDeviceId == null || existingDeviceId.isEmpty) {
-      final defaultDeviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
-      await _tokenStorage.saveDeviceId(defaultDeviceId);
-    }
+    await _saveAuthenticatedSession(authResponse);
 
     return authResponse;
   }
@@ -92,26 +76,12 @@ class AuthService {
           'password': password.trim(),
         },
       );
+
       final authResponse = AuthResponseModel.fromJson(
         response as Map<String, dynamic>,
       );
-      await _tokenStorage.saveSession(
-        accessToken: authResponse.accessToken,
-        officerId: authResponse.officer.id,
-        officerName: authResponse.officer.name,
-        officerBadgeNumber: authResponse.officer.badgeNumber,
-        role: authResponse.officer.role,
-        districtId: authResponse.officer.divisionId,
-        email: authResponse.officer.email,
-        divisionName: authResponse.officer.divisionName,
-        divisionalHeadName: authResponse.officer.divisionalHeadName,
-      );
 
-      final existingDeviceId = await _tokenStorage.getDeviceId();
-      if (existingDeviceId == null || existingDeviceId.isEmpty) {
-        final defaultDeviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
-        await _tokenStorage.saveDeviceId(defaultDeviceId);
-      }
+      await _saveAuthenticatedSession(authResponse);
 
       return authResponse;
     } on ApiException catch (e) {
@@ -129,26 +99,12 @@ class AuthService {
           'password': password.trim(),
         },
       );
+
       final authResponse = AuthResponseModel.fromJson(
         response as Map<String, dynamic>,
       );
-      await _tokenStorage.saveSession(
-        accessToken: authResponse.accessToken,
-        officerId: authResponse.officer.id,
-        officerName: authResponse.officer.name,
-        officerBadgeNumber: authResponse.officer.badgeNumber,
-        role: authResponse.officer.role,
-        districtId: authResponse.officer.divisionId,
-        email: authResponse.officer.email,
-        divisionName: authResponse.officer.divisionName,
-        divisionalHeadName: authResponse.officer.divisionalHeadName,
-      );
 
-      final existingDeviceId = await _tokenStorage.getDeviceId();
-      if (existingDeviceId == null || existingDeviceId.isEmpty) {
-        final defaultDeviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
-        await _tokenStorage.saveDeviceId(defaultDeviceId);
-      }
+      await _saveAuthenticatedSession(authResponse);
 
       return authResponse;
     } on ApiException catch (e) {
@@ -245,5 +201,31 @@ class AuthService {
 
   Future<void> logout() async {
     await _tokenStorage.clearSession();
+  }
+
+  Future<void> _saveAuthenticatedSession(AuthResponseModel authResponse) async {
+    await _tokenStorage.saveSession(
+      accessToken: authResponse.accessToken,
+      officerId: authResponse.officer.id,
+      officerName: authResponse.officer.name,
+      officerBadgeNumber: authResponse.officer.badgeNumber,
+      role: authResponse.officer.role,
+      districtId: authResponse.officer.divisionId,
+      email: authResponse.officer.email,
+      divisionName: authResponse.officer.divisionName,
+      divisionalHeadName: authResponse.officer.divisionalHeadName,
+      dutyLocation: authResponse.officer.dutyLocation,
+    );
+
+    await _ensureDeviceId();
+  }
+
+  Future<void> _ensureDeviceId() async {
+    final existingDeviceId = await _tokenStorage.getDeviceId();
+
+    if (existingDeviceId == null || existingDeviceId.isEmpty) {
+      final defaultDeviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
+      await _tokenStorage.saveDeviceId(defaultDeviceId);
+    }
   }
 }
