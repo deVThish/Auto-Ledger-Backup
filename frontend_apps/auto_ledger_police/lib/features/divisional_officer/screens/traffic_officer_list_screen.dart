@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_error_handler.dart';
 import '../../../models/officer_model.dart';
@@ -310,19 +311,6 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
     _cachedHeads = await _officerService.getDivisionalHeads();
   }
 
-  String _currentDivisionName(OfficerModel officer) {
-    for (final head in _cachedHeads) {
-      if (head.divisionId == officer.divisionId ||
-          head.id == officer.divisionId) {
-        return head.divisionName.isEmpty
-            ? 'Unknown Division'
-            : head.divisionName;
-      }
-    }
-
-    return 'Unknown Division';
-  }
-
   Future<void> _transferOfficer(OfficerModel officer) async {
     try {
       await _loadDivisionalHeadsIfNeeded();
@@ -336,8 +324,31 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
       return;
     }
 
-    final availableHeads =
-        _cachedHeads.where((head) => head.id != officer.id).toList();
+    final session = await const TokenStorage().getSession();
+
+    if (!mounted) return;
+
+    if (session == null) {
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Unable to identify your division. Please log in again.',
+      );
+      return;
+    }
+
+    final currentHeadId = session.officerId.trim();
+    final currentDivisionName = session.divisionName.trim().toLowerCase();
+
+    final availableHeads = _cachedHeads.where((head) {
+      final isCurrentHead =
+          currentHeadId.isNotEmpty && head.id.trim() == currentHeadId;
+
+      final isOwnDivision =
+          currentDivisionName.isNotEmpty &&
+          head.divisionName.trim().toLowerCase() == currentDivisionName;
+
+      return !isCurrentHead && !isOwnDivision;
+    }).toList();
 
     if (availableHeads.isEmpty) {
       if (!mounted) return;
@@ -358,8 +369,6 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final currentDivisionName = _currentDivisionName(officer);
-
             return Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.symmetric(horizontal: 22),
@@ -430,41 +439,6 @@ class _TrafficOfficerListScreenState extends State<TrafficOfficerListScreen> {
                           color: Color(0xFF0B1A30),
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0B1A30).withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color:
-                                const Color(0xFF0B1A30).withValues(alpha: 0.08),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Current Division',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              currentDivisionName,
-                              style: const TextStyle(
-                                color: Color(0xFF0B1A30),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                       const SizedBox(height: 18),
