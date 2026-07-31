@@ -22,6 +22,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const List<int> _lockOptions = [1, 5, 10];
+
   final LocalAuthentication _localAuth = LocalAuthentication();
   final TokenStorage _tokenStorage = const TokenStorage();
   final AuthService _authService = AuthService();
@@ -30,11 +32,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricEnabled = false;
   bool _isCheckingBiometric = true;
   bool _isUpdatingBiometric = false;
+  bool _isNavigating = false;
+  bool _isLoggingOut = false;
   int _autoLockMinutes = 1;
   final int _selectedNavIndex = 2;
-
-  // Options limited to 1, 5, and 10 minutes
-  final List<int> _lockOptions = [1, 5, 10];
 
   @override
   void initState() {
@@ -43,60 +44,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _initBiometricsAndSettings() async {
-    bool isDeviceSupported = false;
-    bool canCheckBiometrics = false;
-    List<BiometricType> availableBiometrics = const [];
-
     try {
-      isDeviceSupported = await _localAuth.isDeviceSupported();
-      canCheckBiometrics = await _localAuth.canCheckBiometrics;
-      availableBiometrics = await _localAuth.getAvailableBiometrics();
-    } on PlatformException catch (e) {
-      debugPrint('local_auth init error: ${e.code} / ${e.message}');
-      isDeviceSupported = false;
-      canCheckBiometrics = false;
-      availableBiometrics = const [];
-    } catch (e) {
-      debugPrint('local_auth init unexpected error: $e');
-      isDeviceSupported = false;
-      canCheckBiometrics = false;
-      availableBiometrics = const [];
-    }
+      final isDeviceSupported = await _localAuth.isDeviceSupported();
+      final canCheckBiometrics = await _localAuth.canCheckBiometrics;
+      final availableBiometrics =
+          await _localAuth.getAvailableBiometrics();
 
-    if (!mounted) return;
+      final supported = isDeviceSupported &&
+          canCheckBiometrics &&
+          availableBiometrics.isNotEmpty;
 
-    final supported = isDeviceSupported &&
-        canCheckBiometrics &&
-        availableBiometrics.isNotEmpty;
+      final savedEnabled = supported
+          ? await _tokenStorage.getBiometricEnabled()
+          : false;
 
-    final savedEnabled = supported ? await _tokenStorage.getBiometricEnabled() : false;
-
-    if (!mounted) return;
-
-    setState(() {
-      _biometricSupported = supported;
-      _biometricEnabled = savedEnabled && supported;
-      _isCheckingBiometric = false;
-      if (!_biometricSupported) {
-        _biometricEnabled = false;
+      if (!mounted) {
+        return;
       }
-    });
+
+      setState(() {
+        _biometricSupported = supported;
+        _biometricEnabled = savedEnabled && supported;
+        _isCheckingBiometric = false;
+      });
+    } on PlatformException {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _biometricSupported = false;
+        _biometricEnabled = false;
+        _isCheckingBiometric = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _biometricSupported = false;
+        _biometricEnabled = false;
+        _isCheckingBiometric = false;
+      });
+    }
   }
 
   Future<void> _onNavTap(int index) async {
-    if (index == 2) return;
-
-    if (index == 1) {
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
+    if (_isNavigating || index == 2) {
       return;
     }
 
-    if (index == 0) {
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
-      );
+    _isNavigating = true;
+
+    try {
+      if (index == 1) {
+        final navigator = Navigator.of(context);
+
+        if (navigator.canPop()) {
+          navigator.pop();
+        }
+
+        return;
+      }
+
+      if (index == 0) {
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const ProfileScreen(),
+          ),
+        );
+      }
+    } finally {
+      _isNavigating = false;
     }
   }
 
@@ -127,6 +147,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _handleLogout() async {
+    if (_isLoggingOut) {
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -168,7 +192,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Expanded(
                     child: GlassDialogAction(
                       text: 'Cancel',
-                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop(false);
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -176,7 +202,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: GlassDialogAction(
                       text: 'Logout',
                       isPrimary: true,
-                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop(true);
+                      },
                     ),
                   ),
                 ],
@@ -187,19 +215,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
 
-    if (confirmed == true) {
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    _isLoggingOut = true;
+
+    try {
       await _authService.logout();
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRoutes.login,
-          (route) => false,
-        );
+
+      if (!mounted) {
+        return;
       }
+
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.login,
+        (route) => false,
+      );
+    } finally {
+      _isLoggingOut = false;
     }
   }
 
   Future<void> _toggleBiometric(bool value) async {
-    if (_isUpdatingBiometric) return;
+    if (_isUpdatingBiometric) {
+      return;
+    }
 
     if (_isCheckingBiometric) {
       AppErrorHandler.showPopup(
@@ -218,7 +259,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _isUpdatingBiometric = true;
     });
@@ -237,23 +281,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
-      if (authenticated) {
-        setState(() {
-          _biometricEnabled = value;
-        });
-        await _tokenStorage.saveBiometricEnabled(value);
-      } else {
+      if (!authenticated) {
         AppErrorHandler.showPopup(
           context,
           message: 'Fingerprint authentication was cancelled.',
         );
+        return;
       }
-    } on PlatformException catch (e) {
-      if (!mounted) return;
 
-      String message = 'Unable to use fingerprint on this device right now.';
+      await _tokenStorage.saveBiometricEnabled(value);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _biometricEnabled = value;
+      });
+    } on PlatformException catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      var message =
+          'Unable to use fingerprint on this device right now.';
 
       switch (e.code) {
         case 'NotAvailable':
@@ -282,10 +337,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         message: message,
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
+
       AppErrorHandler.showPopup(
         context,
-        message: 'Unable to use fingerprint on this device right now.',
+        message:
+            'Unable to use fingerprint on this device right now.',
       );
     } finally {
       if (mounted) {
@@ -297,6 +356,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _updateAutoLockTime(int minutes) {
+    if (_autoLockMinutes == minutes) {
+      return;
+    }
+
     setState(() {
       _autoLockMinutes = minutes;
     });
@@ -316,9 +379,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : 'Fingerprint login is available but turned off.';
   }
 
-  String _getLockTimeLabel(int mins) {
-    if (mins == 1) return '1 Minute';
-    return '$mins Minutes';
+  String _getLockTimeLabel(int minutes) {
+    if (minutes == 1) {
+      return '1 Minute';
+    }
+
+    return '$minutes Minutes';
   }
 
   @override
@@ -361,7 +427,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       const _PageHeader(),
                       const SizedBox(height: 18),
-
                       if (_isCheckingBiometric)
                         const SizedBox(
                           height: 150,
@@ -372,7 +437,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         )
                       else ...[
-                        // Biometrics & Lock Card
                         _BiometricCard(
                           isChecking: _isCheckingBiometric,
                           supported: _biometricSupported,
@@ -386,13 +450,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           getLockTimeLabel: _getLockTimeLabel,
                         ),
                         const SizedBox(height: 14),
-
-                        // Card 1: Change Password
                         GlassCard(
-                          borderRadius: 25,
+                          borderRadius: 30,
                           padding: EdgeInsets.zero,
                           color: Colors.white.withValues(alpha: 0.85),
-                          borderColor: Colors.white.withValues(alpha: 0.25),
+                          borderColor:
+                              Colors.white.withValues(alpha: 0.25),
                           shadowColor: Colors.black,
                           child: _SettingsTile(
                             icon: Icons.lock_reset_rounded,
@@ -402,13 +465,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-
-                        // Card 2: About
                         GlassCard(
-                          borderRadius: 25,
+                          borderRadius: 30,
                           padding: EdgeInsets.zero,
                           color: Colors.white.withValues(alpha: 0.85),
-                          borderColor: Colors.white.withValues(alpha: 0.25),
+                          borderColor:
+                              Colors.white.withValues(alpha: 0.25),
                           shadowColor: Colors.black,
                           child: _SettingsTile(
                             icon: Icons.info_outline_rounded,
@@ -418,40 +480,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-
-                        // Logout Button
                         Center(
                           child: FractionallySizedBox(
                             widthFactor: 0.6,
                             child: GlassCard(
-                              borderRadius: 25,
+                              borderRadius: 30,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 12,
                               ),
-                              color: Colors.white.withValues(alpha: 0.88),
-                              borderColor:
-                                  AppTheme.errorRed.withValues(alpha: 0.05),
+                              color: const Color(
+                                0xFFE4E8ED,
+                              ).withValues(alpha: 0.58),
+                              borderColor: const Color(
+                                0xFFD7DCE3,
+                              ).withValues(alpha: 0.78),
                               shadowColor: Colors.black,
-                              onTap: _handleLogout,
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.logout_rounded,
+                              onTap: _isLoggingOut
+                                  ? null
+                                  : _handleLogout,
+                              child: const Center(
+                                child: Text(
+                                  'Logout',
+                                  style: TextStyle(
                                     color: AppTheme.errorRed,
-                                    size: 20,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
                                   ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Logout',
-                                    style: TextStyle(
-                                      color: AppTheme.errorRed,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
@@ -489,7 +545,8 @@ class _PageHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(25),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.policeBlue.withValues(alpha: 0.18),
+                color:
+                    AppTheme.policeBlue.withValues(alpha: 0.18),
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
@@ -559,182 +616,231 @@ class _BiometricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0F2B5C),
-            Color(0xFF1E40AF),
-            Color(0xFF1D3557),
-          ],
-          stops: [0.0, 0.55, 1.0],
-        ),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F2B5C).withValues(alpha: 0.28),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: const Icon(
-                  Icons.shield_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0F2B5C),
+                  Color(0xFF1E40AF),
+                  Color(0xFF1D3557),
+                ],
+                stops: [0.0, 0.55, 1.0],
               ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(
+                    0xFF0F2B5C,
+                  ).withValues(alpha: 0.30),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      'App Security & Lock',
-                      style: TextStyle(
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color:
+                            Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: const Icon(
+                        Icons.shield_rounded,
                         color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        size: 26,
                       ),
                     ),
-                    SizedBox(height: 3),
-                    Text(
-                      'Biometrics and auto lock timer',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'App Security & Lock',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Biometrics and auto lock timer',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.16),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color:
+                          Colors.white.withValues(alpha: 0.16),
+                      width: 1,
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                if (updating || isChecking)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                else
-                  Switch.adaptive(
-                    value: enabled,
-                    onChanged: supported ? onToggle : null,
-                    activeColor: Colors.white,
-                    activeTrackColor: Colors.white.withValues(alpha: 0.38),
-                    inactiveThumbColor: Colors.white70,
-                    inactiveTrackColor: Colors.white.withValues(alpha: 0.16),
-                  ),
-              ],
-            ),
-          ),
-          if (enabled) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Row(
+                  child: Row(
                     children: [
-                      Icon(
-                        Icons.timer_outlined,
-                        color: Colors.white70,
-                        size: 18,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Auto Lock',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 10),
+                      if (updating || isChecking)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      else
+                        Switch.adaptive(
+                          value: enabled,
+                          onChanged:
+                              supported ? onToggle : null,
+                          activeColor: Colors.white,
+                          activeTrackColor: Colors.white
+                              .withValues(alpha: 0.38),
+                          inactiveThumbColor: Colors.white70,
+                          inactiveTrackColor: Colors.white
+                              .withValues(alpha: 0.16),
+                        ),
                     ],
                   ),
-                  DropdownButtonHideUnderline(
-                    child: DropdownButton<int>(
-                      value: autoLockMinutes,
-                      dropdownColor: const Color(0xFF0F2B5C),
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white,
+                ),
+                if (enabled) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: Colors.white
+                            .withValues(alpha: 0.16),
+                        width: 1,
                       ),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      onChanged: (val) {
-                        if (val != null) {
-                          onLockTimeChanged(val);
-                        }
-                      },
-                      items: lockOptions.map((int mins) {
-                        return DropdownMenuItem<int>(
-                          value: mins,
-                          child: Text(getLockTimeLabel(mins)),
-                        );
-                      }).toList(),
+                    ),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.timer_outlined,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Auto Lock',
+                                  maxLines: 1,
+                                  overflow:
+                                      TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight:
+                                        FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: autoLockMinutes,
+                            dropdownColor:
+                                const Color(0xFF0F2B5C),
+                            icon: const Icon(
+                              Icons
+                                  .keyboard_arrow_down_rounded,
+                              color: Colors.white,
+                            ),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            onChanged: (value) {
+                              if (value != null) {
+                                onLockTimeChanged(value);
+                              }
+                            },
+                            items: lockOptions.map((minutes) {
+                              return DropdownMenuItem<int>(
+                                value: minutes,
+                                child: Text(
+                                  getLockTimeLabel(minutes),
+                                ),
+                              );
+                            }).toList(growable: false),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
+              ],
+            ),
+          ),
+          Positioned(
+            top: -30,
+            right: -30,
+            child: Container(
+              width: 130,
+              height: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color:
+                    Colors.white.withValues(alpha: 0.06),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -757,14 +863,18 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tile = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 18,
+        vertical: 14,
+      ),
       child: Row(
         children: [
           Container(
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: AppTheme.policeBlue.withValues(alpha: 0.08),
+              color:
+                  AppTheme.policeBlue.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(25),
             ),
             child: Icon(
@@ -812,9 +922,10 @@ class _SettingsTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        splashColor: AppTheme.policeBlue.withValues(alpha: 0.05),
+        splashColor:
+            AppTheme.policeBlue.withValues(alpha: 0.05),
         highlightColor: Colors.transparent,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(30),
         child: tile,
       ),
     );

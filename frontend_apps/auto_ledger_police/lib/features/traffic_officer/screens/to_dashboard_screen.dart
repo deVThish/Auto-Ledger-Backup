@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_ledger_police/core/network/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,8 +27,11 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
   final _fineService = TrafficFineService();
   final _tokenStorage = const TokenStorage();
 
+  ModalRoute<dynamic>? _route;
+
   bool _isLoading = true;
   bool _isFetching = false;
+  bool _isNavigating = false;
   String _officerName = 'Officer';
   String _badgeNumber = 'Traffic Officer';
   String _divisionName = 'Police Operations';
@@ -39,7 +44,13 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadDashboardData(showLoading: true);
+    unawaited(_loadDashboardData(showLoading: true));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
   }
 
   @override
@@ -50,123 +61,156 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _loadDashboardData(showLoading: false);
+    if (state == AppLifecycleState.resumed &&
+        mounted &&
+        (_route?.isCurrent ?? false)) {
+      unawaited(_loadDashboardData(showLoading: false));
     }
   }
 
+  static String _valueOrFallback(String? value, String fallback) {
+    final normalizedValue = value?.trim();
+
+    if (normalizedValue == null || normalizedValue.isEmpty) {
+      return fallback;
+    }
+
+    return normalizedValue;
+  }
+
+  static DateTime? _toLocalDateTime(dynamic value) {
+    if (value is DateTime) {
+      return value.toLocal();
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(value)?.toLocal();
+    }
+
+    return null;
+  }
+
+  static DateTime? _extractFineDate(dynamic fine) {
+    dynamic value;
+
+    try {
+      value = fine.issuedAt;
+    } catch (_) {
+      value = null;
+    }
+
+    final issuedAt = _toLocalDateTime(value);
+
+    if (issuedAt != null) {
+      return issuedAt;
+    }
+
+    try {
+      value = fine.createdAt;
+    } catch (_) {
+      value = null;
+    }
+
+    final createdAt = _toLocalDateTime(value);
+
+    if (createdAt != null) {
+      return createdAt;
+    }
+
+    try {
+      value = fine.date;
+    } catch (_) {
+      value = null;
+    }
+
+    return _toLocalDateTime(value);
+  }
+
   Future<void> _loadDashboardData({required bool showLoading}) async {
-    if (_isFetching) return;
+    if (_isFetching) {
+      return;
+    }
+
     _isFetching = true;
 
-    if (showLoading && mounted) {
+    if (showLoading && mounted && !_isLoading) {
       setState(() {
         _isLoading = true;
       });
     }
 
     try {
-      final sessionFuture = _tokenStorage.getSession();
-      final finesFuture = _fineService.getFineHistory();
-
-      final results = await Future.wait([
-        sessionFuture,
-        finesFuture,
+      final results = await Future.wait<Object?>([
+        _tokenStorage.getSession(),
+        _fineService.getFineHistory(),
       ]);
 
       final session = results[0] as PoliceSession?;
-      final allFines = results[1] as List<dynamic>? ?? [];
-
-      DateTime? extractFineDate(dynamic fine) {
-        final candidates = <dynamic>[
-          () {
-            try {
-              return fine.issuedAt;
-            } catch (_) {
-              return null;
-            }
-          },
-          () {
-            try {
-              return fine.createdAt;
-            } catch (_) {
-              return null;
-            }
-          },
-          () {
-            try {
-              return fine.date;
-            } catch (_) {
-              return null;
-            }
-          },
-        ];
-
-        for (final candidate in candidates) {
-          final value = candidate();
-          if (value is DateTime) {
-            return value.toLocal();
-          }
-          if (value is String) {
-            final parsed = DateTime.tryParse(value);
-            if (parsed != null) return parsed.toLocal();
-          }
-        }
-
-        return null;
-      }
-
-      final sortedFines = allFines.whereType<dynamic>().toList()
-        ..sort((a, b) {
-          final DateTime? aDate = extractFineDate(a);
-          final DateTime? bDate = extractFineDate(b);
-
-          if (aDate == null && bDate == null) return 0;
-          if (aDate == null) return 1;
-          if (bDate == null) return -1;
-          return bDate.compareTo(aDate);
-        });
+      final allFines =
+          results[1] as List<dynamic>? ?? const <dynamic>[];
 
       final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
+      var todayCount = 0;
 
-      final todayCount = sortedFines.where((fine) {
-        final issuedAt = extractFineDate(fine);
-        if (issuedAt == null) return false;
-        final fineDate = DateTime(issuedAt.year, issuedAt.month, issuedAt.day);
-        return fineDate == today;
-      }).length;
+      for (final fine in allFines) {
+        final issuedAt = _extractFineDate(fine);
 
-      if (!mounted) return;
+        if (issuedAt != null && DateUtils.isSameDay(issuedAt, now)) {
+          todayCount++;
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      final officerName = _valueOrFallback(
+        session?.officerName,
+        'Officer',
+      );
+      final badgeNumber = _valueOrFallback(
+        session?.officerBadgeNumber,
+        'Traffic Officer',
+      );
+      final divisionName = _valueOrFallback(
+        session?.divisionName,
+        'Police Operations',
+      );
 
       setState(() {
-        _officerName = (session?.officerName != null && session!.officerName.trim().isNotEmpty)
-            ? session.officerName
-            : 'Officer';
-        _badgeNumber = (session?.officerBadgeNumber != null && session!.officerBadgeNumber.trim().isNotEmpty)
-            ? session.officerBadgeNumber
-            : 'Traffic Officer';
-        _divisionName = (session?.divisionName != null && session!.divisionName.trim().isNotEmpty)
-            ? session.divisionName
-            : 'Police Operations';
+        _officerName = officerName;
+        _badgeNumber = badgeNumber;
+        _divisionName = divisionName;
         _isOnDuty = true;
-        _totalFines = sortedFines.length;
+        _totalFines = allFines.length;
         _todayFines = todayCount;
+
+        if (showLoading) {
+          _isLoading = false;
+        }
       });
     } on ApiException catch (e) {
-      if (mounted) {
-        AppErrorHandler.showPopup(context, message: e.message);
+      if (!mounted || !(_route?.isCurrent ?? false)) {
+        return;
       }
+
+      AppErrorHandler.showPopup(
+        context,
+        message: e.message,
+      );
     } catch (_) {
-      if (mounted) {
-        AppErrorHandler.showPopup(
-          context,
-          message: 'Unable to load dashboard data. Please try again.',
-        );
+      if (!mounted || !(_route?.isCurrent ?? false)) {
+        return;
       }
+
+      AppErrorHandler.showPopup(
+        context,
+        message: 'Unable to load dashboard data. Please try again.',
+      );
     } finally {
       _isFetching = false;
-      if (showLoading && mounted) {
+
+      if (showLoading && mounted && _isLoading) {
         setState(() {
           _isLoading = false;
         });
@@ -174,64 +218,87 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
     }
   }
 
-  Future<void> _openScanner() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
-    );
-    if (!mounted) return;
+  Future<void> _openPage(
+    WidgetBuilder builder, {
+    int? selectedNavIndex,
+  }) async {
+    if (!mounted || _isNavigating) {
+      return;
+    }
+
+    _isNavigating = true;
+
+    if (selectedNavIndex != null &&
+        _selectedNavIndex != selectedNavIndex) {
+      setState(() {
+        _selectedNavIndex = selectedNavIndex;
+      });
+    }
+
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: builder),
+      );
+    } finally {
+      _isNavigating = false;
+
+      if (mounted &&
+          selectedNavIndex != null &&
+          _selectedNavIndex != 1) {
+        setState(() {
+          _selectedNavIndex = 1;
+        });
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     await _loadDashboardData(showLoading: false);
   }
 
-  Future<void> _openHistory() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const FineHistoryScreen()),
+  Future<void> _openScanner() {
+    return _openPage(
+      (_) => const QrScannerScreen(),
     );
-    if (!mounted) return;
-    await _loadDashboardData(showLoading: false);
   }
 
-  Future<void> _openProfile() async {
-    if (!mounted) return;
-    setState(() => _selectedNavIndex = 0);
-
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+  Future<void> _openHistory() {
+    return _openPage(
+      (_) => const FineHistoryScreen(),
     );
-
-    if (!mounted) return;
-    setState(() => _selectedNavIndex = 1);
-    await _loadDashboardData(showLoading: false);
   }
 
-  Future<void> _openSettings() async {
-    if (!mounted) return;
-    setState(() => _selectedNavIndex = 2);
-
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+  Future<void> _openProfile() {
+    return _openPage(
+      (_) => const ProfileScreen(),
+      selectedNavIndex: 0,
     );
+  }
 
-    if (!mounted) return;
-    setState(() => _selectedNavIndex = 1);
-    await _loadDashboardData(showLoading: false);
+  Future<void> _openSettings() {
+    return _openPage(
+      (_) => const SettingsScreen(),
+      selectedNavIndex: 2,
+    );
   }
 
   Future<void> _onNavTap(int index) async {
-    if (index == 1) {
-      if (mounted) {
-        setState(() => _selectedNavIndex = 1);
-      }
-      return;
-    }
-
-    if (index == 0) {
-      await _openProfile();
-      return;
-    }
-
-    if (index == 2) {
-      await _openSettings();
-      return;
+    switch (index) {
+      case 0:
+        await _openProfile();
+        return;
+      case 1:
+        if (mounted && _selectedNavIndex != 1) {
+          setState(() {
+            _selectedNavIndex = 1;
+          });
+        }
+        return;
+      case 2:
+        await _openSettings();
+        return;
     }
   }
 
@@ -259,7 +326,8 @@ class _ToDashboardScreenState extends State<ToDashboardScreen>
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final horizontalPadding = constraints.maxWidth < 380 ? 16.0 : 20.0;
+                final horizontalPadding =
+                    constraints.maxWidth < 380 ? 16.0 : 20.0;
 
                 return SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
@@ -375,7 +443,10 @@ class _DashboardHeader extends StatelessWidget {
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
           decoration: BoxDecoration(
             color: AppTheme.policeBlue.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(25),
@@ -462,7 +533,9 @@ class _WelcomeCard extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0F2B5C).withValues(alpha: 0.30),
+                  color: const Color(
+                    0xFF0F2B5C,
+                  ).withValues(alpha: 0.30),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -572,16 +645,26 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 9,
+      ),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: border, width: 1.1),
+        border: Border.all(
+          color: border,
+          width: 1.1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: const Color(0xFF93C5FD), size: 16),
+          Icon(
+            icon,
+            color: const Color(0xFF93C5FD),
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Text(
             label,
@@ -646,7 +729,11 @@ class _ToActionCard extends StatelessWidget {
                   color: AppTheme.policeBlue.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(25),
                 ),
-                child: Icon(icon, color: AppTheme.policeBlue, size: 27),
+                child: Icon(
+                  icon,
+                  color: AppTheme.policeBlue,
+                  size: 27,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -764,7 +851,10 @@ class _ShiftStatusCard extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 7,
+            ),
             decoration: BoxDecoration(
               color: statusColor.shade50,
               borderRadius: BorderRadius.circular(25),

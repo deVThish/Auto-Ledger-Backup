@@ -17,13 +17,14 @@ class FineHistoryScreen extends StatefulWidget {
 
 class _FineHistoryScreenState extends State<FineHistoryScreen> {
   final _service = TrafficFineService();
+
   late Future<List<FineModel>> _future;
-  List<FineModel> _cachedFines = [];
+  List<FineModel> _cachedFines = const [];
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _future = _load();
   }
 
   void _loadData() {
@@ -33,25 +34,39 @@ class _FineHistoryScreenState extends State<FineHistoryScreen> {
   }
 
   Future<List<FineModel>> _load() async {
-    final fines = await _service.getFineHistory();
-    fines.sort((a, b) {
-      final aDate = a.issuedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = b.issuedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return bDate.compareTo(aDate);
-    });
-    _cachedFines = fines;
-    return fines;
+    final fines = List<FineModel>.of(
+      await _service.getFineHistory(),
+      growable: false,
+    );
+
+    final sortedFines = fines.toList(growable: false)
+      ..sort((a, b) {
+        final aDate =
+            a.issuedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate =
+            b.issuedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+        return bDate.compareTo(aDate);
+      });
+
+    _cachedFines = sortedFines;
+
+    return sortedFines;
   }
 
   String _formatDate(DateTime? dateTime) {
-    if (dateTime == null) return '-';
+    if (dateTime == null) {
+      return '-';
+    }
+
     final local = dateTime.toLocal();
     final day = local.day.toString().padLeft(2, '0');
     final month = local.month.toString().padLeft(2, '0');
-    final hour = local.hour;
     final minute = local.minute.toString().padLeft(2, '0');
-    final ampm = hour >= 12 ? 'PM' : 'AM';
-    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    final ampm = local.hour >= 12 ? 'PM' : 'AM';
+    final displayHour =
+        local.hour % 12 == 0 ? 12 : local.hour % 12;
+
     return '${local.year}-$month-$day $displayHour:$minute $ampm';
   }
 
@@ -121,7 +136,8 @@ class _FineHistoryScreenState extends State<FineHistoryScreen> {
               builder: (context, snapshot) {
                 final fines = snapshot.data ?? _cachedFines;
                 final isLoading =
-                    snapshot.connectionState == ConnectionState.waiting &&
+                    snapshot.connectionState ==
+                            ConnectionState.waiting &&
                         fines.isEmpty;
 
                 if (isLoading) {
@@ -137,26 +153,37 @@ class _FineHistoryScreenState extends State<FineHistoryScreen> {
                   final message = snapshot.error is ApiException
                       ? (snapshot.error as ApiException).message
                       : 'Unable to load fine history.';
-                  return _ErrorState(message: message, onRetry: _loadData);
+
+                  return _ErrorState(
+                    message: message,
+                    onRetry: _loadData,
+                  );
                 }
 
                 if (fines.isEmpty) {
                   return const _EmptyState();
                 }
 
-                return ListView.separated(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  itemCount: fines.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final fine = fines[index];
-                    return _FineHistoryCard(
-                      fine: fine,
-                      formatDate: _formatDate,
-                      statusColor: _statusColor,
-                    );
-                  },
+                return BackdropGroup(
+                  child: ListView.separated(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      16,
+                      12,
+                      16,
+                      24,
+                    ),
+                    itemCount: fines.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      return _FineHistoryCard(
+                        fine: fines[index],
+                        formatDate: _formatDate,
+                        statusColor: _statusColor,
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -180,30 +207,42 @@ class _FineHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title =
-        fine.offenseName.isEmpty ? 'Traffic Offense' : fine.offenseName;
+    final title = fine.offenseName.isEmpty
+        ? 'Traffic Offense'
+        : fine.offenseName;
     final color = statusColor(fine.status);
-    final status = fine.status.isEmpty ? 'PENDING' : fine.status;
+    final status =
+        fine.status.isEmpty ? 'PENDING' : fine.status;
     final scanLocation = fine.scanLocation.trim();
+    final officerName = fine.officerName.trim();
+    final officerBadgeNumber =
+        fine.officerBadgeNumber.trim();
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(25),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+      child: BackdropFilter.grouped(
+        filter: ImageFilter.blur(
+          sigmaX: 18,
+          sigmaY: 18,
+        ),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.75),
+            color: const Color(
+              0xFFE4E8ED,
+            ).withValues(alpha: 0.66),
             borderRadius: BorderRadius.circular(25),
             border: Border.all(
-              color: AppTheme.policeBlue.withValues(alpha: 0.12),
+              color: Colors.white.withValues(alpha: 0.62),
               width: 1.1,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.policeBlue.withValues(alpha: 0.04),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
+                color: AppTheme.policeBlue.withValues(
+                  alpha: 0.055,
+                ),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -225,8 +264,10 @@ class _FineHistoryCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(20),
@@ -256,31 +297,49 @@ class _FineHistoryCard extends StatelessWidget {
                     label:
                         'License: ${fine.licenseNumber.isEmpty ? '-' : fine.licenseNumber}',
                   ),
-                  if (fine.officerName.trim().isNotEmpty)
-                    _Chip(label: 'Officer: ${fine.officerName}'),
-                  _Chip(label: 'Points: ${fine.points}'),
+                  if (officerName.isNotEmpty)
+                    _Chip(
+                      label: 'Officer: $officerName',
+                    ),
                   _Chip(
-                    label: 'Amount: LKR ${fine.amount.toStringAsFixed(2)}',
+                    label: 'Points: ${fine.points}',
+                  ),
+                  _Chip(
+                    label:
+                        'Amount: LKR ${fine.amount.toStringAsFixed(2)}',
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetaRow(
-                      title: 'Issued',
-                      value: formatDate(fine.issuedAt),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _MetaRow(
-                      title: 'Due Date',
-                      value: formatDate(fine.dueDate),
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final issuedCard = _MetaRow(
+                    title: 'Issued',
+                    value: formatDate(fine.issuedAt),
+                  );
+                  final dueDateCard = _MetaRow(
+                    title: 'Due Date',
+                    value: formatDate(fine.dueDate),
+                  );
+
+                  if (constraints.maxWidth < 290) {
+                    return Column(
+                      children: [
+                        issuedCard,
+                        const SizedBox(height: 8),
+                        dueDateCard,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: issuedCard),
+                      const SizedBox(width: 8),
+                      Expanded(child: dueDateCard),
+                    ],
+                  );
+                },
               ),
               if (scanLocation.isNotEmpty) ...[
                 const SizedBox(height: 6),
@@ -290,11 +349,11 @@ class _FineHistoryCard extends StatelessWidget {
                   maxLines: 2,
                 ),
               ],
-              if (fine.officerBadgeNumber.trim().isNotEmpty) ...[
+              if (officerBadgeNumber.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _MetaRow(
                   title: 'Badge Number',
-                  value: fine.officerBadgeNumber,
+                  value: officerBadgeNumber,
                 ),
               ],
             ],
@@ -320,12 +379,17 @@ class _MetaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 8,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.55),
+        color: const Color(
+          0xFFE8EBEF,
+        ).withValues(alpha: 0.48),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppTheme.policeBlue.withValues(alpha: 0.08),
+          color: Colors.white.withValues(alpha: 0.50),
           width: 0.8,
         ),
       ),
@@ -365,12 +429,17 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
       decoration: BoxDecoration(
-        color: AppTheme.policeBlue.withValues(alpha: 0.05),
+        color: const Color(
+          0xFFE8EBEF,
+        ).withValues(alpha: 0.44),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppTheme.policeBlue.withValues(alpha: 0.10),
+          color: Colors.white.withValues(alpha: 0.46),
           width: 0.7,
         ),
       ),
@@ -453,15 +522,23 @@ class _ErrorState extends StatelessWidget {
               onPressed: onRetry,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.policeBlue,
-                side: const BorderSide(color: AppTheme.policeBlue, width: 1.2),
+                side: const BorderSide(
+                  color: AppTheme.policeBlue,
+                  width: 1.2,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(25),
                 ),
               ),
-              icon: const Icon(Icons.refresh_rounded, size: 18),
+              icon: const Icon(
+                Icons.refresh_rounded,
+                size: 18,
+              ),
               label: const Text(
                 'Retry',
-                style: TextStyle(fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],

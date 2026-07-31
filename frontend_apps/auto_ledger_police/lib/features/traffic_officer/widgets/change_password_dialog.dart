@@ -11,10 +11,12 @@ class ChangePasswordDialog extends StatefulWidget {
   const ChangePasswordDialog({super.key});
 
   @override
-  State<ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+  State<ChangePasswordDialog> createState() =>
+      _ChangePasswordDialogState();
 }
 
-class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
+class _ChangePasswordDialogState
+    extends State<ChangePasswordDialog> {
   final _formKey = GlobalKey<FormState>();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
@@ -34,10 +36,21 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    final isValid =
+        _formKey.currentState?.validate() ?? false;
 
-    if (_newPasswordController.text.trim() !=
-        _confirmPasswordController.text.trim()) {
+    if (!isValid || _isLoading) {
+      return;
+    }
+
+    final currentPassword =
+        _currentPasswordController.text.trim();
+    final newPassword =
+        _newPasswordController.text.trim();
+    final confirmPassword =
+        _confirmPasswordController.text.trim();
+
+    if (newPassword != confirmPassword) {
       AppErrorHandler.showPopup(
         context,
         message: 'New passwords do not match.',
@@ -45,28 +58,45 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
       await _authService.changePassword(
-        oldPassword: _currentPasswordController.text.trim(),
-        newPassword: _newPasswordController.text.trim(),
+        oldPassword: currentPassword,
+        newPassword: newPassword,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
+
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
-      if (!mounted) return;
-      AppErrorHandler.showPopup(context, message: e.message);
-    } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
+
       AppErrorHandler.showPopup(
         context,
-        message: 'Unable to change password. Please try again.',
+        message: e.message,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      AppErrorHandler.showPopup(
+        context,
+        message:
+            'Unable to change password. Please try again.',
       );
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -80,7 +110,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const GlassDialogIcon(icon: Icons.lock_reset_rounded),
+              const GlassDialogIcon(
+                icon: Icons.lock_reset_rounded,
+              ),
               const SizedBox(height: 14),
               const Text(
                 'Change Password',
@@ -108,10 +140,12 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 hint: 'Enter current password',
                 icon: Icons.lock_outline,
                 obscureText: _isCurrentPasswordHidden,
+                borderRadius: 26,
                 suffixIcon: IconButton(
                   onPressed: () {
                     setState(() {
-                      _isCurrentPasswordHidden = !_isCurrentPasswordHidden;
+                      _isCurrentPasswordHidden =
+                          !_isCurrentPasswordHidden;
                     });
                   },
                   icon: Icon(
@@ -121,9 +155,11 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   ),
                 ),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  if (value == null ||
+                      value.trim().isEmpty) {
                     return 'Current password is required';
                   }
+
                   return null;
                 },
               ),
@@ -134,10 +170,12 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 hint: 'Enter new password',
                 icon: Icons.lock_reset_outlined,
                 obscureText: _isNewPasswordHidden,
+                borderRadius: 26,
                 suffixIcon: IconButton(
                   onPressed: () {
                     setState(() {
-                      _isNewPasswordHidden = !_isNewPasswordHidden;
+                      _isNewPasswordHidden =
+                          !_isNewPasswordHidden;
                     });
                   },
                   icon: Icon(
@@ -147,12 +185,15 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   ),
                 ),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  if (value == null ||
+                      value.trim().isEmpty) {
                     return 'New password is required';
                   }
+
                   if (value.trim().length < 6) {
                     return 'Password must be at least 6 characters';
                   }
+
                   return null;
                 },
               ),
@@ -163,13 +204,18 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 hint: 'Re-enter new password',
                 icon: Icons.lock_reset_outlined,
                 obscureText: _isNewPasswordHidden,
+                borderRadius: 26,
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  if (value == null ||
+                      value.trim().isEmpty) {
                     return 'Confirm password is required';
                   }
-                  if (value.trim() != _newPasswordController.text.trim()) {
+
+                  if (value.trim() !=
+                      _newPasswordController.text.trim()) {
                     return 'Passwords do not match';
                   }
+
                   return null;
                 },
               ),
@@ -180,49 +226,65 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                     child: OutlinedButton(
                       onPressed: _isLoading
                           ? null
-                          : () => Navigator.of(context).pop(false),
+                          : () {
+                              Navigator.of(context).pop(false);
+                            },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.policeBlue,
                         side: BorderSide(
-                          color: AppTheme.policeBlue.withValues(alpha: 0.24),
+                          color: AppTheme.policeBlue
+                              .withValues(alpha: 0.24),
                         ),
-                        backgroundColor: Colors.white.withValues(alpha: 0.28),
+                        backgroundColor:
+                            Colors.white.withValues(alpha: 0.28),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius:
+                              BorderRadius.circular(25),
                         ),
-                        minimumSize: const Size.fromHeight(48),
+                        minimumSize:
+                            const Size.fromHeight(48),
                       ),
                       child: const Text(
                         'Cancel',
-                        style: TextStyle(fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submit,
+                      onPressed:
+                          _isLoading ? null : _submit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.policeBlue,
+                        backgroundColor:
+                            AppTheme.policeBlue,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius:
+                              BorderRadius.circular(25),
                         ),
-                        minimumSize: const Size.fromHeight(48),
+                        minimumSize:
+                            const Size.fromHeight(48),
                       ),
                       child: _isLoading
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(
+                              child:
+                                  CircularProgressIndicator(
                                 strokeWidth: 2.2,
                                 color: Colors.white,
                               ),
                             )
                           : const Text(
                               'Update',
-                              style: TextStyle(fontWeight: FontWeight.w800),
+                              style: TextStyle(
+                                fontWeight:
+                                    FontWeight.w800,
+                              ),
                             ),
                     ),
                   ),
