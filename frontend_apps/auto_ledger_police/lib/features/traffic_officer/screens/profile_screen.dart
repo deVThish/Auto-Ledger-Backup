@@ -24,6 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _role = '';
   String _divisionName = '';
   String _divisionalHeadName = '';
+  String _dutyLocation = '';
   final int _selectedNavIndex = 0;
 
   @override
@@ -49,6 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _role = session.role.replaceAll('_', ' ');
           _divisionName = session.divisionName;
           _divisionalHeadName = session.divisionalHeadName;
+          _dutyLocation = session.dutyLocation;
         } else {
           _name = '';
           _badgeNumber = '';
@@ -56,6 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _role = '';
           _divisionName = '';
           _divisionalHeadName = '';
+          _dutyLocation = '';
         }
         _isLoading = false;
       });
@@ -123,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 return SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
                     horizontalPadding,
-                    24, // Increased top margin for header title area
+                    24,
                     horizontalPadding,
                     16,
                   ),
@@ -141,7 +144,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             const _PageHeader(),
                             const SizedBox(height: 18),
-                            // Same Dashboard Premium Blue Card
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
@@ -150,9 +152,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    Color(0xFF0F2B5C), // Deep Tactical Blue
-                                    Color(0xFF1E40AF), // Premium Royal Blue
-                                    Color(0xFF1D3557), // Dark Sapphire Slate
+                                    Color(0xFF0F2B5C),
+                                    Color(0xFF1E40AF),
+                                    Color(0xFF1D3557),
                                   ],
                                   stops: [0.0, 0.55, 1.0],
                                 ),
@@ -262,6 +264,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 8),
                             _InfoCard(
+                              icon: Icons.location_on_outlined,
+                              title: 'Duty Location',
+                              value: _dutyLocation.isEmpty
+                                  ? 'Not assigned'
+                                  : _dutyLocation,
+                              maxLines: 2,
+                            ),
+                            const SizedBox(height: 8),
+                            _InfoCard(
                               icon: Icons.people_outlined,
                               title: 'Divisional Head',
                               value: _divisionalHeadName.isEmpty
@@ -348,11 +359,13 @@ class _InfoCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.value,
+    this.maxLines = 1,
   });
 
   final IconData icon;
   final String title;
   final String value;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -396,7 +409,7 @@ class _InfoCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  maxLines: 1,
+                  maxLines: maxLines,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppTheme.policeBlue,

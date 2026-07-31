@@ -184,6 +184,7 @@ class _FineHistoryCard extends StatelessWidget {
         fine.offenseName.isEmpty ? 'Traffic Offense' : fine.offenseName;
     final color = statusColor(fine.status);
     final status = fine.status.isEmpty ? 'PENDING' : fine.status;
+    final scanLocation = fine.scanLocation.trim();
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(25),
@@ -192,9 +193,8 @@ class _FineHistoryCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.75), // Smooth Liquid Glass Fill
+            color: Colors.white.withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(25),
-            // Subtly visible distinct border line to pop from background
             border: Border.all(
               color: AppTheme.policeBlue.withValues(alpha: 0.12),
               width: 1.1,
@@ -282,6 +282,14 @@ class _FineHistoryCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (scanLocation.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _MetaRow(
+                  title: 'Scan Location',
+                  value: scanLocation,
+                  maxLines: 2,
+                ),
+              ],
               if (fine.officerBadgeNumber.trim().isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _MetaRow(
@@ -301,14 +309,17 @@ class _MetaRow extends StatelessWidget {
   const _MetaRow({
     required this.title,
     required this.value,
+    this.maxLines = 1,
   });
 
   final String title;
   final String value;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.55),
@@ -332,7 +343,7 @@ class _MetaRow extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value.isEmpty ? '-' : value,
-            maxLines: 1,
+            maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppTheme.policeBlue,
@@ -380,10 +391,10 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
+        children: [
           Icon(
             Icons.receipt_long_outlined,
             size: 48,

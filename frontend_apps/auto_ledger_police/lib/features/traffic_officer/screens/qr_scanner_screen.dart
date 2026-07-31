@@ -151,7 +151,6 @@ class _QrScannerScreenState extends State<QrScannerScreen>
 
       final license = await _trafficFineService.scanQr(
         sessionId: sessionId,
-        location: 'Current Location',
       );
 
       if (!mounted) return;
@@ -304,16 +303,18 @@ class _QrScannerScreenState extends State<QrScannerScreen>
                               controller: _controller,
                               onDetect: _handleScan,
                               errorBuilder: (context, error, child) {
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (!mounted) return;
-                                  final permissionIssue =
-                                      _isPermissionIssue(error);
-                                  setState(() {
-                                    _hasPermissionError = permissionIssue;
-                                    _permissionBlocked = permissionIssue;
-                                    _isScannerActive = false;
-                                  });
-                                });
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) {
+                                    if (!mounted) return;
+                                    final permissionIssue =
+                                        _isPermissionIssue(error);
+                                    setState(() {
+                                      _hasPermissionError = permissionIssue;
+                                      _permissionBlocked = permissionIssue;
+                                      _isScannerActive = false;
+                                    });
+                                  },
+                                );
                                 return const SizedBox.shrink();
                               },
                             ),

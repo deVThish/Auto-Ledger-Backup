@@ -14,6 +14,7 @@ class PoliceSession {
     required this.email,
     required this.divisionName,
     required this.divisionalHeadName,
+    this.dutyLocation = '',
   });
 
   final String accessToken;
@@ -27,6 +28,7 @@ class PoliceSession {
   final String email;
   final String divisionName;
   final String divisionalHeadName;
+  final String dutyLocation;
 
   bool get isValid {
     final now = DateTime.now();
@@ -63,6 +65,7 @@ class TokenStorage {
   static const String _emailKey = 'email';
   static const String _divisionNameKey = 'division_name';
   static const String _divisionalHeadNameKey = 'divisional_head_name';
+  static const String _dutyLocationKey = 'duty_location';
 
   Future<void> saveSession({
     required String accessToken,
@@ -74,6 +77,7 @@ class TokenStorage {
     required String email,
     required String divisionName,
     required String divisionalHeadName,
+    String dutyLocation = '',
   }) async {
     final loginAt = DateTime.now();
     final tokenExpiresAt = _readJwtExpiry(accessToken);
@@ -96,6 +100,7 @@ class TokenStorage {
     await _storage.write(key: _emailKey, value: email);
     await _storage.write(key: _divisionNameKey, value: divisionName);
     await _storage.write(key: _divisionalHeadNameKey, value: divisionalHeadName);
+    await _storage.write(key: _dutyLocationKey, value: dutyLocation.trim());
   }
 
   Future<String?> getAccessToken() async {
@@ -120,6 +125,7 @@ class TokenStorage {
     final email = await _storage.read(key: _emailKey);
     final divisionName = await _storage.read(key: _divisionNameKey);
     final divisionalHeadName = await _storage.read(key: _divisionalHeadNameKey);
+    final dutyLocation = await _storage.read(key: _dutyLocationKey);
 
     if (accessToken == null ||
         officerId == null ||
@@ -153,6 +159,7 @@ class TokenStorage {
       email: email ?? '',
       divisionName: divisionName ?? '',
       divisionalHeadName: divisionalHeadName ?? '',
+      dutyLocation: dutyLocation ?? '',
     );
 
     if (!session.isValid) {
@@ -177,6 +184,7 @@ class TokenStorage {
     await _storage.delete(key: _emailKey);
     await _storage.delete(key: _divisionNameKey);
     await _storage.delete(key: _divisionalHeadNameKey);
+    await _storage.delete(key: _dutyLocationKey);
     await _storage.write(key: _loggedOutKey, value: 'true');
   }
 

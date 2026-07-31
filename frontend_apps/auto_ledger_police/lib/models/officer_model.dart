@@ -10,6 +10,7 @@ class OfficerModel {
     required this.divisionName,
     required this.divisionalHeadName,
     required this.currentShift,
+    this.dutyLocation = '',
     this.shifts = const [],
   });
 
@@ -23,6 +24,7 @@ class OfficerModel {
   final String divisionName;
   final String divisionalHeadName;
   final ShiftInfoModel? currentShift;
+  final String dutyLocation;
   final List<ShiftInfoModel> shifts;
 
   ShiftInfoModel? get activeShift => _resolveDisplayShift();
@@ -194,6 +196,13 @@ class OfficerModel {
         json['shift'] ??
         json['current_shift'];
 
+    final currentShift = currentShiftJson is Map<String, dynamic>
+        ? ShiftInfoModel.fromJson(currentShiftJson)
+        : null;
+
+    final shifts = _readShiftList(json['shifts']);
+    final dutyLocation = _resolveDutyLocation(json, currentShift, shifts);
+
     return OfficerModel(
       id: json['traffic_Officer_Id']?.toString() ??
           json['trafficOfficerId']?.toString() ??
@@ -227,10 +236,9 @@ class OfficerModel {
       divisionalHeadName: json['divisionalHeadName']?.toString() ??
           json['divisional_Head_Name']?.toString() ??
           '',
-      currentShift: currentShiftJson is Map<String, dynamic>
-          ? ShiftInfoModel.fromJson(currentShiftJson)
-          : null,
-      shifts: _readShiftList(json['shifts']),
+      currentShift: currentShift,
+      dutyLocation: dutyLocation,
+      shifts: shifts,
     );
   }
 }
@@ -282,7 +290,11 @@ class ShiftInfoModel {
         'end',
       ]),
       isActive: json['is_Active'] == true || json['isActive'] == true,
-      location: json['location']?.toString() ?? '',
+      location: json['location']?.toString() ??
+          json['dutyLocation']?.toString() ??
+          json['duty_Location']?.toString() ??
+          json['duty_location']?.toString() ??
+          '',
       officerId: json['traffic_Officer_Id']?.toString() ??
           json['trafficOfficerId']?.toString() ??
           json['officerId']?.toString() ??
@@ -300,6 +312,32 @@ List<ShiftInfoModel> _readShiftList(dynamic rawShifts) {
       .whereType<Map<String, dynamic>>()
       .map(ShiftInfoModel.fromJson)
       .toList();
+}
+
+String _resolveDutyLocation(
+  Map<String, dynamic> json,
+  ShiftInfoModel? currentShift,
+  List<ShiftInfoModel> shifts,
+) {
+  final currentShiftLocation = currentShift?.location.trim() ?? '';
+  if (currentShiftLocation.isNotEmpty) {
+    return currentShiftLocation;
+  }
+
+  for (final shift in shifts) {
+    final location = shift.location.trim();
+    if (location.isNotEmpty) {
+      return location;
+    }
+  }
+
+  return json['dutyLocation']?.toString().trim() ??
+      json['duty_Location']?.toString().trim() ??
+      json['duty_location']?.toString().trim() ??
+      json['assignedLocation']?.toString().trim() ??
+      json['assigned_location']?.toString().trim() ??
+      json['location']?.toString().trim() ??
+      '';
 }
 
 bool _isShiftActiveNow(ShiftInfoModel shift, DateTime now) {
