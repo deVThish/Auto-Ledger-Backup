@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -148,14 +146,16 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
 
-    Navigator.of(context, rootNavigator: true).overlay?.insert(_overlayEntry!);
-
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_overlayEntry != null && _overlayEntry!.mounted) {
-        _overlayEntry!.remove();
-        _overlayEntry = null;
-      }
-    });
+    final overlay = Navigator.of(context, rootNavigator: true).overlay;
+    if (overlay != null) {
+      overlay.insert(_overlayEntry!);
+      Future.delayed(const Duration(seconds: 3), () {
+        if (_overlayEntry != null && _overlayEntry!.mounted) {
+          _overlayEntry!.remove();
+          _overlayEntry = null;
+        }
+      });
+    }
   }
 
   Future<void> _checkBiometricStatus() async {
@@ -270,16 +270,12 @@ class _ProfileScreenState extends State<ProfileScreen>
         });
 
         if (dialogContext.mounted) {
-          Navigator.pop(dialogContext);
+          Navigator.pop(dialogContext, true);
         }
 
         _oldPwController.clear();
         _newPwController.clear();
         _confirmPwController.clear();
-
-        _showGlassToast('Password updated successfully!');
-        widget.onLogActivity(
-            'Password Changed Successfully', Icons.password_rounded);
       }
     } on DioException catch (e) {
       if (mounted) {
@@ -302,7 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  void _showBiometricPasswordDialog() {
+  void _showBiometricPasswordDialog() async {
     final TextEditingController pwController = TextEditingController();
     bool isObscured = true;
     bool isVerifying = false;
@@ -310,7 +306,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     widget.onLogActivity('Attempted to Toggle Biometrics', Icons.fingerprint);
 
-    showDialog(
+    final bool? result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withAlpha(160),
@@ -415,7 +411,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     borderRadius: BorderRadius.circular(16)),
                               ),
                               onPressed: () {
-                                Navigator.of(dialogContext).pop();
+                                if (mounted) {
+                                  Navigator.of(dialogContext).pop();
+                                }
                               },
                               child: const Text('Cancel',
                                   style: TextStyle(
@@ -479,17 +477,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                 .authenticate();
 
                                         setModalState(() {
-                                          isVerifying = false;
                                           isNativeAuth = false;
                                         });
 
                                         if (!nativeAuthenticated) {
-                                          if (mounted) {
-                                            Navigator.of(dialogContext).pop();
+                                          if (dialogContext.mounted) {
+                                            Navigator.of(dialogContext)
+                                                .pop(false);
                                           }
-                                          _showGlassToast(
-                                              'Biometric authentication failed. Please try again.',
-                                              isError: true);
                                           return;
                                         }
 
@@ -498,16 +493,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                         await SecureStorage.saveNic(_nic);
 
                                         if (dialogContext.mounted) {
-                                          Navigator.of(dialogContext).pop();
-                                        }
-
-                                        if (mounted) {
-                                          _showGlassToast(
-                                              'Biometrics Enabled Successfully!');
-                                          widget.onLogActivity(
-                                              'Enabled Biometric Login',
-                                              Icons.fingerprint_rounded);
-                                          await _checkBiometricStatus();
+                                          Navigator.of(dialogContext).pop(true);
                                         }
                                       } on DioException catch (e) {
                                         setModalState(() {
@@ -557,9 +543,25 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       },
     );
+
+    if (result == true && mounted) {
+      setState(() {
+        _isBiometricEnabled = true;
+      });
+      Future.microtask(() {
+        _showGlassToast('Biometric Enabled Successfully!');
+        widget.onLogActivity(
+            'Enabled Biometric Login', Icons.fingerprint_rounded);
+      });
+    } else if (result == false && mounted) {
+      Future.microtask(() {
+        _showGlassToast('Biometric authentication failed. Please try again.',
+            isError: true);
+      });
+    }
   }
 
-  void _showChangePasswordDialog() {
+  void _showChangePasswordDialog() async {
     widget.onLogActivity(
         'Opened Password Change Dialog', Icons.password_rounded);
 
@@ -570,7 +572,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     _newPwController.clear();
     _confirmPwController.clear();
 
-    showDialog(
+    final bool? result = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withAlpha(160),
       builder: (BuildContext dialogContext) {
@@ -696,6 +698,14 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       },
     );
+
+    if (result == true && mounted) {
+      Future.microtask(() {
+        _showGlassToast('Password updated successfully!');
+        widget.onLogActivity(
+            'Password Changed Successfully', Icons.password_rounded);
+      });
+    }
   }
 
   Future<void> _logout() async {
