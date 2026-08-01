@@ -18,7 +18,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   int _finesInitialTab = 0;
   bool _isFront = true;
@@ -28,6 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
   bool _hasShownPointsWarning = false;
+  bool _isLicenseRequestInProgress = false;
+  bool _isAppActive = true;
+  Timer? _licenseRefreshTimer;
   final List<Map<String, dynamic>> _recentActivities = [];
 
   String? _activeQrSessionId;
@@ -36,7 +39,43 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchLicenseData();
+    _startLicenseRefreshTimer();
+  }
+
+  @override
+  void dispose() {
+    _licenseRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isAppActive = true;
+      _startLicenseRefreshTimer();
+      unawaited(_fetchLicenseData(silent: true));
+      return;
+    }
+
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _isAppActive = false;
+      _licenseRefreshTimer?.cancel();
+      _licenseRefreshTimer = null;
+    }
+  }
+
+  void _startLicenseRefreshTimer() {
+    _licenseRefreshTimer?.cancel();
+    _licenseRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (_isAppActive && _currentIndex == 0) {
+        unawaited(_fetchLicenseData(silent: true));
+      }
+    });
   }
 
   void _addRecentActivity(String title, IconData icon) {
@@ -50,7 +89,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _fetchLicenseData() async {
+  Future<void> _fetchLicenseData({bool silent = false}) async {
+    if (_isLicenseRequestInProgress) return;
+    _isLicenseRequestInProgress = true;
+
     try {
       final oldStatus = _licenseData?['status'];
 
@@ -105,17 +147,23 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } on DioException catch (e) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage =
-            e.response?.data['message'] ?? 'Failed to load license details.';
-        _isLoading = false;
-      });
+      if (!silent || _licenseData == null) {
+        setState(() {
+          _errorMessage =
+              e.response?.data['message'] ?? 'Failed to load license details.';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage = 'An unexpected error occurred.';
-        _isLoading = false;
-      });
+      if (!silent || _licenseData == null) {
+        setState(() {
+          _errorMessage = 'An unexpected error occurred.';
+          _isLoading = false;
+        });
+      }
+    } finally {
+      _isLicenseRequestInProgress = false;
     }
   }
 
@@ -1330,6 +1378,10 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         setState(() => _currentIndex = index);
+
+        if (index == 0) {
+          unawaited(_fetchLicenseData(silent: true));
+        }
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
