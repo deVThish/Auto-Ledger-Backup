@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
 import '../utils/device_info.dart';
@@ -762,6 +763,21 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                                         await SettingsUtil
                                                             .setBiometricEnabled(
                                                                 false);
+
+                                                        if (mounted) {
+                                                          TextInput
+                                                              .finishAutofillContext(
+                                                                  shouldSave:
+                                                                      false);
+                                                          _nicController
+                                                              .clear();
+                                                          _passwordController
+                                                              .clear();
+                                                          setState(() {
+                                                            _obscurePassword =
+                                                                true;
+                                                          });
+                                                        }
 
                                                         setModalState(() {
                                                           isSuccess = true;
