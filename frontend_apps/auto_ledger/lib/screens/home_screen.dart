@@ -36,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _activeQrSessionId;
   DateTime? _activeQrExpiry;
   bool _isActiveQrSessionScanned = false;
+  Timer? _qrButtonCountdownTimer;
+  int _qrButtonRemainingSeconds = 0;
 
   @override
   void initState() {
@@ -48,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _licenseRefreshTimer?.cancel();
+    _qrButtonCountdownTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -57,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _isAppActive = true;
       _startLicenseRefreshTimer();
+      _startQrButtonCountdown();
       unawaited(_fetchLicenseData(silent: true));
       return;
     }
@@ -67,6 +71,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _isAppActive = false;
       _licenseRefreshTimer?.cancel();
       _licenseRefreshTimer = null;
+      _qrButtonCountdownTimer?.cancel();
+      _qrButtonCountdownTimer = null;
     }
   }
 
@@ -76,6 +82,73 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (_isAppActive && _currentIndex == 0) {
         unawaited(_fetchLicenseData(silent: true));
       }
+    });
+  }
+
+  void _startQrButtonCountdown() {
+    _qrButtonCountdownTimer?.cancel();
+    _qrButtonCountdownTimer = null;
+
+    _updateQrButtonCountdown();
+
+    if (!_isAppActive ||
+        !_isActiveQrSessionScanned ||
+        _activeQrExpiry == null ||
+        _activeQrSessionId == null) {
+      return;
+    }
+
+    _qrButtonCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _updateQrButtonCountdown();
+    });
+  }
+
+  void _updateQrButtonCountdown() {
+    if (!mounted) return;
+
+    final expiry = _activeQrExpiry;
+    if (!_isActiveQrSessionScanned ||
+        _activeQrSessionId == null ||
+        expiry == null) {
+      if (_qrButtonRemainingSeconds != 0) {
+        setState(() => _qrButtonRemainingSeconds = 0);
+      }
+      return;
+    }
+
+    final remaining = expiry.difference(DateTime.now()).inSeconds;
+    if (remaining <= 0) {
+      _qrButtonCountdownTimer?.cancel();
+      _qrButtonCountdownTimer = null;
+      setState(() {
+        _activeQrSessionId = null;
+        _activeQrExpiry = null;
+        _isActiveQrSessionScanned = false;
+        _qrButtonRemainingSeconds = 0;
+      });
+      return;
+    }
+
+    if (_qrButtonRemainingSeconds != remaining) {
+      setState(() => _qrButtonRemainingSeconds = remaining);
+    }
+  }
+
+  String get _formattedQrButtonTime {
+    final minutes = _qrButtonRemainingSeconds ~/ 60;
+    final seconds = _qrButtonRemainingSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _clearActiveQrSession() {
+    _qrButtonCountdownTimer?.cancel();
+    _qrButtonCountdownTimer = null;
+    if (!mounted) return;
+    setState(() {
+      _activeQrSessionId = null;
+      _activeQrExpiry = null;
+      _isActiveQrSessionScanned = false;
+      _qrButtonRemainingSeconds = 0;
     });
   }
 
@@ -516,30 +589,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         initialExpiresAt: expiry,
         initiallyScanned: _isActiveQrSessionScanned,
         onClose: () {
-          if (!mounted) return;
-          setState(() {
-            _activeQrSessionId = null;
-            _activeQrExpiry = null;
-            _isActiveQrSessionScanned = false;
-          });
+          _clearActiveQrSession();
           _addRecentActivity('Closed QR Code Dialog', Icons.close);
         },
-        onExpired: () {
-          if (!mounted) return;
-          setState(() {
-            _activeQrSessionId = null;
-            _activeQrExpiry = null;
-            _isActiveQrSessionScanned = false;
-          });
-        },
+        onExpired: _clearActiveQrSession,
         onSessionActivated: (expiresAt) {
           if (!mounted) return;
           setState(() {
             _activeQrExpiry = expiresAt;
             _isActiveQrSessionScanned = true;
           });
+          _startQrButtonCountdown();
         },
         onBack: () {
+          _startQrButtonCountdown();
           _addRecentActivity('Navigated Back from QR', Icons.arrow_back);
         },
       ),
@@ -560,11 +623,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _activeQrExpiry ?? DateTime.now().add(const Duration(minutes: 10)));
         return;
       } else {
-        setState(() {
-          _activeQrSessionId = null;
-          _activeQrExpiry = null;
-          _isActiveQrSessionScanned = false;
-        });
+        _clearActiveQrSession();
       }
     }
 
@@ -590,6 +649,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _activeQrSessionId = sessionId;
           _activeQrExpiry = expiry;
           _isActiveQrSessionScanned = false;
+          _qrButtonRemainingSeconds = 0;
         });
         Navigator.pop(context);
         _addRecentActivity('Generated QR Code', Icons.qr_code_scanner);
@@ -1303,6 +1363,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final String licenseStatus = _licenseData?['status'] ?? 'UNKNOWN';
     final bool isQrBlocked =
         licenseStatus == 'SUSPENDED' || licenseStatus == 'REVOKED';
+    final bool hasActiveQrCountdown = !isQrBlocked &&
+        _isActiveQrSessionScanned &&
+        _activeQrSessionId != null &&
+        _activeQrExpiry != null &&
+        _qrButtonRemainingSeconds > 0;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -1353,7 +1418,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _buildGlassButton(
               label: isQrBlocked
                   ? 'QR BLOCKED ($licenseStatus)'
-                  : 'SHOW QR TO OFFICER',
+                  : hasActiveQrCountdown
+                      ? 'OPEN QR • $_formattedQrButtonTime'
+                      : 'SHOW QR TO OFFICER',
               icon: isQrBlocked ? Icons.block : Icons.qr_code_scanner,
               color: isQrBlocked ? Colors.redAccent : Colors.blueAccent,
               onPressed: () {
