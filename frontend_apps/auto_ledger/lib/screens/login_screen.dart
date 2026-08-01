@@ -45,8 +45,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkBiometricStatus();
-    _checkBiometricAvailability();
+    _initializeBiometricState();
   }
 
   @override
@@ -66,50 +65,59 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkBiometricStatusSmooth();
-      _checkBiometricAvailabilitySmooth();
+      _refreshBiometricState();
     }
   }
 
-  Future<void> _checkBiometricStatusSmooth() async {
-    final isEnabled = await SettingsUtil.isBiometricEnabled();
-    if (_prevBiometricEnabled != isEnabled) {
-      _prevBiometricEnabled = isEnabled;
-      if (mounted) {
-        setState(() {
-          _isBiometricEnabled = isEnabled;
-        });
+  Future<bool> _resolveBiometricEnabled() async {
+    try {
+      final isEnabled = await SettingsUtil.isBiometricEnabled();
+      if (!isEnabled) return false;
+
+      final savedNic = await SecureStorage.getNic();
+      if (savedNic == null || savedNic.trim().isEmpty) {
+        await SettingsUtil.setBiometricEnabled(false);
+        return false;
       }
+
+      return true;
+    } catch (_) {
+      try {
+        await SettingsUtil.setBiometricEnabled(false);
+      } catch (_) {}
+      try {
+        await SecureStorage.deleteNic();
+      } catch (_) {}
+      return false;
     }
   }
 
-  Future<void> _checkBiometricAvailabilitySmooth() async {
+  Future<void> _initializeBiometricState() async {
+    final isEnabled = await _resolveBiometricEnabled();
     final available = await _biometricService.checkBiometricsAvailable();
-    if (_prevBiometricAvailable != available) {
-      _prevBiometricAvailable = available;
-      if (mounted) {
-        setState(() {
-          _isBiometricAvailable = available;
-        });
-      }
-    }
+
+    if (!mounted) return;
+
+    _prevBiometricEnabled = isEnabled;
+    _prevBiometricAvailable = available;
+    setState(() {
+      _isBiometricEnabled = isEnabled;
+      _isBiometricAvailable = available;
+    });
   }
 
-  Future<void> _checkBiometricStatus() async {
-    final isEnabled = await SettingsUtil.isBiometricEnabled();
-    _prevBiometricEnabled = isEnabled;
-    if (mounted) {
+  Future<void> _refreshBiometricState() async {
+    final isEnabled = await _resolveBiometricEnabled();
+    final available = await _biometricService.checkBiometricsAvailable();
+
+    if (!mounted) return;
+
+    if (_prevBiometricEnabled != isEnabled ||
+        _prevBiometricAvailable != available) {
+      _prevBiometricEnabled = isEnabled;
+      _prevBiometricAvailable = available;
       setState(() {
         _isBiometricEnabled = isEnabled;
-      });
-    }
-  }
-
-  Future<void> _checkBiometricAvailability() async {
-    final available = await _biometricService.checkBiometricsAvailable();
-    _prevBiometricAvailable = available;
-    if (mounted) {
-      setState(() {
         _isBiometricAvailable = available;
       });
     }
@@ -274,12 +282,33 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> _disableBiometricForDeviceMismatch() async {
+    try {
+      await SettingsUtil.setBiometricEnabled(false);
+    } catch (_) {}
+    try {
+      await SecureStorage.deleteNic();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    _prevBiometricEnabled = false;
+    setState(() {
+      _isBiometricEnabled = false;
+      _isAuthenticating = false;
+    });
+  }
+
   Future<void> _handleBiometricLogin() async {
     if (_isAuthenticating) return;
     if (!mounted) return;
 
-    final isEnabled = await SettingsUtil.isBiometricEnabled();
+    final isEnabled = await _resolveBiometricEnabled();
     if (!isEnabled) {
+      if (mounted && _isBiometricEnabled) {
+        _prevBiometricEnabled = false;
+        setState(() => _isBiometricEnabled = false);
+      }
       _showToast('Biometric login is not enabled in settings.', isError: true);
       return;
     }
@@ -323,6 +352,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           _showGlassySuccessToast(overlay, 'Biometric Login Successful!');
         }
       } else if (result['isDeviceMismatch'] == true) {
+        await _disableBiometricForDeviceMismatch();
         final String email = result['email'] ?? '';
         if (email.isNotEmpty) {
           _showDeviceVerificationDialog(email, savedNic);
@@ -344,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _handleLogin() async {
-    if (!mounted) return;
+    if (!mounted || _isLoading) return;
 
     FocusManager.instance.primaryFocus?.unfocus();
 
@@ -381,6 +411,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           _showGlassySuccessToast(overlay, 'Login Successful!');
         }
       } else if (result['isDeviceMismatch'] == true) {
+        await _disableBiometricForDeviceMismatch();
         final String email = result['email'] ?? '';
         if (email.isNotEmpty) {
           _showDeviceVerificationDialog(email, nic);
@@ -746,22 +777,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                                             Navigator.pop(
                                                                 dialogContext);
                                                           }
-                                                          if (!this
-                                                              .context
-                                                              .mounted) {
+                                                          if (!mounted) {
                                                             return;
                                                           }
-                                                          if (mounted) {
-                                                            _prevBiometricEnabled =
+                                                          _prevBiometricEnabled =
+                                                              false;
+                                                          setState(() {
+                                                            _isBiometricEnabled =
                                                                 false;
-                                                            setState(() {
-                                                              _isBiometricEnabled =
-                                                                  false;
-                                                            });
-                                                            _showToast(
-                                                                'Device verified successfully! Please login again.',
-                                                                isError: false);
-                                                          }
+                                                          });
+                                                          _showToast(
+                                                              'Device verified successfully! Please login again.',
+                                                              isError: false);
                                                         });
                                                       } else {
                                                         setModalState(() =>
