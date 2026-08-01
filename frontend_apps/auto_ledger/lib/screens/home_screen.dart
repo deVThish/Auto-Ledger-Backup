@@ -35,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   String? _activeQrSessionId;
   DateTime? _activeQrExpiry;
+  bool _isActiveQrSessionScanned = false;
 
   @override
   void initState() {
@@ -513,21 +514,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       builder: (BuildContext context) => QRDialog(
         sessionId: sessionId,
         initialExpiresAt: expiry,
+        initiallyScanned: _isActiveQrSessionScanned,
         onClose: () {
-          _addRecentActivity('Closed QR Code Dialog', Icons.close);
+          if (!mounted) return;
           setState(() {
             _activeQrSessionId = null;
             _activeQrExpiry = null;
+            _isActiveQrSessionScanned = false;
           });
+          _addRecentActivity('Closed QR Code Dialog', Icons.close);
         },
         onExpired: () {
+          if (!mounted) return;
           setState(() {
             _activeQrSessionId = null;
             _activeQrExpiry = null;
+            _isActiveQrSessionScanned = false;
+          });
+        },
+        onSessionActivated: (expiresAt) {
+          if (!mounted) return;
+          setState(() {
+            _activeQrExpiry = expiresAt;
+            _isActiveQrSessionScanned = true;
           });
         },
         onBack: () {
-          Navigator.pop(context);
           _addRecentActivity('Navigated Back from QR', Icons.arrow_back);
         },
       ),
@@ -551,6 +563,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         setState(() {
           _activeQrSessionId = null;
           _activeQrExpiry = null;
+          _isActiveQrSessionScanned = false;
         });
       }
     }
@@ -576,6 +589,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         setState(() {
           _activeQrSessionId = sessionId;
           _activeQrExpiry = expiry;
+          _isActiveQrSessionScanned = false;
         });
         Navigator.pop(context);
         _addRecentActivity('Generated QR Code', Icons.qr_code_scanner);

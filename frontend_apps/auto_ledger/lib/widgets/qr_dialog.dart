@@ -8,16 +8,20 @@ import '../services/api_service.dart';
 class QRDialog extends StatefulWidget {
   final String sessionId;
   final DateTime initialExpiresAt;
+  final bool initiallyScanned;
   final VoidCallback onClose;
   final VoidCallback onExpired;
+  final ValueChanged<DateTime> onSessionActivated;
   final VoidCallback onBack;
 
   const QRDialog({
     super.key,
     required this.sessionId,
     required this.initialExpiresAt,
+    required this.initiallyScanned,
     required this.onClose,
     required this.onExpired,
+    required this.onSessionActivated,
     required this.onBack,
   });
 
@@ -38,7 +42,24 @@ class _QRDialogState extends State<QRDialog> {
   void initState() {
     super.initState();
     _currentExpiresAt = widget.initialExpiresAt;
-    _startPolling();
+
+    if (widget.initiallyScanned) {
+      final remaining =
+          widget.initialExpiresAt.difference(DateTime.now()).inSeconds;
+      _isScanned = true;
+      _remainingSeconds = remaining.clamp(0, 600).toInt();
+
+      if (_remainingSeconds > 0) {
+        _startCountdown();
+      } else {
+        _isExpired = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onExpired();
+        });
+      }
+    } else {
+      _startPolling();
+    }
   }
 
   void _startPolling() {
@@ -89,6 +110,7 @@ class _QRDialogState extends State<QRDialog> {
       _currentExpiresAt = newExpiresAt;
     });
 
+    widget.onSessionActivated(newExpiresAt);
     _startCountdown();
   }
 
@@ -165,13 +187,33 @@ class _QRDialogState extends State<QRDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Show this to the Officer',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Back',
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          widget.onBack();
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'Show this to the Officer',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Container(
