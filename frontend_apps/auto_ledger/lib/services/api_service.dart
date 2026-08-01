@@ -3,15 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/secure_storage.dart';
 import '../utils/device_info.dart';
+import '../utils/settings_util.dart';
 import '../screens/login_screen.dart';
 import '../../main.dart';
 
 class ApiService {
+  static const Set<String> _loginManagedDeviceMismatchPaths = {
+    '/auth/user/login',
+    '/auth/user/biometric-login',
+    '/auth/user/verify-device',
+    '/auth/user/resend-device-otp',
+  };
+
   static final Dio _dio = Dio(BaseOptions(
     baseUrl: dotenv.env['API_URL'] ?? 'http://localhost:3000',
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));
+
+  static bool _isLoginManagedDeviceMismatch(String path) {
+    return _loginManagedDeviceMismatchPaths.any(path.endsWith);
+  }
 
   static void init() {
     _dio.interceptors.add(InterceptorsWrapper(
@@ -29,10 +41,15 @@ class ApiService {
         return handler.next(options);
       },
       onError: (DioException error, handler) async {
-        if (error.response?.statusCode == 403 &&
-            error.response?.data['code'] == 'DEVICE_MISMATCH') {
+        final isDeviceMismatch = error.response?.statusCode == 403 &&
+            error.response?.data['code'] == 'DEVICE_MISMATCH';
+        final isHandledByLoginScreen =
+            _isLoginManagedDeviceMismatch(error.requestOptions.path);
+
+        if (isDeviceMismatch && !isHandledByLoginScreen) {
           await SecureStorage.deleteToken();
           await SecureStorage.deleteNic();
+          await SettingsUtil.setBiometricEnabled(false);
           navigatorKey.currentState?.pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const LoginScreen()),
             (route) => false,
