@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Map<String, dynamic>? _licenseData;
   bool _isLoading = true;
   String _errorMessage = '';
-  bool _hasShownPointsWarning = false;
+  final Set<String> _shownPointsWarningLevels = <String>{};
   bool _isLicenseRequestInProgress = false;
   bool _isAppActive = true;
   Timer? _licenseRefreshTimer;
@@ -184,37 +184,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         await prefs.remove('seen_big_dialog_WARNING');
         await prefs.remove('seen_big_dialog_SEVERE');
         await prefs.remove('seen_big_dialog_CRITICAL');
+        _shownPointsWarningLevels.clear();
         _addRecentActivity(
             'License Reactivated - Warnings Reset', Icons.autorenew);
       }
 
-      if (!_hasShownPointsWarning) {
-        final points = _licenseData?['points'] ?? 0;
-        final bool isApproachingSuspension = (points >= 20 && points <= 23) ||
-            (points >= 45 && points <= 49) ||
-            (points >= 80 && points <= 99);
+      final points = (_licenseData?['points'] as num?)?.toInt() ?? 0;
+      final warningLevel = _getPointsWarningLevel(points);
 
-        if (isApproachingSuspension) {
-          _hasShownPointsWarning = true;
-
-          String warningLevel = '';
-          if (points >= 80) {
-            warningLevel = 'CRITICAL';
-          } else if (points >= 45) {
-            warningLevel = 'SEVERE';
-          } else if (points >= 20) {
-            warningLevel = 'WARNING';
+      if (warningLevel != null && _shownPointsWarningLevels.add(warningLevel)) {
+        Future.microtask(() {
+          if (mounted) {
+            _showInAppPushNotification(points);
           }
+        });
 
-          Future.microtask(() => _showInAppPushNotification(points));
+        final prefs = await SharedPreferences.getInstance();
+        final hasSeenBigDialog =
+            prefs.getBool('seen_big_dialog_$warningLevel') ?? false;
 
-          SharedPreferences.getInstance().then((prefs) {
-            bool hasSeenBigDialog =
-                prefs.getBool('seen_big_dialog_$warningLevel') ?? false;
-
-            if (!hasSeenBigDialog) {
-              prefs.setBool('seen_big_dialog_$warningLevel', true);
-              Future.microtask(() => _showPointsWarning(points));
+        if (!hasSeenBigDialog) {
+          await prefs.setBool('seen_big_dialog_$warningLevel', true);
+          Future.microtask(() {
+            if (mounted) {
+              _showPointsWarning(points);
             }
           });
         }
@@ -239,6 +232,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } finally {
       _isLicenseRequestInProgress = false;
     }
+  }
+
+  String? _getPointsWarningLevel(int points) {
+    if (points >= 80 && points <= 99) {
+      return 'CRITICAL';
+    }
+    if (points >= 45 && points <= 49) {
+      return 'SEVERE';
+    }
+    if (points >= 20 && points <= 23) {
+      return 'WARNING';
+    }
+    return null;
   }
 
   void _showPointsWarning(int points) {
