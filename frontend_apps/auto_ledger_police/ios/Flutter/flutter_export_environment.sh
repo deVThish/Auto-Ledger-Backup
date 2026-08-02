@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=D:\Campus Software\flutter"
-export "FLUTTER_APPLICATION_PATH=C:\Users\USER\Desktop\FinalProject\Auto-Ledger\frontend_apps\auto_ledger_police"
+export "FLUTTER_ROOT=C:\Users\venus\fvm\versions\3.35.3"
+export "FLUTTER_APPLICATION_PATH=D:\HDSE NIBM\HDSE-Final-Prj\Auto-Ledger-New\Auto-Ledger\frontend_apps\auto_ledger_police"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib\main.dart"
 export "FLUTTER_BUILD_DIR=build"
