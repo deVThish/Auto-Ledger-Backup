@@ -205,6 +205,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _showToast('NIC Number is required', isError: true);
       return false;
     }
+
+    final nicRegex = RegExp(r'^(?:\d{9}[VvXx]|\d{12})$');
+    if (!nicRegex.hasMatch(nic)) {
+      _showToast(
+        'NIC must contain 9 digits followed by V/X or exactly 12 digits.',
+        isError: true,
+      );
+      return false;
+    }
+
     if (name.isEmpty) {
       _showToast('Full Name is required', isError: true);
       return false;

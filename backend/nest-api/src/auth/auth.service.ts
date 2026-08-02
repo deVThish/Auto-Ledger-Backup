@@ -119,6 +119,30 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  private validateNic(nicNo: string): string {
+    const normalizedNic = nicNo.trim();
+    const nicRegex = /^(?:\d{9}[VvXx]|\d{12})$/;
+
+    if (!nicRegex.test(normalizedNic)) {
+      throw new BadRequestException(
+        'NIC must contain 9 digits followed by V/X or exactly 12 digits.',
+      );
+    }
+
+    return normalizedNic;
+  }
+
+  private validateStrongPassword(password: string): void {
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+    if (!passwordRegex.test(password)) {
+      throw new BadRequestException(
+        'Password must be at least 8 characters and contain an uppercase letter, lowercase letter, number, and special character.',
+      );
+    }
+  }
+
   async loginAdmin(username: string, pass: string, type: 'DMT' | 'POLICE') {
     let adminObj: DMT_Admin | Police_Admin | null = null;
     let roleName = '';
@@ -483,8 +507,10 @@ export class AuthService {
   }
 
   async registerUser(data: RegisterData) {
-    const nicNo = data.nicNo.trim();
+    const nicNo = this.validateNic(data.nicNo);
     const email = data.email.trim().toLowerCase();
+
+    this.validateStrongPassword(data.password);
 
     const user = await this.prisma.user.findUnique({
       where: { nic_No: nicNo },
@@ -548,8 +574,10 @@ export class AuthService {
   }
 
   async verifyRegistration(nicNo: string, otp: string) {
+    const normalizedNicNo = this.validateNic(nicNo);
+
     const user = await this.prisma.user.findUnique({
-      where: { nic_No: nicNo.trim() },
+      where: { nic_No: normalizedNicNo },
     });
 
     if (!user) {
@@ -665,6 +693,8 @@ export class AuthService {
     userId: string,
     dto: { oldPassword: string; newPassword: string },
   ) {
+    this.validateStrongPassword(dto.newPassword);
+
     const user = await this.prisma.user.findUnique({
       where: { user_Id: userId },
     });
@@ -690,8 +720,10 @@ export class AuthService {
   }
 
   async requestPasswordReset(nicNo: string, email: string) {
+    const normalizedNicNo = this.validateNic(nicNo);
+
     const user = await this.prisma.user.findUnique({
-      where: { nic_No: nicNo },
+      where: { nic_No: normalizedNicNo },
     });
 
     if (!user || user.email !== email) {
@@ -702,7 +734,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.user.update({
-      where: { nic_No: nicNo },
+      where: { nic_No: normalizedNicNo },
       data: { reset_Otp: otp, reset_Otp_Expires_At: expiresAt },
     });
 
@@ -711,8 +743,10 @@ export class AuthService {
   }
 
   async verifyUserResetOtp(nicNo: string, email: string, otp: string) {
+    const normalizedNicNo = this.validateNic(nicNo);
+
     const user = await this.prisma.user.findUnique({
-      where: { nic_No: nicNo },
+      where: { nic_No: normalizedNicNo },
     });
 
     if (!user || user.email !== email) {
@@ -732,8 +766,11 @@ export class AuthService {
     otp: string,
     newPasswordStr: string,
   ) {
+    const normalizedNicNo = this.validateNic(nicNo);
+    this.validateStrongPassword(newPasswordStr);
+
     const user = await this.prisma.user.findUnique({
-      where: { nic_No: nicNo },
+      where: { nic_No: normalizedNicNo },
     });
 
     if (!user || user.email !== email) {
@@ -748,7 +785,7 @@ export class AuthService {
     const hashedNewPassword = await bcrypt.hash(newPasswordStr, 10);
 
     await this.prisma.user.update({
-      where: { nic_No: nicNo },
+      where: { nic_No: normalizedNicNo },
       data: {
         password: hashedNewPassword,
         reset_Otp: null,
