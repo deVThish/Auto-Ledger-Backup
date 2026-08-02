@@ -4,6 +4,7 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -482,13 +483,22 @@ export class AuthService {
   }
 
   async registerUser(data: RegisterData) {
+    const nicNo = data.nicNo.trim();
+    const email = data.email.trim().toLowerCase();
+
     const user = await this.prisma.user.findUnique({
-      where: { nic_No: data.nicNo },
+      where: { nic_No: nicNo },
     });
 
     if (!user) {
       throw new BadRequestException(
-        'Registration Failed: No user found for this NIC.',
+        'Registration Failed: No DMT-issued driving license was found for this NIC.',
+      );
+    }
+
+    if (user.isEmailVerified) {
+      throw new ConflictException(
+        'An account is already registered for this NIC. Please login.',
       );
     }
 
@@ -498,7 +508,17 @@ export class AuthService {
 
     if (!license) {
       throw new BadRequestException(
-        'Registration Failed: No driving license found for this NIC.',
+        'Registration Failed: No DMT-issued driving license was found for this NIC.',
+      );
+    }
+
+    const emailOwner = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (emailOwner && emailOwner.user_Id !== user.user_Id) {
+      throw new ConflictException(
+        'An account is already registered with this email address.',
       );
     }
 
@@ -507,10 +527,10 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.user.update({
-      where: { nic_No: data.nicNo },
+      where: { user_Id: user.user_Id },
       data: {
-        name: data.name,
-        email: data.email,
+        name: data.name.trim(),
+        email,
         password: hashedPassword,
         device_Id: data.deviceId,
         isEmailVerified: false,
@@ -519,7 +539,7 @@ export class AuthService {
       },
     });
 
-    await this.sendOtpEmail(data.email, otp, 'registration');
+    await this.sendOtpEmail(email, otp, 'registration');
 
     return {
       message: 'OTP sent to your email. Please verify.',
@@ -529,12 +549,23 @@ export class AuthService {
 
   async verifyRegistration(nicNo: string, otp: string) {
     const user = await this.prisma.user.findUnique({
-      where: { nic_No: nicNo },
+      where: { nic_No: nicNo.trim() },
     });
 
-    if (!user) throw new BadRequestException('User not found.');
-    if (user.registration_Otp !== otp)
+    if (!user) {
+      throw new BadRequestException('User not found.');
+    }
+
+    if (user.isEmailVerified) {
+      throw new ConflictException(
+        'This NIC is already registered. Please login.',
+      );
+    }
+
+    if (user.registration_Otp !== otp.trim()) {
       throw new BadRequestException('Invalid OTP.');
+    }
+
     if (
       !user.registration_Otp_Expires_At ||
       new Date() > user.registration_Otp_Expires_At
@@ -542,8 +573,8 @@ export class AuthService {
       throw new BadRequestException('OTP has expired.');
     }
 
-    const updatedUser = await this.prisma.user.update({
-      where: { nic_No: nicNo },
+    await this.prisma.user.update({
+      where: { user_Id: user.user_Id },
       data: {
         isEmailVerified: true,
         registration_Otp: null,
@@ -551,7 +582,10 @@ export class AuthService {
       },
     });
 
-    return this.generateUserToken(updatedUser);
+    return {
+      success: true,
+      message: 'Registration successful. Please login.',
+    };
   }
 
   async loginUser(nicNo: string, pass: string, deviceId: string) {

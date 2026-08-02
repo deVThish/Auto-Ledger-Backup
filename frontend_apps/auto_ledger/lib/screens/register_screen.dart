@@ -6,7 +6,6 @@ import '../services/auth_service.dart';
 import '../utils/device_info.dart';
 import '../widgets/glass_container.dart';
 import 'login_screen.dart';
-import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -241,32 +240,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_validateInputs()) return;
 
     setState(() => _isLoading = true);
+
     try {
       final deviceId = await DeviceInfoUtil.getDeviceId();
       final nic = _nicController.text.trim();
 
       _registeredData = {
-        "nicNo": nic,
-        "name": _nameController.text.trim(),
-        "email": _emailController.text.trim(),
-        "password": _passwordController.text.trim(),
-        "deviceId": deviceId
+        'nicNo': nic,
+        'name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text.trim(),
+        'deviceId': deviceId,
       };
 
-      final success = await AuthService.registerUser(_registeredData!);
+      final result = await AuthService.registerUser(_registeredData!);
 
-      if (success && mounted) {
-        setState(() => _isLoading = false);
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      if (result['success'] == true) {
         _showOTPDialog();
-      } else {
-        _showToast('Registration Failed. Check NIC or Email.', isError: true);
-        setState(() => _isLoading = false);
+        return;
       }
+
+      _showToast(
+        result['message']?.toString() ??
+            'Registration failed. Please check your NIC and email.',
+        isError: true,
+      );
     } catch (e) {
-      if (mounted) {
-        _showToast('Registration Failed. Check NIC or Email.', isError: true);
-        setState(() => _isLoading = false);
-      }
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+      _showToast(
+        'Registration failed. Please try again.',
+        isError: true,
+      );
     }
   }
 
@@ -469,38 +479,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       });
 
                                       try {
-                                        final isVerified = await AuthService
+                                        final verificationResult =
+                                            await AuthService
                                                 .verifyRegistration(
-                                                    _registeredData!['nicNo'],
-                                                    otp)
-                                            .timeout(
-                                                const Duration(seconds: 15));
+                                          _registeredData!['nicNo'],
+                                          otp,
+                                        ).timeout(
+                                          const Duration(seconds: 15),
+                                        );
 
                                         if (!dialogContext.mounted) return;
 
-                                        if (isVerified) {
+                                        if (verificationResult['success'] ==
+                                            true) {
                                           Navigator.pop(dialogContext);
 
                                           if (!this.context.mounted) return;
+
                                           final overlay = Navigator.of(
-                                                  this.context,
-                                                  rootNavigator: true)
-                                              .overlay;
+                                            this.context,
+                                            rootNavigator: true,
+                                          ).overlay;
 
                                           Navigator.pushReplacement(
                                             this.context,
                                             MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const HomeScreen()),
+                                              builder: (_) =>
+                                                  const LoginScreen(),
+                                            ),
                                           );
 
                                           if (overlay != null) {
-                                            _showGlobalSuccessToast(overlay,
-                                                'Registration Successful!');
+                                            _showGlobalSuccessToast(
+                                              overlay,
+                                              verificationResult['message']
+                                                      ?.toString() ??
+                                                  'Registration Successful! Please login.',
+                                            );
                                           }
                                         } else {
-                                          setModalState(() => errorMsg =
-                                              'Invalid OTP. Please try again.');
+                                          setModalState(
+                                            () => errorMsg = verificationResult[
+                                                        'message']
+                                                    ?.toString() ??
+                                                'Invalid OTP. Please try again.',
+                                          );
                                         }
                                       } catch (e) {
                                         if (dialogContext.mounted) {
